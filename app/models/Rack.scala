@@ -63,13 +63,19 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 	 */
 	private def applyWithComponent(c: Component,l: Option[String],con: Option[String],layout: Division.Division) =
 		Rack(c.id,c.description,c.project,c.tags,l,con,layout)
-
 	private def unapplyWithComponent(r: Rack) = Some(r.getComponent,r.locationID,r.contentID,r.layout)
 
+	/**
+	 * Keys to be used in forms (in views and elsewhere) for rack specific fields
+ 	 */
 	val layoutKey = "layout"
 	val rackScanKey = "rackScan"
 	// Supply our custom enum Reader and Writer for layout enum
 	implicit val layoutTypeFormat: Format[ContainerDivisions.Division.Division] = enumFormat(ContainerDivisions.Division)
+
+	/**
+	 * Form to use in views for rack
+	 */
 	override val form = Form(
 		mapping(
 			Component.formKey -> Component.componentMap,
