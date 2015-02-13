@@ -53,21 +53,10 @@ object Application extends Controller with MongoController {
 	 */
 	def addFromForm() = Action { request =>
 		Component.typeForm.bindFromRequest()(request).fold(
-			formWithErrors => {
-				BadRequest(views.html.add(formWithErrors.withGlobalError(validationError)))
-			},
-			data => {
-				// Redirect to appropriate add form
-				data.t match {
-					case ComponentType.Freezer => Redirect(routes.FreezerController.addFreezer())
-					case ComponentType.Plate => Redirect(routes.PlateController.addPlate())
-					case ComponentType.Rack => Redirect(routes.RackController.addRack())
-					case ComponentType.Sample => Redirect(routes.SampleController.addSample())
-					case ComponentType.Tube => Redirect(routes.TubeController.addTube())
-					case ComponentType.Well => Redirect(routes.WellController.addWell())
-					case ComponentType.Material => Redirect(routes.MaterialController.addMaterial())
-				}
-			}
+			formWithErrors =>
+				BadRequest(views.html.add(formWithErrors.withGlobalError(validationError))),
+			data =>
+				Redirect(ComponentController.redirects(data.t).add())
 		)
 	}
 
@@ -85,12 +74,10 @@ object Application extends Controller with MongoController {
 	 */
 	def findFromForm = Action.async { request =>
 		Component.idForm.bindFromRequest()(request).fold(
-			formWithErrors => {
-				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(validationError))))
-			},
-			data => {
+			formWithErrors =>
+				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(validationError)))),
+			data =>
 				findByID(data.id,request)(doUpdateRedirect(data.id,_,_,_))
-			}
 		)
 	}
 
@@ -110,7 +97,7 @@ object Application extends Controller with MongoController {
 	 */
 	def findByID(id: String,request: Request[_],okComponents: List[ComponentType.ComponentType] = List.empty)
 	            (getResult: (ComponentType.ComponentType,JsObject,Request[_]) => Result): Future[Result] = {
-		ComponentController.findByID[JsObject,Result](id,okComponents,
+		ComponentController.findByID[JsObject,Result](id, okComponents,
 			found = (json) => {
 				val cType = (json \ Component.typeKey).as[String]
 				getResult(ComponentType.withName(cType),json,request)
@@ -125,15 +112,6 @@ object Application extends Controller with MongoController {
 	 * @param request original request to do update
 	 * @return results now ready for update
 	 */
-	private def doUpdateRedirect(id: String,ct: ComponentType.ComponentType,json: JsObject,request: Request[_]) = {
-		ct match {
-			case ComponentType.Freezer => Redirect(routes.FreezerController.findFreezerByID(id))
-			case ComponentType.Plate => Redirect(routes.PlateController.findPlateByID(id))
-			case ComponentType.Rack => Redirect(routes.RackController.findRackByID(id))
-			case ComponentType.Sample => Redirect(routes.SampleController.findSampleByID(id))
-			case ComponentType.Tube => Redirect(routes.TubeController.findTubeByID(id))
-			case ComponentType.Well => Redirect(routes.WellController.findWellByID(id))
-			case ComponentType.Material => Redirect(routes.MaterialController.findMaterialByID(id))
-		}
-	}
+	private def doUpdateRedirect(id: String, ct: ComponentType.ComponentType, json: JsObject, request: Request[_]) =
+		Redirect(ComponentController.redirects(ct).update(id))
 }

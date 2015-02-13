@@ -23,9 +23,6 @@ object FreezerController extends ComponentController[Freezer] {
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.freezerUpdateForm(_: Form[Freezer], id, hiddenFields)
 
-	// Play redirect route to find a freezer
-	def routeFind = routes.FreezerController.findFreezerByID(_: String)
-
 	// Component type
 	val componentType = ComponentType.Freezer
 

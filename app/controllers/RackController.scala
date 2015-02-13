@@ -27,9 +27,6 @@ object RackController extends ComponentController[Rack] {
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.rackUpdateForm(_: Form[Rack], id, hiddenFields)
 
-	// Play redirect route to find a rack
-	def routeFind = routes.RackController.findRackByID(_: String)
-
 	// Component type
 	val componentType = ComponentType.Rack
 

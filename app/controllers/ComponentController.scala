@@ -49,21 +49,9 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	def htmlForCreate: (Form[C]) => Html
 
 	/**
-	 * Method to use to get reverse route to redirect to display a chosen component
-	 * (input string is ID for component)
-	 * @return reverse route (typically a Play template reverse route) to redirect to
-	 */
-	def routeFind: (String) => Call
-
-	/**
 	 * Component type (maybe someday make a macro to get this based on C type?)
 	 */
 	val componentType: ComponentType.ComponentType
-
-	/**
-	 * Method used to find redirect route (finds route based on id from component input)
-	 */
-	private val redirectRoute = (c: C) => routeFind(c.id)
 
 	/**
 	 * Add - just say ok and display form for creating component
@@ -362,6 +350,40 @@ object ComponentController extends Controller with MongoController {
 			(if (!isGlobalErrors) " below" else ""))
 	}
 
+
+	/**
+	 * Class to hold redirect calls
+	 * @param update Method to get call to redirect updates to
+	 * @param add Method to get call to redirect adds to
+	 */
+	case class Redirects(update: (String) => Call, add: () => Call)
+
+	/**
+	 * Map of calls to use for redirects to find or add a component
+	 */
+	val redirects =
+		Map(
+			ComponentType.Freezer ->
+				Redirects(routes.FreezerController.findFreezerByID(_: String), routes.FreezerController.addFreezer),
+			ComponentType.Plate ->
+				Redirects(routes.PlateController.findPlateByID(_: String), routes.PlateController.addPlate),
+			ComponentType.Rack ->
+				Redirects(routes.RackController.findRackByID(_:String), routes.RackController.addRack),
+			ComponentType.Sample ->
+				Redirects(routes.SampleController.findSampleByID(_: String), routes.SampleController.addSample),
+			ComponentType.Tube ->
+				Redirects(routes.TubeController.findTubeByID(_: String), routes.TubeController.addTube),
+			ComponentType.Well ->
+				Redirects(routes.WellController.findWellByID(_: String), routes.WellController.addWell),
+			ComponentType.Material ->
+				Redirects(routes.MaterialController.findMaterialByID(_: String), routes.MaterialController.addMaterial)
+		)
+
+	/**
+	 * Little check to make sure we didn't miss any components in the redirects
+	 */
+	private val redirectKeys = redirects.keySet
+	assert(ComponentType.values.forall(redirectKeys.contains),	"Incomplete redirect map")
 
 	/**
 	 * Some implicits needed to go to/from Json

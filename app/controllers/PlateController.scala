@@ -23,9 +23,6 @@ object PlateController extends ComponentController[Plate] {
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.plateUpdateForm(_: Form[Plate], id, hiddenFields)
 
-	// Play redirect route to find a plate
-	def routeFind = routes.PlateController.findPlateByID(_: String)
-
 	// Component type
 	val componentType = ComponentType.Plate
 

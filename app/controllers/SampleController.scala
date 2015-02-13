@@ -23,9 +23,6 @@ object SampleController extends ComponentController[Sample] {
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.sampleUpdateForm(_: Form[Sample], id, hiddenFields)
 
-	// Play redirect route to find a sample
-	def routeFind = routes.SampleController.findSampleByID(_: String)
-
 	// Component type
 	val componentType = ComponentType.Sample
 

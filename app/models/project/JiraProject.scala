@@ -20,10 +20,12 @@ trait JiraProject {
 	 * Check if what's set in request is valid - specifically we check if the project set contains the rack (or plate
 	 * in the case of a DGE plate which is recorded via Jira as a rack with no tubes).
 	 * @param request HTTP request (has hidden field with project set before update)
+	 * @param finalCheck callback to give final validity check - called after all validity checking done here passed
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
 	protected def isProjectValid(request: Request[AnyContent],
-	                             finalCheck: (List[SSFIssueList[BSPScan]]) => Map[Option[String], String])
+	                             finalCheck:
+	                             (List[SSFIssueList[BSPScan]]) => Map[Option[String], String] = (_) => Map.empty)
 	: Future[Map[Option[String], String]] = {
 		// If no project set or project hasn't changed then just return saying all is fine
 		if (project.isEmpty || getHiddenField(request,_.project) == project)

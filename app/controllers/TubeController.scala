@@ -23,9 +23,6 @@ object TubeController extends ComponentController[Tube] {
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.tubeUpdateForm(_: Form[Tube], id, hiddenFields)
 
-	// Play redirect route to find a tube
-	def routeFind = routes.TubeController.findTubeByID(_: String)
-
 	// Component type
 	val componentType = ComponentType.Tube
 

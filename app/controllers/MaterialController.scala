@@ -22,9 +22,6 @@ object MaterialController extends ComponentController[Material] {
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.materialUpdateForm(_: Form[Material], id, hiddenFields)
 
-	// Play redirect route to find a material
-	def routeFind = routes.MaterialController.findMaterialByID(_: String)
-
 	// Component type
 	val componentType = ComponentType.Material
 

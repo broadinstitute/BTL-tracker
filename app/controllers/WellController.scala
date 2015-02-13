@@ -24,9 +24,6 @@ object WellController extends ComponentController[Well] {
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.wellUpdateForm(_: Form[Well], id, hiddenFields)
 
-	// Play redirect route to find a well
-	def routeFind = routes.WellController.findWellByID(_: String)
-
 	// Component type
 	val componentType = ComponentType.Well
 
