@@ -1,0 +1,21 @@
+@*********************************************************************************
+* Screen to update an existing component                                         *
+* @param wellForm form used to gather values for well - must already have id set *
+*********************************************************************************@
+@(wellInput: Form[Well], id: String, hiddenFields: Option[Component.HiddenFields])
+@import helper._
+
+@* Call main template to create html with form to update a well *@
+@mainComponent("Well"){
+    @componentIntro("Well", wellInput)
+    @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
+    @form(routes.WellController.updateWellFromForm(id), 'style -> "display:inline;") {
+        @component(wellInput, true, Component.ComponentType.Well, hiddenFields)
+        @inputText(wellInput(Location.locationKey), '_label -> "Location")
+        @inputText(wellInput(Container.contentKey), '_label -> "Content")
+	    @inputText(wellInput(Well.columnKey), '_label -> "Column")
+	    @inputText(wellInput(Well.rowKey), '_label -> "Row")
+	    @updateButtons()
+    }
+	@homeOption(Seq.empty)
+}

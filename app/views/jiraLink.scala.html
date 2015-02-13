@@ -1,0 +1,9 @@
+@***************************************************************
+* Create link to jira issue associated with component          *
+* @param componentForm form with item's fields                 *
+***************************************************************@
+@(componentForm: Form[_ <: Component])
+@import models.Component
+@if(componentForm(Component.formKey + "." + Component.projectKey).value.isDefined){
+	<a href ="http://ipa.broadinstitute.org:8090/browse/@componentForm(Component.formKey + "." + Component.projectKey).value.get" target="_blank">Jira Issue</a>
+}

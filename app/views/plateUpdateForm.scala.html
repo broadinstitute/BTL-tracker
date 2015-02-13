@@ -1,0 +1,22 @@
+@**********************************************************************************
+* Screen to update an existing component                                          *
+* @param tubeForm form used to gather values for plate - must already have id set *
+**********************************************************************************@
+@(plateInput: Form[Plate], id: String, hiddenFields: Option[Component.HiddenFields])
+@import helper._
+@import models.Plate
+
+@* Call main template to create html with form to update a plate *@
+@mainComponent("Plate"){
+    @componentIntro("Plate", plateInput)
+    @* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
+    @form(routes.PlateController.updatePlateFromForm(id), 'style -> "display:inline;") {
+        @component(plateInput, true, Component.ComponentType.Plate, hiddenFields)
+@*        @inputText(plateInput(Location.locationKey), '_label -> "Location") *@
+@*        @inputText(plateInput(Container.contentKey), '_label -> "Content") *@
+	    @select(field = plateInput(Plate.layoutKey),
+		    options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
+	    @updateButtons()
+    }
+	@homeOption(Seq.empty)
+}

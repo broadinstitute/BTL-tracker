@@ -1,0 +1,11 @@
+@(others: Seq[(Call, String)])
+@import helper._
+@others.map{(call) =>
+	@form(call._1, 'style -> "display:inline;") {
+		<input type="submit" value="@call._2" style="display:inline;">
+	}
+}
+<br><br>
+@form(routes.Application.index(), 'style -> "display:inline;") {
+	<input type="submit" value="Home" style="display:inline;">
+}

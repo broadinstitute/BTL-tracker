@@ -1,0 +1,86 @@
+@**********************************************************
+* Screen to display the results of a match of two plates. *
+* One is a rack that was scanned to see what tubes are    *
+* present.  The other is a one or more racks input by BSP *
+* for the same Jira ticket.  We check if the tubes found  *
+* in the scanned rack are in the same BSP rack/wells.     *
+* @param Jira issue                                       *
+* @param plate comparison of scanned rack and BSP racks   *
+* @param rows # of rows in rack                           *
+* @param cols # of columns in rack                        *
+**********************************************************@
+@(title: String)(issue: String, rack: String,
+        plate: org.broadinstitute.LIMStales.sampleRacks.
+        BarcodedContentList[org.broadinstitute.LIMStales.sampleRacks.BSPTube]#
+                MatchByPos[org.broadinstitute.LIMStales.sampleRacks.BSPTube], rows: Int, cols: Int)
+
+@import org.broadinstitute.LIMStales.sampleRacks._
+@import helper._
+
+@main(title) {
+	<style>
+	table {
+	    border: 2px solid black;
+	    border-collapse: collapse;
+	}
+	th {
+	    border: 2px solid black;
+	    text-align: center;
+	    padding: 2px;
+	}
+	td {
+	    border: 1px solid black;
+	    padding: 2px;
+	    text-align: center;
+	}
+	td.warning { background-color: yellow }
+	td.error { background-color: orange }
+	td.fatal { background-color: red }
+    td.ok { background-color: green }
+    tr {
+        height: 50px;
+    }
+	</style>
+}{
+    <h2>Rack @rack matched to BSP input for issue <a href ="http://ipa.broadinstitute.org:8090/browse/@issue">@issue</a></h2>
+    <table style="width:100">
+        <tr>
+            <th> </th>
+            @for(c <- 1 to cols) {<th>@(f"$c%02d")</th>}
+        </tr>
+        @for(r <- 'A'.toInt to ('A'+(rows-1))) {
+            <tr>
+            <th>@r.toChar.toString</th>
+            @for(c <- 1 to cols; cell=r.toChar.toString+(f"$c%02d")) {
+                @plate.get(cell) match {
+                    case Some((MatchFound.Match, Some(tube))) => {<td class="ok">@tube.sampleID</td>}
+                    case Some((MatchFound.NotWell, Some(tube))) => {<td class="warning">@tube.sampleID</td>}
+                    case Some((MatchFound.NotRack, Some(tube))) => {<td class="error">@tube.sampleID</td>}
+                    case Some((MatchFound.NotFound, None)) => {<td class="fatal"> </td>}
+                    case _ => {<td> </td>}
+                }
+            }
+            </tr>
+        }
+    </table>
+	<br>
+	<table>
+		<tr style="height:0px;">
+			<th>Legend for matching of rack scan and BSP input</th>
+		</tr>
+		<tr style="height:0px;">
+			<td class="ok" style="text-align:left;">Rack and well location match</td>
+		</tr>
+		<tr style="height:0px;">
+			<td class="warning" style="text-align:left;">Match of rack only (well locations differ)</td>
+		</tr>
+		<tr style="height:0px;">
+			<td class="error" style="text-align:left;">Rack and well location both do not match</td>
+		</tr>
+		<tr style="height:0px;">
+			<td class="fatal" style="text-align:left;">Tube not found in BSP samples</td>
+		</tr>
+	</table>
+	<br>
+	@homeOption(Seq[(Call, String)]((routes.RackController.findRackByID(rack), "Return to rack")))
+}

@@ -1,0 +1,28 @@
+2015-02-12 22:41:42,008 - [INFO] - from play in pool-4-thread-3 
+Listening for HTTP on /0:0:0:0:0:0:0:0%0:9000
+
+2015-02-12 22:41:43,490 - [INFO] - from application in play-internal-execution-context-1 
+ReactiveMongoPlugin starting...
+
+2015-02-12 22:41:43,500 - [INFO] - from application in play-internal-execution-context-1 
+ReactiveMongoPlugin successfully started with db 'tracker'! Servers:
+		[localhost:27017]
+
+2015-02-12 22:41:43,504 - [INFO] - from play in play-internal-execution-context-1 
+Application started (Dev)
+
+2015-02-12 22:41:50,878 - [INFO] - from play in play-akka.actor.default-dispatcher-2 
+Starting application default Akka system.
+
+2015-02-12 22:42:29,604 - [DEBUG] - from application in play-akka.actor.default-dispatcher-3 
+Successfully updated CO-11227502 with status: reactivemongo.core.commands.LastError: DatabaseException['empty lastError message']
+
+2015-02-12 22:42:44,884 - [INFO] - from application in pool-4-thread-3 
+ReactiveMongoPlugin stops, closing connections...
+
+2015-02-12 22:42:44,924 - [INFO] - from play in pool-4-thread-3 
+Shutdown application default Akka system.
+
+2015-02-12 22:42:44,925 - [INFO] - from application in ForkJoinPool-2-worker-5 
+ReactiveMongo Connections stopped. [Success(Closed)]
+

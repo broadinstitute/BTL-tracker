@@ -1,0 +1,19 @@
+@*************************************************************************************
+* Screen to update an existing component                                             *
+* @param sampleForm form used to gather values for sample - must already have id set *
+*************************************************************************************@
+@(sampleInput: Form[Sample], id: String, hiddenFields: Option[Component.HiddenFields])
+@import helper._
+
+@* Call main template to create html with form to update a sample *@
+@mainComponent("Sample"){
+    @componentIntro("Sample", sampleInput)
+    @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
+    @form(routes.SampleController.updateSampleFromForm(id), 'style -> "display:inline;") {
+        @component(sampleInput, true, Component.ComponentType.Sample, hiddenFields)
+        @inputText(sampleInput(Location.locationKey), '_label -> "Location")
+	    @inputText(sampleInput(Sample.externalIDKey), '_label -> "External ID")
+	    @updateButtons()
+    }
+	@homeOption(Seq.empty)
+}

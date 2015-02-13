@@ -1,0 +1,15 @@
+@(findForm: Form[Component.ComponentIDClass])
+@import helper._
+@import models.Component
+@import controllers.Application
+
+@main("Find item") {
+    <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Find item", findForm)
+	@form(routes.Application.findFromForm(), 'style -> "display:inline;") {
+		@inputText(findForm(Component.idKey), '_label -> "ID")
+		<input type="submit" value="Find" style="display:inline;">
+	}
+	@homeOption(Seq.empty)
+}

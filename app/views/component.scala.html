@@ -1,0 +1,43 @@
+@***************************************************************
+* Base contents of items                                       *
+* @param itemForm form with item's fields                      *
+* @param display true if displaying existing item (not create) *
+* @param componentType type of component (e.g., plate)         *
+* @param hiddenFields optional hidden fields to set in form    *
+***************************************************************@
+@(componentForm: Form[_ <: Component], display: Boolean, componentType: Component.ComponentType.ComponentType,
+		hiddenFields: Option[Component.HiddenFields] = None)
+@import helper._
+@import models.Component
+@import models.ComponentTag
+
+@* defining variables to be used within scope  - in this case a list of input text options for id *@
+@defining(if (display) List('readonly -> "readonly", '_showConstraints -> false) else List()) { ro =>
+    @inputText(componentForm(Component.formKey + "." + Component.idKey), List('_label -> "ID") ++ ro: _*)
+    @* Supply component type needed - it's a mandatory field we already know but don't need to display *@
+    <input type="hidden" id="@{Component.formKey + "_" + Component.typeKey}" name="@{Component.formKey + "." + Component.typeKey}" value="@componentType" />
+    @textarea(componentForm(Component.formKey + "." + Component.descriptionKey), '_label -> "Description")
+	@* Put in tags already there - tags can be added or removed via remNew and addNew javascript function
+	Note it's crucial that the div id here (addinput) agree with what's in javascript *@
+	<div id=@Component.inputDiv>
+		@repeat(componentForm(Component.formKey + "." + Component.tagsKey), min = 0) { tag =>
+			<div>
+				@inputText(tag(ComponentTag.tagKey), '_label -> "Tag")
+				@textarea(tag(ComponentTag.valueKey), '_label -> "Value")
+				<a href="#" class="@Component.remTag">Remove Tag</a>
+			</div>
+		}
+	</div>
+	<div>
+		<p> </p>
+		<a href="#" id="@Component.addTag">Add Tag</a>
+		<p> </p>
+	</div>
+	@inputText(componentForm(Component.formKey + "." + Component.projectKey), '_label -> "Project ID", 'style -> "display:inline;")
+	@jiraLink(componentForm)
+	@if(hiddenFields.isDefined) {
+		@if(hiddenFields.get.project.isDefined) {
+			<input type="hidden" id="@{Component.formKey + "." + Component.hiddenProjectKey}" name="@{Component.formKey + "." + Component.hiddenProjectKey}" value="@hiddenFields.get.project.get" />
+		}
+	}
+}

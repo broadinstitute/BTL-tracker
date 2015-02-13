@@ -1,0 +1,19 @@
+@***************************************************************************
+* Screen to update an existing component                                   *
+* @param freezerForm form used to gather values - must already have id set *
+***************************************************************************@
+@(freezerInput: Form[Freezer], id: String, hiddenFields: Option[Component.HiddenFields])
+@import helper._
+
+@* Call main template to create html with form to update a freezer *@
+@mainComponent("Freezer"){
+    @componentIntro("Freezer", freezerInput)
+    @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
+    @form(routes.FreezerController.updateFreezerFromForm(id), 'style -> "display:inline;") {
+        @component(freezerInput, true, Component.ComponentType.Freezer, hiddenFields)
+	    @inputText(freezerInput(Freezer.addressKey), '_label -> "Address")
+	    @inputText(freezerInput(Freezer.temperatureKey), '_label -> "Temperature (Celsius)")
+	    @updateButtons()
+    }
+	@homeOption(Seq.empty)
+}

@@ -1,0 +1,19 @@
+@***************************************************************
+* Screen to create a new tube                                  *
+* @param tubeForm form to use to gather values for tube        *
+***************************************************************@
+@(tubeForm: Form[Tube])
+@import helper._
+
+@* Call main template to create html with form to create a tube *@
+@mainComponent("Create Tube"){
+	@componentIntro("Create Tube", tubeForm)
+	@* Form with tube values - parameter to form method is "reverse-route" of action used to handle form submission *@
+	@form(routes.TubeController.createTubeFromForm(), 'style -> "display:inline;") {
+		@component(tubeForm, false, Component.ComponentType.Tube)
+        @inputText(tubeForm(Location.locationKey), '_label -> "Location")
+        @inputText(tubeForm(Container.contentKey), '_label -> "Content")
+		@createButtons()
+	}
+	@homeOption(Seq.empty)
+}

@@ -1,0 +1,13 @@
+@***********************************
+* Home page                        *
+* @param message html body content *
+***********************************@
+@(message: String)
+
+@* Call main template with title and html to display *@
+@main("Welcome to Tracker"){
+    <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
+    <script src="@routes.Assets.at("javascripts/hello.js")" type="text/javascript"></script>
+}{
+    @play20.welcome(message)
+}

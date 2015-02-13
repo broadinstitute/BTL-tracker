@@ -1,0 +1,18 @@
+@***********************************
+* Home page                        *
+***********************************@
+@()
+@import helper._
+
+@* Call main template with title and html to display *@
+@main("Welcome to Tracker"){
+    <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	<h1>Welcome to Tracker</h1>
+	@form(controllers.routes.Application.find(), 'style -> "display:inline;") {
+		<input type="submit" value="Find/Update Component" style="display:inline;">
+	}
+	@form(controllers.routes.Application.add(), 'style -> "display:inline;") {
+		<input type="submit" value="Add Component" style="display:inline;">
+	}
+}

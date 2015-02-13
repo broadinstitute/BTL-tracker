@@ -1,0 +1,8 @@
+@***************************************************************
+* Intro for components                                         *
+* @param intro introductory label                              *
+* @param form form with component's fields                     *
+***************************************************************@
+@(intro: String, componentForm: Form[_])
+<h1>@intro</h1>
+@componentForm.globalErrors.map {error => <span class="error">@error.message</span><br>}

@@ -1,0 +1,21 @@
+@******************************************************
+* Screen to create a component                        *
+* @param wellForm form used to gather values for well *
+******************************************************@
+@(wellInput: Form[Well])
+@import helper._
+
+@* Call main template to create html with form to create a well *@
+@mainComponent("Create Well"){
+    @componentIntro("Create Well", wellInput)
+    @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
+    @form(routes.WellController.createWellFromForm(), 'style -> "display:inline;") {
+        @component(wellInput, false, Component.ComponentType.Well)
+        @inputText(wellInput(Location.locationKey), '_label -> "Location")
+        @inputText(wellInput(Container.contentKey), '_label -> "Content")
+	    @inputText(wellInput(Well.columnKey), '_label -> "Column")
+	    @inputText(wellInput(Well.rowKey), '_label -> "Row")
+	    @createButtons()
+    }
+	@homeOption(Seq.empty)
+}
