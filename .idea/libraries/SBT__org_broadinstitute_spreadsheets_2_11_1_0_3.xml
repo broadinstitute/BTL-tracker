@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="SBT: org.broadinstitute:spreadsheets_2.11:1.0.3">
-    <CLASSES>
-      <root url="jar://$USER_HOME$/.ivy2/local/org.broadinstitute/spreadsheets_2.11/1.0.3/jars/spreadsheets_2.11.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>
