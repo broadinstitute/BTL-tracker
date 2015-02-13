@@ -1,4 +1,0 @@
-[error] /Users/nnovod/play/tracker/app/views/rackUpdateForm.scala.html:24: Expected ')' but found 'EOF'
-[error] }
-[error]  ^
-[error] (compile:twirlCompileTemplates) Twirl compilation failed
