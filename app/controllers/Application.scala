@@ -5,6 +5,7 @@ import play.api.libs.json._
 import play.api.mvc._
 import play.modules.reactivemongo.MongoController
 import models._
+import Errors.FlashingKeys
 
 import scala.concurrent.Future
 
@@ -28,8 +29,8 @@ object Application extends Controller with MongoController {
 	 * Home page
 	 * @return action to show initial choices on home page
 	 */
-	def index = Action {
-		Ok(views.html.index())
+	def index = Action { request =>
+		Ok(views.html.index(Errors.addStatusFlash(request,Component.blankForm)))
 	}
 
 	/**
@@ -44,7 +45,7 @@ object Application extends Controller with MongoController {
 	 * @return action to execute to initiate add of component
 	 */
 	def add = Action { request =>
-		Ok(views.html.add(ComponentController.addStatusFlash(request,Component.typeForm)))
+		Ok(views.html.add(Errors.addStatusFlash(request,Component.typeForm)))
 	}
 
 	/**
@@ -65,7 +66,7 @@ object Application extends Controller with MongoController {
 	 * @return action to get id of wanted component
 	 */
 	def find = Action { request =>
-		Ok(views.html.find(ComponentController.addStatusFlash(request,Component.idForm)))
+		Ok(views.html.find(Errors.addStatusFlash(request,Component.idForm)))
 	}
 
 	/**
@@ -73,11 +74,35 @@ object Application extends Controller with MongoController {
 	 * @return action to find and display wanted component
 	 */
 	def findFromForm = Action.async { request =>
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		Component.idForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(validationError)))),
 			data =>
 				findByID(data.id,request)(doUpdateRedirect(data.id,_,_,_))
+		).recover {
+			case err => BadRequest(
+				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
+		}
+	}
+
+	/**
+	 * Delete component based on ID supplied in get request
+	 * @param id id of component to be deleted
+	 * @return action to deleted specified component
+	 */
+	def deleteID(id: String) = Action.async { request =>
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		// Make result - redirect to home page and set flashing value (to be set as global error) to be picked up
+		// on home page
+		def getResult(msg: String) = {
+			val result = Redirect(routes.Application.index())
+			FlashingKeys.setFlashingValue(result, FlashingKeys.Status, msg)
+		}
+		// Do delete
+		ComponentController.delete(id,
+			deleted = () => getResult(id + " successfully deleted"),
+			error = (t: Throwable) => getResult("Error deleting " + id + ": " + t.getLocalizedMessage)
 		)
 	}
 
@@ -87,7 +112,11 @@ object Application extends Controller with MongoController {
 	 * @return action to find and display wanted component
 	 */
 	def findWithID(id: String) = Action.async { request =>
-		findByID(id,request)(doUpdateRedirect(id,_,_,_))
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		findByID(id,request)(doUpdateRedirect(id,_,_,_)).recover {
+			case err => BadRequest(
+				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
+		}
 	}
 
 	/**
@@ -102,7 +131,7 @@ object Application extends Controller with MongoController {
 				val cType = (json \ Component.typeKey).as[String]
 				getResult(ComponentType.withName(cType),json,request)
 			},
-			notFound = ComponentController.notFoundRedirect)
+			notFound = Errors.notFoundRedirect)
 	}
 
 	/**

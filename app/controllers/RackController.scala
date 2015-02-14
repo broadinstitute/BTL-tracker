@@ -7,7 +7,7 @@ import org.broadinstitute.LIMStales.sampleRacks.{SSFIssueList, SSFList, RackScan
 import play.api.data.Form
 import play.api.libs.Files
 import play.api.mvc.{MultipartFormData, Action}
-import FlashingKeys._
+import Errors.FlashingKeys
 import models.project.JiraProject
 
 /**
@@ -82,7 +82,7 @@ object RackController extends ComponentController[Rack] {
 			if (rack.isEmpty) {
 				// Look like scan of rack never done
 				val result = Redirect(routes.RackController.findRackByID(id))
-				setFlashingValue(result, FlashingKeys.Status, makeErrMsg("rack scan", id, err))
+				FlashingKeys.setFlashingValue(result, FlashingKeys.Status, makeErrMsg("rack scan", id, err))
 			} else {
 				// Get list of projects containing original BSP scan of rack
 				val (bspRacks, bspErr) = JiraProject.getBSPRackIssueCollection(id)
@@ -91,7 +91,7 @@ object RackController extends ComponentController[Rack] {
 				if (bspRacks.isEmpty || foundRack.list.isEmpty) {
 					// Looks like BSP results never entered
 					val result = Redirect(routes.RackController.findRackByID(id))
-					setFlashingValue(result, FlashingKeys.Status, makeErrMsg("BSP racks", id, bspErr))
+					FlashingKeys.setFlashingValue(result, FlashingKeys.Status, makeErrMsg("BSP racks", id, bspErr))
 				} else {
 					// If all issues are DGE ones and don't contain any tubes then we've found a DGE plate
 					val isDGE =
@@ -99,7 +99,7 @@ object RackController extends ComponentController[Rack] {
 							issue.components.exists(_.contains("DGE")) && issue.list.forall(_.contents.isEmpty))
 					if (isDGE) {
 						val result = Redirect(routes.RackController.findRackByID(id))
-						setFlashingValue(result, FlashingKeys.Status,
+						FlashingKeys.setFlashingValue(result, FlashingKeys.Status,
 							"\"Rack\" is a DGE plate - no BSP rack to report on")
 					} else {
 						// Get layout type and corresponding data to now dimensions of rack

@@ -296,6 +296,18 @@ object Component {
 	}
 
 	/**
+	 * Small form that can hold error message (or nothing if to be used to just get global messages with a blank
+	 * form.
+ 	 */
+	val errMsgKey = "msg"
+	case class Error(msg: Option[String])
+	val blankForm =
+		Form(
+			mapping(
+				errMsgKey -> optional(text)
+			)(Error.apply)(Error.unapply))
+
+	/**
 	 * Little form for just getting a component type
 	 * @param t component type
 	 */

@@ -65,7 +65,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 * @param request html request
 	 * @return form filled in with data and status message from flash
 	 */
-	private def fillFormWithStatus(c: C, request: Request[AnyContent]) = addStatusFlash(request, form.fill(c))
+	private def fillFormWithStatus(c: C, request: Request[AnyContent]) = Errors.addStatusFlash(request, form.fill(c))
 
 	/**
 	 * Return result with message.
@@ -92,11 +92,15 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 * @return resulting html to display wanted component
 	 */
 	def find(id: String, request: Request[AnyContent]) = {
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		findByID[C,Result](id,List(componentType),
 			// Found wanted component
 			found = (c) => viewData(Ok, c, request,	htmlForUpdate(id, Some(c.hiddenFields)), Map.empty,setMessages),
 			// NotFound - just redirect to not found view
-			notFound = notFoundRedirect)
+			notFound = Errors.notFoundRedirect
+		).recover {
+			case err => BadRequest(views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
+		}
 	}
 
 	/**
@@ -119,7 +123,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 			// if trouble then show form that should be updated with error messages
 			onFailure = (f: Form[C]) => htmlForCreate(f)
 		)(request).recover {
-			case err => BadRequest(htmlForCreate(form.withGlobalError(exceptionMessage(err))))
+			case err => BadRequest(htmlForCreate(form.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
 
@@ -154,51 +158,12 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 			onFailure = (f: Form[C]) => htmlForUpdate(id, Component.getHiddenFields(request))(f)
 		)(request).recover {
 			case err => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
-				(form.withGlobalError(exceptionMessage(err))))
+				(form.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
 }
-
-/**
- * Values to be put into "flash".  Flash values are implemented by play by making temporary cookies to keep flash value
- * across a single request.  They are to be used very judiciously since cookies can overlap between requests and it's
- * not clear if/when they are returned to the server.
- */
-object FlashingKeys extends Enumeration {
-	type FlashingKeysType = Value
-	val Status = Value
-
-	def setFlashingValue(r: Result, k: FlashingKeysType, s: String) = r.flashing(k.toString() -> s)
-
-	def getFlashingValue(r: Request[_], k: FlashingKeysType) = r.flash.get(k.toString())
-}
-
-import FlashingKeys._
 
 object ComponentController extends Controller with MongoController {
-	/**
-	 * Validation error report
-	 */
-	private val validationError = "Data entry error - see below"
-
-	/**
-	 * Regular expression to find duplicate key in database exception
-	 */
-	private val dbExc = """DatabaseException.*duplicate key.*dup key.*\{.*"(.*)".*\}.*""".r
-
-	/**
-	 * Parse exception to get nicer error message
-	 * @param e thrown exception
-	 * @return string for exception
-	 */
-	def exceptionMessage(e: Throwable) = {
-		val msg = e.getLocalizedMessage
-		msg match {
-			case dbExc(key) => s"Data entry error - Component with ID $key already created"
-			case _ => msg
-		}
-	}
-
 	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
 	 * @return collection that uses JSON for input/output
@@ -206,27 +171,21 @@ object ComponentController extends Controller with MongoController {
 	private def collection: JSONCollection = db.collection[JSONCollection]("tracker")
 
 	/**
-	 * Create string with list of component type(s) we wanted.
-	 *
-	 * @param id Item not found
-	 * @param componentType optional type of component searched for
-	 * @return string showing component type(s) we were looking for
+	 * Go delete item from DB
+	 * @param id ID for item to be deleted
+	 * @param deleted callback if delete went well
+	 * @param error callback if error during delete
 	 */
-	private def notFoundComponentMessage(id: String,componentType: List[ComponentType.ComponentType]) = {
-		val itemType = if (componentType.isEmpty) "component" else componentType.map(_.toString).mkString(" or ")
-		s"Can not find $itemType $id"
-	}
-
-	/**
-	 * Default not found redirection - we redirect to add page flashing what we didn't find.
-	 * @param id Item not found
-	 * @param componentType optional type of component searched for
-	 * @return redirect to add page
-	 */
-	def notFoundRedirect(id: String,componentType: List[ComponentType.ComponentType]) = {
-		val r = Redirect(routes.Application.add)
-		setFlashingValue(r,FlashingKeys.Status,
-			(notFoundComponentMessage(id,componentType) + " - you can add the component now"))
+	def delete[R](id: String, deleted: () => R, error: (Throwable) => R) = {
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		val key = Json.obj(Component.idKey -> id)
+		collection.remove(Json.toJson(key)).map { lastError =>
+			val success = s"Successfully deleted item ${id}"
+			Logger.debug(s"$success with status: $lastError")
+			deleted()
+		}.recover{
+			case err => error(err)
+		}
 	}
 
 	/**
@@ -241,7 +200,7 @@ object ComponentController extends Controller with MongoController {
 	 * @tparam R type of result
 	 * @return future result, as determined by callbacks, of query
 	 */
-	def findByID[T : Reads, R](id: String,componentType: List[ComponentType.ComponentType],found: (T) => R,
+	def findByID[T : Reads, R](id: String,componentType: List[ComponentType.ComponentType], found: (T) => R,
 	                           notFound: (String,List[ComponentType.ComponentType]) => R) = {
 		// let’s do our query to a single item with the wanted id (and component type(s) if supplied)
 		val findMap =
@@ -271,19 +230,10 @@ object ComponentController extends Controller with MongoController {
 			case Some(id) => findByID[JsObject,Option[String]](id,validComponents,
 				found = (_) => None,
 				notFound = (_,_) =>
-					Some(notFoundComponentMessage(id,validComponents) +
+					Some(Errors.notFoundComponentMessage(id,validComponents) +
 						" - change " + idType + " set or add " + idType + " " + id))
 			case None => Future.successful(None)
 		}
-
-	/**
-	 * Add flash to returned form - any "status" in the requests "flash" is set as a global error
-	 * @param request http request
-	 * @param data form
-	 * @return form with optional flash "status" added as a global error
-	 */
-	def addStatusFlash[C](request: Request[_],data: Form[C]): Form[C] =
-		getFlashingValue(request,FlashingKeys.Status).map(data.withGlobalError(_)).getOrElse(data)
 
 	/**
 	 * Complete request (e.g., create or update) a tracker item in our mongo db collection using a form.  Note, this
@@ -304,7 +254,8 @@ object ComponentController extends Controller with MongoController {
 		// Bind data to new form
 		val bForm = form.bindFromRequest()(request)
 		bForm.fold(
-			formWithErrors => Future.successful(BadRequest(onFailure(formWithErrors.withGlobalError(validationError)))),
+			formWithErrors => Future.successful(
+				BadRequest(onFailure(formWithErrors.withGlobalError(Errors.validationError)))),
 			data =>
 				// Check if data is valid (it's done via a future) and then map result
 				// Validity checker returns a map with fieldName->errorMessages with fieldName left out for global
@@ -317,7 +268,7 @@ object ComponentController extends Controller with MongoController {
 					case _ => afterBind(data)
 				}
 		).recover {
-			case err => BadRequest(onFailure(bForm.withGlobalError(exceptionMessage(err))))
+			case err => BadRequest(onFailure(bForm.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
 
