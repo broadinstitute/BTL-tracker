@@ -20,6 +20,6 @@
 	    @inputFile(rackInput(Rack.rackScanKey), '_label -> "Scan File")
         @updateButtons()
     }
-	@homeOption(Seq[(Call, String)]((routes.RackController.doBSPReport(
+	@homeUpdateOption(rackInput, Seq((routes.RackController.doBSPReport(
 		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report")))
 }
