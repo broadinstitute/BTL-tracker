@@ -32,7 +32,8 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
 	 */
 	protected def formatWithComponent(base: Format[C]) = {
 		/**
-		 * Make a transformer to convert the json to include a "component":"componentType" if it's not already there
+		 * Make a transformer to convert the json to include a "component":"componentType".  If one's already there
+		 * then pick it, otherwise create Json with the component type string.
 		 *
 		 * @return method to transform json
 		 */
@@ -56,9 +57,9 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
 	// Create Format for ComponentType enum using our custom enum Reader and Writer
 	implicit val componentTypeFormat: Format[Component.ComponentType.ComponentType] =
 		enumFormat(Component.ComponentType)
-	// Make sure a form is supplied
+	// Make sure a form is supplied by all inheriting classes
 	val form: Form[C]
-	// Make sure a formatter is supplied
+	// Make sure a formatter is supplied by all inheriting classes
 	implicit val formatter: Format[C]
 }
 
@@ -68,7 +69,7 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
  * @param tag tag name
  * @param value value to associated with tag
  */
-case class ComponentTag(tag: String,value: Option[String])
+case class ComponentTag(tag: String, value: Option[String])
 
 object ComponentTag {
 	/**
@@ -85,14 +86,17 @@ object ComponentTag {
 			valueKey -> optional(text)
 		)(ComponentTag.apply)(ComponentTag.unapply))
 
+	// Formatting to go to/from json
 	implicit val instanceTagFormat = Json.format[ComponentTag]
 }
 
 /**
- * Base for all items
+ * Base for all items - mostly abstract values to be filled in by inheriting classes.
  */
 trait Component {
+
 	import Component._
+
 	/**
 	 * ID - unique ID for item.  Usually a barcode
 	 */
@@ -115,7 +119,8 @@ trait Component {
 	val component: ComponentType.ComponentType // Type of item
 
 	/**
-	 * Method that can be overriden to check if data returned from request is valid
+	 * Method that can be overriden to check if data returned from request is valid - this is called as part of
+	 * general check done in isRequestValid
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
 	protected def isValid(request: Request[AnyContent]): Future[Map[Option[String], String]] =
@@ -125,7 +130,7 @@ trait Component {
 	 * Get anonymous class object for this component
 	 * @return Component object
 	 */
-	def getComponent = Component(id,description,project,tags,component)
+	def getComponent = Component(id, description, project, tags, component)
 
 	/**
 	 * Check if component is valid - check that location and container are valid and also any type specific check needed
@@ -140,23 +145,27 @@ trait Component {
 			if (this.isInstanceOf[Container]) {
 				this.asInstanceOf[Container].isContentValid
 			} else Future.successful(None)
+		// Kick off all the futures being used to check if request is valid
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		for {loc <- locValid
 		     content <- contentValid
 		     valid <- isValid(request)
 		} yield {
-			(loc,content,valid) match {
-				case (None,None,v) => v
-				case (Some(loc),None,v) => Map(Some(Location.locationKey) -> loc) ++ v
-				case (None,Some(con),v) => Map(Some(Container.contentKey) -> con) ++ v
-				case (Some(loc),Some(con),v) =>
+			// Futures complete - now return any errors reported
+			(loc, content, valid) match {
+				case (None, None, v) => v
+				case (Some(loc), None, v) => Map(Some(Location.locationKey) -> loc) ++ v
+				case (None, Some(con), v) => Map(Some(Container.contentKey) -> con) ++ v
+				case (Some(loc), Some(con), v) =>
 					Map(Some(Location.locationKey) -> loc, Some(Container.contentKey) -> con) ++ v
 			}
 		}
 	}
 
 	/**
-	 * Return hidden fields initialized to what was found in a component
+	 * Return hidden fields initialized to what was found in a component.  Hidden fields are used to pass original
+	 * values for fields between the server and client.  The server sets them in a form and then reads them later
+	 * when the form is returned after processing by the client.
 	 * @return hidden fields found (for now just project)
 	 */
 	def hiddenFields = HiddenFields(project)
@@ -175,7 +184,7 @@ object Component {
 	 * @return component object
 	 */
 	def apply(id0: String, description0: Option[String], project0: Option[String],
-	          tags0: List[ComponentTag],component0: ComponentType.ComponentType) =
+	          tags0: List[ComponentTag], component0: ComponentType.ComponentType) =
 		new Component {
 			override val id: String = id0
 			override val description: Option[String] = description0
@@ -190,7 +199,7 @@ object Component {
 	 * @param c component to be unapplied
 	 * @return component data
 	 */
-	def unapply(c: Component) = Some((c.id,c.description,c.project,c.tags,c.component))
+	def unapply(c: Component) = Some((c.id, c.description, c.project, c.tags, c.component))
 
 	/**
 	 * Keyword to use for component type
@@ -200,7 +209,7 @@ object Component {
 	/**
 	 * Keywords used in .scala.html files to reference division with tags and functions to add/remove tags.
 	 * We keep them here as constants so different files can be sure that they all use the same keywords.
-	 * Our attempt to keep the javascript a bit safer.
+	 * Our attempt to keep the javascript/html a bit safer.
 	 */
 	var inputDiv = "addInput"
 	val addTag = "addNew"
@@ -238,7 +247,9 @@ object Component {
 	/**
 	 * Case classes to make a mapping for a form to see hidden fields.  We must make this multi-layered because
 	 * the hidden fields are within the component.  Hidden fields appear only in the form - they are not
-	 * transferred to the data object.  They can be used to save values across the request.
+	 * transferred to the data object.  They can be used to save values across the request.  For example a project
+	 * can be saved to see if it was changed during the request - if it was then additional validity checking may
+	 * need to be done.
 	 * @param fields contained class with hidden fields
 	 */
 	private case class HiddenComponent(fields: HiddenFields)
@@ -272,19 +283,17 @@ object Component {
 
 	/**
 	 * Get the hidden fields found.
- 	 * @param request request with form
+	 * @param request request with form
 	 * @return optional hidden fields found
 	 */
-	def getHiddenFields(request: Request[AnyContent]) = {
-		getHiddenField(request, Some(_))
-	}
+	def getHiddenFields(request: Request[AnyContent]) = getHiddenField(request, Some(_))
 
 	/**
 	 * Enumeration for all component types
 	 */
 	object ComponentType extends Enumeration {
 		type ComponentType = Value
-		val Tube,Plate,Rack,Freezer,Well,Sample,Material = Value
+		val Tube, Plate, Rack, Freezer, Well, Sample, Material = Value
 	}
 
 	/**
@@ -297,8 +306,8 @@ object Component {
 
 	/**
 	 * Small form that can hold error message (or nothing if to be used to just get global messages with a blank
-	 * form.
- 	 */
+	 * form).
+	 */
 	val errMsgKey = "msg"
 	case class Error(msg: Option[String])
 	val blankForm =
@@ -312,7 +321,6 @@ object Component {
 	 * @param t component type
 	 */
 	case class ComponentTypeClass(t: ComponentType.ComponentType)
-
 	val typeForm =
 		Form(
 			mapping(
@@ -324,7 +332,6 @@ object Component {
 	 * @param id id for component
 	 */
 	case class ComponentIDClass(id: String)
-
 	val idForm =
 		Form(
 			mapping(

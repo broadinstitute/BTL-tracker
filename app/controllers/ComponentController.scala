@@ -25,31 +25,32 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 
 	import ComponentController._
 
-	type componentObjectType = C
 	/**
-	 * Play Form to use in UI for displaying/gathering component data
+	 * Play Form to use in UI for displaying/gathering component data - supplied by user of trait
 	 */
 	val form: Form[C]
 
 	/**
-	 * Play Formatter to convert and/or validate JSON for component
+	 * Play Formatter to convert and/or validate JSON for component - supplied by user of trait
 	 */
 	implicit val formatter: Format[C]
 
 	/**
-	 * Method to use to take a form filled with data and return the html to be displayed after an update
+	 * Method to use to take a form filled with data and return the html to be displayed after an update - supplied
+	 * by component type inheriting trait.
 	 * @return method that creates html (typically via a Play template view) to display
 	 */
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]): (Form[C]) => Html
 
 	/**
-	 * Method to use to take a form filled with data and return the html to be displayed after a create
+	 * Method to use to take a form filled with data and return the html to be displayed after a create - supplied
+	 * by component type inheriting trait.
 	 * @return html (typically a Play template view) to display
 	 */
 	def htmlForCreate: (Form[C]) => Html
 
 	/**
-	 * Component type (maybe someday make a macro to get this based on C type?)
+	 * Component type, supplied by component inheriting trait (maybe someday make a macro to get this based on C type?)
 	 */
 	val componentType: ComponentType.ComponentType
 
@@ -60,7 +61,9 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	def add = Ok(htmlForCreate(form))
 
 	/**
-	 * Fill a form with data and set the flash, if it's there, as a status.
+	 * Fill a form with data and set any flash status (set by previous request) as global error(s) on the form.  Flash
+	 * is used to pick up any errors set by a previous request redirected to the current request containing the
+	 * input form.
  	 * @param c component to display
 	 * @param request html request
 	 * @return form filled in with data and status message from flash
@@ -78,15 +81,14 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 * @param messageSetter callback to set messages in form
 	 * @return result containing html to be displayed
 	 */
-	private def viewData(status: Status, c: C,request: Request[AnyContent],html: (Form[C]) => Html,
+	private def viewData(status: Status, c: C, request: Request[AnyContent], html: (Form[C]) => Html,
 	                     msgs: Map[Option[String], String],
 	                     messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) =
 		status(html(messageSetter(msgs, fillFormWithStatus(c, request))))
 
 
 	/**
-	 * Find - if all goes well return with display of found component
-	 * Note it's assumed this is executing asynchronously so it returns results in a future.
+	 * Find - if all goes well return with display of found component.
 	 * @param id component id
 	 * @param request http request
 	 * @return resulting html to display wanted component
@@ -104,18 +106,20 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	}
 
 	/**
-	 * Create - if all goes well insert component into db and redirect to display newly entered data.
-	 * Note it's assumed this is executing asynchronously so it returns results in a future.
+	 * Create using data returned in the request form - if all goes well insert component into db and display newly
+	 * entered data.
 	 * @param request http request
-	 * @return resulting html to display created component (on error displays form with errors)
+	 * @return future to get resulting html to display created component (on error displays form with errors)
 	 */
 	def create(request: Request[AnyContent]) = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		doRequestFromForm(form,
+			// Note that afterbind returns a future
 			afterBind = (data: C) => {
 				collection.insert(data).map { lastError =>
 					val success = s"Successfully inserted item ${data.id}"
 					Logger.debug(s"$success with status: $lastError")
+					// Return view of data just created
 					viewData(Ok, data, request,
 						htmlForUpdate(data.id, Some(data.hiddenFields)), Map(None -> success), setMessages)
 				}
@@ -129,15 +133,18 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 
 	/**
 	 * Update - if all goes well update component in db and redirect to display newly entered data.
-	 * Note it's assumed this is executing asynchronously so it returns results in a future.
 	 * @param request http request
-	 * @return resulting html to display updated component (on error displays form with errors)
+	 * @param id component id
+	 * @param preUpdate callback to allow pre-update checking - returns non-empty map of error(s) to abort update
+	 * @return future to get resulting html to display updated component (on error displays form with errors)
 	 */
 	def update(request: Request[AnyContent], id: String,
 	           preUpdate: (C) => Map[Option[String], String] = (_) => Map.empty) = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		doRequestFromForm(form,
+			// Note that afterbind returns a future
 			afterBind = (data: C) => {
+				// Allow caller to do some pre update checking
 				val errs = preUpdate(data)
 				if (errs.isEmpty) {
 					// Binding was successful - now go update the wanted item with data from the form
@@ -145,10 +152,13 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 					collection.update(selector,data).map { lastError =>
 						val success = s"Successfully updated ${data.id}"
 						Logger.debug(s"$success with status: $lastError")
+						// Return view of data just updated
 						viewData(Ok, data, request,
 							htmlForUpdate(id, Some(data.hiddenFields)), Map(None -> success), setMessages)
 					}
 				} else {
+					// If pre-update returned errors then return form with those errors - remember original
+					// hidden fields so any changes made to them are ignored for now
 					Future.successful(
 						viewData(BadRequest, data, request,
 							htmlForUpdate(id, Component.getHiddenFields(request)), errs, setFailureMsgs))
@@ -157,6 +167,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 			// if trouble then show form that should be updated with error messages
 			onFailure = (f: Form[C]) => htmlForUpdate(id, Component.getHiddenFields(request))(f)
 		)(request).recover {
+			// Recover from exception - return form with errors
 			case err => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
 				(form.withGlobalError(Errors.exceptionMessage(err))))
 		}
@@ -236,15 +247,14 @@ object ComponentController extends Controller with MongoController {
 		}
 
 	/**
-	 * Complete request (e.g., create or update) a tracker item in our mongo db collection using a form.  Note, this
-	 * method is assumed to execute asynchronously and returns a future completion.
+	 * Complete request (e.g., create or update) for a tracker item in our mongo db collection using a form.
 	 *
 	 * @param form form used to retrieve input
-	 * @param afterBind action to take after a successful binding to the object from the form
-	 * @param onFailure callback to get html to display upon verification failure (inputs form with invalid data)
+	 * @param afterBind action to take after a successful binding to the object from the form (returns a future)
+	 * @param onFailure callback to get html to display upon verification failure (input contains form with invalid data)
 	 * @param request request that contains form data
-	 * @tparam I type of item being requested
-	 * @return method that will be executed asynchronously
+	 * @tparam I type of component being requested
+	 * @return future to return request results
 	 */
 	private def doRequestFromForm[I <: Component : Writes](form: Form[I],
 	                                                       afterBind: (I) => Future[Result],
@@ -265,9 +275,11 @@ object ComponentController extends Controller with MongoController {
 						// Return complete future with form set with errors
 						val formWithErrors = setFailureMsgs(e, form.fill(data))
 						Future.successful(BadRequest(onFailure(formWithErrors)))
+					// If all went well then callback to process data
 					case _ => afterBind(data)
 				}
 		).recover {
+			// On exception return bad request with html filled by call back
 			case err => BadRequest(onFailure(bForm.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
@@ -275,10 +287,11 @@ object ComponentController extends Controller with MongoController {
 	/**
 	 * Method to take messages and put them on the form
 	 *
-	 * @param msgs map of error messages in form of fieldName->errorMessage
+	 * @param msgs map of error messages in form of fieldName->errorMessage (no fieldname for global error)
 	 * @return form to display with messages
 	 */
 	private def setMessages[I](msgs: Map[Option[String],String], form: Form[I]) = {
+		// Add messages to form - getting a new form each time a message is added
 		msgs.foldLeft(form) {
 			case (f, (Some(k),m)) => f.withError(k,m)
 			case (f, (None,m)) => f.withGlobalError(m)
@@ -296,7 +309,7 @@ object ComponentController extends Controller with MongoController {
 		val formWithFieldErrors = setMessages(msgs, form)
 		// See if global error already exists
 		val isGlobalErrors = msgs.exists(_._1 == None)
-		// Add global error in form
+		// Add global error in form - if other errors set are not global they will be field specific later in form
 		formWithFieldErrors.withGlobalError("Operation not completed - fix errors" +
 			(if (!isGlobalErrors) " below" else ""))
 	}
@@ -310,7 +323,7 @@ object ComponentController extends Controller with MongoController {
 	case class Redirects(update: (String) => Call, add: () => Call)
 
 	/**
-	 * Map of calls to use for redirects to find or add a component
+	 * Map of calls to use for redirects to find (by id) or add a component
 	 */
 	val redirects =
 		Map(

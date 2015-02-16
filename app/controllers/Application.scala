@@ -79,7 +79,7 @@ object Application extends Controller with MongoController {
 			formWithErrors =>
 				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(validationError)))),
 			data =>
-				findByID(data.id,request)(doUpdateRedirect(data.id,_,_,_))
+				findRequestUsingID(data.id,request)(doUpdateRedirect(data.id,_,_,_))
 		).recover {
 			case err => BadRequest(
 				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
@@ -91,8 +91,7 @@ object Application extends Controller with MongoController {
 	 * @param id id of component to be deleted
 	 * @return action to deleted specified component
 	 */
-	def deleteID(id: String) = Action.async { request =>
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+	def deleteByID(id: String) = Action.async { request =>
 		// Make result - redirect to home page and set flashing value (to be set as global error) to be picked up
 		// on home page
 		def getResult(msg: String) = {
@@ -111,9 +110,9 @@ object Application extends Controller with MongoController {
 	 * @param id component ID
 	 * @return action to find and display wanted component
 	 */
-	def findWithID(id: String) = Action.async { request =>
+	def findByID(id: String) = Action.async { request =>
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		findByID(id,request)(doUpdateRedirect(id,_,_,_)).recover {
+		findRequestUsingID(id,request)(doUpdateRedirect(id,_,_,_)).recover {
 			case err => BadRequest(
 				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
 		}
@@ -124,8 +123,8 @@ object Application extends Controller with MongoController {
 	 * @param id component ID
 	 * @return form filled in with component data requested
 	 */
-	def findByID(id: String,request: Request[_],okComponents: List[ComponentType.ComponentType] = List.empty)
-	            (getResult: (ComponentType.ComponentType,JsObject,Request[_]) => Result): Future[Result] = {
+	def findRequestUsingID(id: String,request: Request[_],okComponents: List[ComponentType.ComponentType] = List.empty)
+	                      (getResult: (ComponentType.ComponentType,JsObject,Request[_]) => Result): Future[Result] = {
 		ComponentController.findByID[JsObject,Result](id, okComponents,
 			found = (json) => {
 				val cType = (json \ Component.typeKey).as[String]
@@ -135,7 +134,8 @@ object Application extends Controller with MongoController {
 	}
 
 	/**
-	 * Do an update for the given component
+	 * Do a redirect to do an update for the given component.
+	 * @param id component ID
 	 * @param ct type of component
 	 * @param json json with data associated with component (fetched from DB)
 	 * @param request original request to do update

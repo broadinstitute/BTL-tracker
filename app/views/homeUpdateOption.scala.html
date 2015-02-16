@@ -1,3 +1,3 @@
 @(componentForm: Form[_ <: Component], others: Seq[(Call, String)])
-@homeOption(Seq[(Call, String)]((routes.Application.deleteID(
+@homeOption(Seq[(Call, String)]((routes.Application.deleteByID(
 	componentForm(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "Delete")) ++ others)

@@ -76,7 +76,7 @@ object RackController extends ComponentController[Rack] {
 	 */
 	def doBSPReport(id: String) = Action.async { implicit request =>
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		Application.findByID(id,request,List(ComponentType.Rack))((cType,json,request) => {
+		Application.findRequestUsingID(id,request,List(ComponentType.Rack))((cType,json,request) => {
 			// Find the projects with scan of the rack
 			val (rack, err) = JiraProject.getRackIssueCollection(id)
 			if (rack.isEmpty) {

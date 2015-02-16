@@ -16,14 +16,14 @@ GET         /add                        controllers.Application.add
 POST        /add                        controllers.Application.addFromForm
 
 # Delete from get parameter
-GET         /delete/:id                 controllers.Application.deleteID(id: String)
+GET         /delete/:id                 controllers.Application.deleteByID(id: String)
 
 # Retrieve item
 GET         /find                       controllers.Application.find
 # Find from posted data
 POST        /find                       controllers.Application.findFromForm
 # Find from get parameter
-GET         /find/:id                   controllers.Application.findWithID(id: String)
+GET         /find/:id                   controllers.Application.findByID(id: String)
 
 # Get new tube settings
 GET         /tube/add                   controllers.TubeController.addTube
