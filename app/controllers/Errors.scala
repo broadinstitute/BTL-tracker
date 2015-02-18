@@ -79,12 +79,13 @@ object Errors {
 	}
 
 	/**
-	 * Add flash to returned form - any "status" in the requests "flash" is set as a global error
+	 * Add flash to form - any "status" in the requests "flash" is set as a global error in the form.  Flash is used
+	 * to pick up any errors set by a previous request redirected to the current request containing the input form.
 	 * @param request http request
 	 * @param data form
 	 * @return form with optional flash "status" added as a global error
 	 */
-	def addStatusFlash[C](request: Request[_],data: Form[C]): Form[C] =
+	def addStatusFlash[C](request: Request[_], data: Form[C]): Form[C] =
 		FlashingKeys.getFlashingValue(request,FlashingKeys.Status).map(data.withGlobalError(_)).getOrElse(data)
 
 	/**

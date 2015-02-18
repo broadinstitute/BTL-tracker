@@ -38,14 +38,14 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	/**
 	 * Method to use to take a form filled with data and return the html to be displayed after an update - supplied
 	 * by component type inheriting trait.
-	 * @return method that creates html (typically via a Play template view) to display
+	 * @return method that converts a form to html to display (typically via a Play template view)
 	 */
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]): (Form[C]) => Html
 
 	/**
 	 * Method to use to take a form filled with data and return the html to be displayed after a create - supplied
 	 * by component type inheriting trait.
-	 * @return html (typically a Play template view) to display
+	 * @return method that converts a form to html to display (typically a Play template view)
 	 */
 	def htmlForCreate: (Form[C]) => Html
 
@@ -61,17 +61,11 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	def add = Ok(htmlForCreate(form))
 
 	/**
-	 * Fill a form with data and set any flash status (set by previous request) as global error(s) on the form.  Flash
-	 * is used to pick up any errors set by a previous request redirected to the current request containing the
-	 * input form.
- 	 * @param c component to display
-	 * @param request html request
-	 * @return form filled in with data and status message from flash
-	 */
-	private def fillFormWithStatus(c: C, request: Request[AnyContent]) = Errors.addStatusFlash(request, form.fill(c))
-
-	/**
-	 * Return result with message.
+	 * Return result with message(s):
+	 * a)Get form filled with data and flash status (set by previous request) as a global message on the form
+	 * b)Add additional messages to be displayed in the form
+	 * c)Create html from form
+	 * d)Get result - status with html as associated returned data
 	 *
 	 * @param status result status (e.g., Ok or BadRequest)
 	 * @param c component to display
@@ -83,8 +77,11 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 */
 	private def viewData(status: Status, c: C, request: Request[AnyContent], html: (Form[C]) => Html,
 	                     msgs: Map[Option[String], String],
-	                     messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) =
-		status(html(messageSetter(msgs, fillFormWithStatus(c, request))))
+	                     messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) = {
+		val filledForm = Errors.addStatusFlash(request, form.fill(c))
+		val formWithMsgs = messageSetter(msgs, filledForm)
+		status(html(formWithMsgs))
+	}
 
 
 	/**
