@@ -42,7 +42,13 @@ trait Contents {
  	 * @param seq sequence
 	 * @param name name
 	 */
-	case class MolBarcode(seq: String, name: String)
+	case class MolBarcode(seq: String, name: String) {
+		private val comp = Map('C' -> 'G', 'G' -> 'C', 'A' -> 'T', 'T' -> 'A')
+		def getRevCompliment = {
+			val complement = seq.map(comp)
+			complement.reverse
+		}
+	}
 
 	/**
 	 * Molecular barcodes in a well
