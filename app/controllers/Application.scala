@@ -3,13 +3,12 @@ package controllers
 import models.Component.ComponentType
 import play.api.libs.json._
 import play.api.mvc._
-import play.modules.reactivemongo.MongoController
 import models._
 import Errors.FlashingKeys
 
 import scala.concurrent.Future
 
-object Application extends Controller with MongoController {
+object Application extends Controller {
 
 	/**
 	 * Validation error report

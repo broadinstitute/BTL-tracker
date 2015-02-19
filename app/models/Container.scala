@@ -7,7 +7,7 @@ import controllers.ComponentController
  * Created by nnovod on 11/28/14.
  */
 /**
- * A Container is something that content can be put into.  There can be initial content, for example a Material can be
+ * A Container is something that content can be put into.  There can be initial contents, for example a Material can be
  * set as the initial content for a tube.  Ultimately the contents of a container consists of it's initial contents
  * as well as any additional contents transferred from other components.  Those additional contents are never
  * explicitly set anywhere - they are implicit in the graphs created that show the transfers that take place into
