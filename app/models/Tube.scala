@@ -21,11 +21,11 @@ import initialContents.InitialContents.ContentType
  * @param project optional project ID
  * @param tags name/value pairs to associate with the tube
  * @param locationID Optional ID of Component where this tube is located
- * @param contentID Optional initial contents
+ * @param initialContent Optional initial contents
  */
 case class Tube(override val id: String,override val description: Option[String],override val project: Option[String],
                 override val tags: List[ComponentTag],
-                override val locationID: Option[String],override val contentID: Option[ContentType.ContentType])
+                override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType])
 	extends Component with Location with Container with Transferrable {
 	override val component = Tube.componentType
 	override val validLocations = Tube.validLocations
@@ -48,7 +48,7 @@ object Tube extends ComponentObject[Tube](ComponentType.Tube) {
 	private def applyWithComponent(c: Component,l: Option[String],con: Option[ContentType.ContentType]): Tube =
 		Tube(c.id,c.description,c.project,c.tags,l,con)
 
-	private def unapplyWithComponent(t: Tube) = Some(t.getComponent,t.locationID,t.contentID)
+	private def unapplyWithComponent(t: Tube) = Some(t.getComponent,t.locationID,t.initialContent)
 
 	implicit val contentTypeFormat: Format[ContentType.ContentType] = enumFormat(ContentType)
 

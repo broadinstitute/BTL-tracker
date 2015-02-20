@@ -1,0 +1,14 @@
+@***************************************************************
+* Get initial contents associated with a component             *
+* @param validContents list of valid content types             *
+* @param componentForm form with item's fields                 *
+* @param component type of component
+***************************************************************@
+@(validContents: List[models.initialContents.InitialContents.ContentType.ContentType],
+	componentForm: Form[_ <: Component], component: ComponentObject[_])
+@import helper._
+
+@if(!validContents.isEmpty) {
+	@select(field = componentForm(Container.contentKey),
+		options = options(component.getContentDisplayValues(validContents)), '_label -> "Initial Content")
+}

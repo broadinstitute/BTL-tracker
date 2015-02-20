@@ -13,10 +13,7 @@
   @form(routes.PlateController.createPlateFromForm(), 'style -> "display:inline;") {
       @component(plateForm, false, Component.ComponentType.Plate)
 @*      @inputText(plateForm(Location.locationKey), '_label -> "Location") *@
-	  @if(!Plate.validContents.isEmpty) {
-		  @select(field = plateForm(Container.contentKey),
-			  options = options(Plate.getContentDisplayValues(Plate.validContents)), '_label -> "Content")
-	  }
+	  @initialContents(Plate.validContents, plateForm, Plate)
 	  @select(field = plateForm(Plate.layoutKey),
 		  options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
 	  @createButtons()

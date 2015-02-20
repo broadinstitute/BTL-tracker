@@ -27,12 +27,12 @@ import initialContents.InitialContents.ContentType
  * @param project optional project ID
  * @param tags name/value pairs to associate with the rack
  * @param locationID Optional ID of Component where this rack is located
- * @param contentID Optional initial contents
+ * @param initialContent Optional initial contents
  * @param layout well layout on rack
  */
 case class Rack(override val id: String,override val description: Option[String],override val project: Option[String],
                 override val tags: List[ComponentTag],
-                override val locationID: Option[String], override val contentID: Option[ContentType.ContentType],
+                override val locationID: Option[String], override val initialContent: Option[ContentType.ContentType],
                 layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject {
 	override val component = Rack.componentType
@@ -65,7 +65,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 	private def applyWithComponent(c: Component,l: Option[String],
 	                               con: Option[ContentType.ContentType],layout: Division.Division) =
 		Rack(c.id,c.description,c.project,c.tags,l,con,layout)
-	private def unapplyWithComponent(r: Rack) = Some(r.getComponent,r.locationID,r.contentID,r.layout)
+	private def unapplyWithComponent(r: Rack) = Some(r.getComponent,r.locationID,r.initialContent,r.layout)
 
 	val validLocations = List(ComponentType.Freezer)
 	val validTransfers = List(ComponentType.Rack,ComponentType.Plate)

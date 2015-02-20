@@ -28,12 +28,12 @@ import initialContents.InitialContents.ContentType
  * @param project optional project ID
  * @param tags name/value pairs to associate with the plate
  * @param locationID Optional ID of Component where this plate is located
- * @param contentID Optional initial contents of this plate
+ * @param initialContent Optional initial contents of this plate
  * @param layout well layout of plate
  */
 case class Plate(override val id: String,override val description: Option[String],override val project: Option[String],
                  override val tags: List[ComponentTag],
-                 override val locationID: Option[String],override val contentID: Option[ContentType.ContentType],
+                 override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType],
                  layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject {
 	override val component = Plate.componentType
@@ -67,7 +67,7 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 	                               con: Option[ContentType.ContentType],layout: Division.Division) =
 		Plate(c.id,c.description,c.project,c.tags,l,con,layout)
 
-	private def unapplyWithComponent(p: Plate) = Some(p.getComponent,p.locationID,p.contentID,p.layout)
+	private def unapplyWithComponent(p: Plate) = Some(p.getComponent,p.locationID,p.initialContent,p.layout)
 
 	val validLocations = List(ComponentType.Freezer)
 	val validTransfers = List(ComponentType.Plate,ComponentType.Rack)

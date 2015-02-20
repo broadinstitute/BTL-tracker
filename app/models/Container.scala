@@ -14,9 +14,9 @@ import initialContents.InitialContents.ContentType
  */
 trait Container {
 	/**
-	 * Component ID for initial content
+	 * Initial contents
 	 */
-	val contentID: Option[ContentType.ContentType]
+	val initialContent: Option[ContentType.ContentType]
 
 	/**
 	 * List of valid content types for initial contents.
