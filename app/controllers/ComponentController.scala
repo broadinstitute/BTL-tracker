@@ -330,14 +330,8 @@ object ComponentController extends Controller with MongoController {
 				Redirects(routes.PlateController.findPlateByID(_: String), routes.PlateController.addPlate),
 			ComponentType.Rack ->
 				Redirects(routes.RackController.findRackByID(_:String), routes.RackController.addRack),
-			ComponentType.Sample ->
-				Redirects(routes.SampleController.findSampleByID(_: String), routes.SampleController.addSample),
 			ComponentType.Tube ->
-				Redirects(routes.TubeController.findTubeByID(_: String), routes.TubeController.addTube),
-			ComponentType.Well ->
-				Redirects(routes.WellController.findWellByID(_: String), routes.WellController.addWell),
-			ComponentType.Material ->
-				Redirects(routes.MaterialController.findMaterialByID(_: String), routes.MaterialController.addMaterial)
+				Redirects(routes.TubeController.findTubeByID(_: String), routes.TubeController.addTube)
 		)
 
 	/**
@@ -351,12 +345,9 @@ object ComponentController extends Controller with MongoController {
 	 */
 	object Implicits {
 		implicit val freezerFormatter = FreezerController.formatter
-		implicit val sampleFormatter = SampleController.formatter
-		implicit val wellFormatter = WellController.formatter
 		implicit val plateFormatter = PlateController.formatter
 		implicit val tubeFormatter = TubeController.formatter
 		implicit val rackFormatter = RackController.formatter
-		implicit val materialFormatter = MaterialController.formatter
 	}
 
 }

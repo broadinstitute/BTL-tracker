@@ -1,14 +1,13 @@
 package models
 
-import Component.ComponentType.ComponentType
-import controllers.ComponentController
+import initialContents.InitialContents.ContentType
 
 /**
  * Created by nnovod on 11/28/14.
  */
 /**
- * A Container is something that content can be put into.  There can be initial contents, for example a Material can be
- * set as the initial content for a tube.  Ultimately the contents of a container consists of it's initial contents
+ * A Container is something that content can be put into.  There can be initial contents, for example barcodes can be
+ * set as the initial content for a plate.  Ultimately the contents of a container consists of it's initial contents
  * as well as any additional contents transferred from other components.  Those additional contents are never
  * explicitly set anywhere - they are implicit in the graphs created that show the transfers that take place into
  * a container.
@@ -17,18 +16,12 @@ trait Container {
 	/**
 	 * Component ID for initial content
 	 */
-	val contentID: Option[String]
+	val contentID: Option[ContentType.ContentType]
 
 	/**
-	 * List of valid content component types for object's content.
+	 * List of valid content types for initial contents.
 	 */
-	val validContents: List[ComponentType]
-
-	/**
-	 * Method to see if id set for a content is valid.  Note operation is done via a future.
-	 * @return None if id found, otherwise error message
-	 */
-	def isContentValid = ComponentController.isIdValid(contentID,validContents,"Content")
+	val validContents: List[ContentType.ContentType]
 }
 
 object Container {

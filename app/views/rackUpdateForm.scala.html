@@ -13,8 +13,10 @@
 	@* Form with rack values - parameter to form method is "reverse-route" of action used to handle form submission *@
     @form(routes.RackController.updateRackFromForm(id), 'enctype -> "multipart/form-data", 'style -> "display:inline;") {
         @component(rackInput, true, Component.ComponentType.Rack, hiddenFields)
-@*        @inputText(rackInput(Location.locationKey), '_label -> "Location") *@
-@*        @inputText(rackInput(Container.contentKey), '_label -> "Content") *@
+	    @if(!Rack.validContents.isEmpty) {
+		    @select(field = rackInput(Container.contentKey),
+			    options = options(Rack.getContentDisplayValues(Rack.validContents)), '_label -> "Content")
+	    }
         @select(field = rackInput(Rack.layoutKey),
             options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
 	    @inputFile(rackInput(Rack.rackScanKey), '_label -> "Scan File")

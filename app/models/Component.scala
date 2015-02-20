@@ -13,6 +13,7 @@ import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
 import play.api.mvc.{AnyContent, Request}
+import initialContents.InitialContents.ContentType
 
 import scala.concurrent.Future
 
@@ -61,6 +62,12 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
 	val form: Form[C]
 	// Make sure a formatter is supplied by all inheriting classes
 	implicit val formatter: Format[C]
+
+	// No content string
+	private val noContents = ContentType.Nothing.toString
+	// Sorted list of display values for putting in drop down lists, etc. with no contents first
+	def getContentDisplayValues(validContents: List[ContentType.ContentType]) =
+		List(noContents) ++ validContents.map(_.toString).filterNot(_ == noContents).sorted
 }
 
 /**
@@ -113,6 +120,7 @@ trait Component {
 	 * List of tags associated with item.  Each tag can optionally have a value associated with it.
 	 */
 	val tags: List[ComponentTag]
+
 	/**
 	 * Type of component (e.g., tube, plate, ...)
 	 */
@@ -141,23 +149,14 @@ trait Component {
 			if (this.isInstanceOf[Location]) {
 				this.asInstanceOf[Location].isLocationValid
 			} else Future.successful(None)
-		val contentValid =
-			if (this.isInstanceOf[Container]) {
-				this.asInstanceOf[Container].isContentValid
-			} else Future.successful(None)
-		// Kick off all the futures being used to check if request is valid
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		for {loc <- locValid
-		     content <- contentValid
 		     valid <- isValid(request)
 		} yield {
 			// Futures complete - now return any errors reported
-			(loc, content, valid) match {
-				case (None, None, v) => v
-				case (Some(loc), None, v) => Map(Some(Location.locationKey) -> loc) ++ v
-				case (None, Some(con), v) => Map(Some(Container.contentKey) -> con) ++ v
-				case (Some(loc), Some(con), v) =>
-					Map(Some(Location.locationKey) -> loc, Some(Container.contentKey) -> con) ++ v
+			(loc, valid) match {
+				case (None, v) => v
+				case (Some(loc), v) => Map(Some(Location.locationKey) -> loc) ++ v
 			}
 		}
 	}
@@ -293,7 +292,7 @@ object Component {
 	 */
 	object ComponentType extends Enumeration {
 		type ComponentType = Value
-		val Tube, Plate, Rack, Freezer, Well, Sample, Material = Value
+		val Tube, Plate, Rack, Freezer = Value
 	}
 
 	/**

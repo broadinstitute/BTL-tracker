@@ -61,33 +61,6 @@ GET         /freezer/:id                controllers.FreezerController.findFreeze
 # Update freezer from posted data
 POST        /freezer/update/:id         controllers.FreezerController.updateFreezerFromForm(id: String)
 
-# Get new well settings
-GET         /well/add                   controllers.WellController.addWell
-# Create well from posted data
-POST        /well/add                   controllers.WellController.createWellFromForm
-# Display to edit existing well settings
-GET         /well/:id                   controllers.WellController.findWellByID(id: String)
-# Update well from posted data
-POST        /well/update/:id            controllers.WellController.updateWellFromForm(id: String)
-
-# Get new sample settings
-GET         /sample/add                 controllers.SampleController.addSample
-# Create sample from posted data
-POST        /sample/add                 controllers.SampleController.createSampleFromForm
-# Display to edit existing sample settings
-GET         /sample/:id                 controllers.SampleController.findSampleByID(id: String)
-# Update sample from posted data
-POST        /sample/update/:id          controllers.SampleController.updateSampleFromForm(id: String)
-
-# Get new material settings
-GET         /material/add               controllers.MaterialController.addMaterial
-# Create material from posted data
-POST        /material/add               controllers.MaterialController.createMaterialFromForm
-# Display to edit existing material settings
-GET         /material/:id               controllers.MaterialController.findMaterialByID(id: String)
-# Update material from posted data
-POST        /material/update/:id        controllers.MaterialController.updateMaterialFromForm(id: String)
-
 # Do BSP report for specified rack
 GET         /rack/BSPreport/:id         controllers.RackController.doBSPReport(id: String)
 

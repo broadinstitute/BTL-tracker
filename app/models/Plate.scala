@@ -14,6 +14,7 @@ import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
 import Component._
 import play.api.mvc.{AnyContent, Request}
+import initialContents.InitialContents.ContentType
 
 /**
  * Plate - it's a container (can have initial contents) and can have a location (e.g., a freezer) and
@@ -27,18 +28,18 @@ import play.api.mvc.{AnyContent, Request}
  * @param project optional project ID
  * @param tags name/value pairs to associate with the plate
  * @param locationID Optional ID of Component where this plate is located
- * @param contentID Optional ID of Component describing the initial contents of this plate
+ * @param contentID Optional initial contents of this plate
  * @param layout well layout of plate
  */
 case class Plate(override val id: String,override val description: Option[String],override val project: Option[String],
                  override val tags: List[ComponentTag],
-                 override val locationID: Option[String],override val contentID: Option[String],
+                 override val locationID: Option[String],override val contentID: Option[ContentType.ContentType],
                  layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject {
 	override val component = Plate.componentType
-	override val validLocations = List(ComponentType.Freezer)
-	override val validTransfers = List(ComponentType.Plate,ComponentType.Rack)
-	override val validContents = List(ComponentType.Material)
+	override val validLocations = Plate.validLocations
+	override val validTransfers = Plate.validTransfers
+	override val validContents = Plate.validContents
 
 	/**
 	 * Check if what's set in request is valid - specifically we check if the project set contains a DGE plate.
@@ -62,20 +63,27 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 	 * since clean inheritance doesn't appear to be possible.  That's why the (un)applyWithComponent is needed
 	 * (see componentMap for more details).
 	 */
-	private def applyWithComponent(c: Component,l: Option[String],con: Option[String],layout: Division.Division) =
+	private def applyWithComponent(c: Component,l: Option[String],
+	                               con: Option[ContentType.ContentType],layout: Division.Division) =
 		Plate(c.id,c.description,c.project,c.tags,l,con,layout)
 
 	private def unapplyWithComponent(p: Plate) = Some(p.getComponent,p.locationID,p.contentID,p.layout)
 
+	val validLocations = List(ComponentType.Freezer)
+	val validTransfers = List(ComponentType.Plate,ComponentType.Rack)
+	val validContents =
+		List(ContentType.NexteraSetA, ContentType.NexteraSetB, ContentType.NexteraSetC, ContentType.NexteraSetD)
+
 	val layoutKey = "layout"
-	// Supply our custom enum Reader and Writer for layout enum
+	// Supply our custom enum Reader and Writer for enums
 	implicit val layoutTypeFormat: Format[ContainerDivisions.Division.Division] = enumFormat(ContainerDivisions.Division)
+	implicit val contentTypeFormat: Format[ContentType.ContentType] = enumFormat(ContentType)
 
 	override val form = Form(
 		mapping(
 			Component.formKey -> Component.componentMap,
 			Location.locationKey -> optional(text),
-			Container.contentKey -> optional(text),
+			Container.contentKey -> optional(enum(ContentType)),
 			layoutKey -> enum(Division)
 		)(applyWithComponent)(unapplyWithComponent))
 

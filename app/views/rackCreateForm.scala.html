@@ -13,7 +13,10 @@
     @form(routes.RackController.createRackFromForm(), 'style -> "display:inline;") {
         @component(rackForm, false, Component.ComponentType.Rack)
 @*        @inputText(rackForm(Location.locationKey), '_label -> "Location") *@
-@*        @inputText(rackForm(Container.contentKey), '_label -> "Content") *@
+	    @if(!Rack.validContents.isEmpty) {
+		    @select(field = rackForm(Container.contentKey),
+			    options = options(Rack.getContentDisplayValues(Rack.validContents)), '_label -> "Content")
+	    }
         @select(field = rackForm(Rack.layoutKey),
             options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
         @createButtons()
