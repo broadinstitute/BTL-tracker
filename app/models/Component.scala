@@ -32,7 +32,7 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
 	 * @return new format that includes component type
 	 */
 	protected def formatWithComponent(base: Format[C]) = {
-		/**
+		/*
 		 * Make a transformer to convert the json to include a "component":"componentType".  If one's already there
 		 * then pick it, otherwise create Json with the component type string.
 		 *

@@ -93,14 +93,16 @@ object RackController extends ComponentController[Rack] {
 					val result = Redirect(routes.RackController.findRackByID(id))
 					FlashingKeys.setFlashingValue(result, FlashingKeys.Status, makeErrMsg("BSP racks", id, bspErr))
 				} else {
-					// If all issues are DGE ones and don't contain any tubes then we've found a DGE plate
-					val isDGE =
-						bspRacks.forall((issue) =>
-							issue.components.exists(_.contains("DGE")) && issue.list.forall(_.contents.isEmpty))
-					if (isDGE) {
+					// If an empty rack then either a DGE plate or a bad BSP report
+					val isEmptyRack =
+						bspRacks.forall((issue) => issue.list.forall(_.contents.isEmpty))
+					val isDGE = isEmptyRack && bspRacks.forall((issue) => issue.components.exists(_.contains("DGE")))
+					if (isEmptyRack) {
+						val err = if (isDGE) "\"Rack\" is a DGE plate - no BSP rack to report on" else
+							"BSP rack has no contents." +
+								"  Check if the Jira BSP attachment is missing fields, such as tube barcodes."
 						val result = Redirect(routes.RackController.findRackByID(id))
-						FlashingKeys.setFlashingValue(result, FlashingKeys.Status,
-							"\"Rack\" is a DGE plate - no BSP rack to report on")
+						FlashingKeys.setFlashingValue(result, FlashingKeys.Status, err)
 					} else {
 						// Get layout type and corresponding data to now dimensions of rack
 						val layout = (json \ Rack.layoutKey).as[String]
