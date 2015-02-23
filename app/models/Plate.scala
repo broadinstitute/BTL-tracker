@@ -42,19 +42,11 @@ case class Plate(override val id: String,override val description: Option[String
 	override val validContents = Plate.validContents
 
 	/**
-	 * Check if what's set in request is valid - specifically we check if the project set contains a DGE plate.
+	 * Check if what's set in request is valid - specifically we check if the project set contains a plate.
 	 * @param request HTTP request (has hidden field with project set before update)
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	override protected def isValid(request: Request[AnyContent]) = {
-		isProjectValid(request,
-			finalCheck = (issues) => {
-				if (!JiraProject.isDGE(issues))
-					Map(Some(formKey + "." + projectKey) -> "Project is not for a DGE plate")
-				else
-					Map.empty
-			})
-	}
+	override protected def isValid(request: Request[AnyContent]) = isProjectValid(request)
 }
 
 object Plate extends ComponentObject[Plate](ComponentType.Plate) {

@@ -59,7 +59,7 @@ object RackController extends ComponentController[Rack] {
 	 * @return nice text with all the error parts put together
 	 */
 	private def makeErrMsg(whatNotFound: String, id: String, err: Option[String]) = {
-		val m = "Unable to find " + whatNotFound + " for " + id + " in database"
+		val m = whatNotFound + " not found for " + id
 		val dbErr =
 			err match {
 				case Some(errMsg) => ": " + errMsg
@@ -82,7 +82,7 @@ object RackController extends ComponentController[Rack] {
 			if (rack.isEmpty) {
 				// Look like scan of rack never done
 				val result = Redirect(routes.RackController.findRackByID(id))
-				FlashingKeys.setFlashingValue(result, FlashingKeys.Status, makeErrMsg("rack scan", id, err))
+				FlashingKeys.setFlashingValue(result, FlashingKeys.Status, makeErrMsg("Scan File entry", id, err))
 			} else {
 				// Get list of projects containing original BSP scan of rack
 				val (bspRacks, bspErr) = JiraProject.getBSPRackIssueCollection(id)
@@ -91,15 +91,13 @@ object RackController extends ComponentController[Rack] {
 				if (bspRacks.isEmpty || foundRack.list.isEmpty) {
 					// Looks like BSP results never entered
 					val result = Redirect(routes.RackController.findRackByID(id))
-					FlashingKeys.setFlashingValue(result, FlashingKeys.Status, makeErrMsg("BSP racks", id, bspErr))
+					FlashingKeys.setFlashingValue(result, FlashingKeys.Status, makeErrMsg("BSP Rack entry", id, bspErr))
 				} else {
-					// If an empty rack then either a DGE plate or a bad BSP report
+					// If an empty rack then a bad BSP report
 					val isEmptyRack =
 						bspRacks.forall((issue) => issue.list.forall(_.contents.isEmpty))
-					val isDGE = isEmptyRack && bspRacks.forall((issue) => issue.components.exists(_.contains("DGE")))
 					if (isEmptyRack) {
-						val err = if (isDGE) "\"Rack\" is a DGE plate - no BSP rack to report on" else
-							"BSP rack has no contents." +
+						val err = "BSP rack has no recorded contents." +
 								"  Check if the Jira BSP attachment is missing fields, such as tube barcodes."
 						val result = Redirect(routes.RackController.findRackByID(id))
 						FlashingKeys.setFlashingValue(result, FlashingKeys.Status, err)

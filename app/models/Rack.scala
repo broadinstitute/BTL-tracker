@@ -45,15 +45,7 @@ case class Rack(override val id: String,override val description: Option[String]
  	 * @param request HTTP request (has hidden field with project set before update)
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	override protected def isValid(request: Request[AnyContent]) = {
-		isProjectValid(request,
-			finalCheck = (issues) => {
-				if (JiraProject.isDGE(issues))
-					Map(Some(formKey + "." + projectKey) -> "Project is not for a BSP rack")
-				else
-					Map.empty
-			})
-	}
+	override protected def isValid(request: Request[AnyContent]) = isProjectValid(request)
 }
 
 object Rack extends ComponentObject[Rack](ComponentType.Rack) {

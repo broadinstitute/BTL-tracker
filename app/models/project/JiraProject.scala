@@ -2,8 +2,8 @@ package models.project
 
 import models.Component
 import models.Component._
-import org.broadinstitute.LIMStales.mongo.{BtllimsBSPsCollection,BtllimsRacksCollection}
-import org.broadinstitute.LIMStales.sampleRacks.{SSFIssueList,BSPScan,RackScan}
+import org.broadinstitute.LIMStales.mongo.{BtllimsPlatesCollection,BtllimsBSPsCollection,BtllimsRacksCollection}
+import org.broadinstitute.LIMStales.sampleRacks.{SamplePlate,SSFIssueList,BSPScan,RackScan}
 import play.api.mvc.{AnyContent,Request}
 
 import scala.concurrent.Future
@@ -17,16 +17,11 @@ trait JiraProject {
 	// Must be associated with a component
 	this: Component =>
 	/**
-	 * Check if what's set in request is valid - specifically we check if the project set contains the rack (or plate
-	 * in the case of a DGE plate which is recorded via Jira as a rack with no tubes).
+	 * Check if what's set in request is valid - specifically we check if the project set contains the rack or plate.
 	 * @param request HTTP request (has hidden field with project set before update)
-	 * @param finalCheck callback to give final validity check - called after all validity checking done here passed
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	protected def isProjectValid(request: Request[AnyContent],
-	                             finalCheck:
-	                             (List[SSFIssueList[BSPScan]]) => Map[Option[String], String] = (_) => Map.empty)
-	: Future[Map[Option[String], String]] = {
+	protected def isProjectValid(request: Request[AnyContent]) : Future[Map[Option[String], String]] = {
 		// If no project set or project hasn't changed then just return saying all is fine
 		if (project.isEmpty || getHiddenField(request,_.project) == project)
 			Future.successful(Map.empty)
@@ -34,24 +29,28 @@ trait JiraProject {
 			import play.api.libs.concurrent.Execution.Implicits.defaultContext
 			Future {
 				val componentID = component.toString + " " + id
-				// Go get BSP rack for issue
-				val (bspRacks, bspErr) = JiraProject.getBSPRackIssueCollection(id)
-				if (bspRacks.isEmpty) {
+				// Go get contents for issue
+				val (entries, err) = component match {
+					case ComponentType.Rack => JiraProject.getBSPRackIssueCollection(id)
+					case ComponentType.Plate => JiraProject.getPlateIssueCollection(id)
+					case _ => (List.empty[SSFIssueList[_]], None)
+				}
+				if (entries.isEmpty) {
 					// Nothing returned - set global error (from DB or simply not found)
-					if (bspErr.isDefined) {
-						Map(None -> ("Error looking for " + componentID + " in projects database: " + bspErr.get))
+					if (err.isDefined) {
+						Map(None -> ("Error looking for " + component.toString + " in projects database: " + err.get))
 					} else {
 						Map(Some(formKey + "." + projectKey) -> ("No projects found for " + componentID))
 					}
 				} else {
-					// Rack returned - if it's for our project then we're happy - otherwise return error
-					if (bspRacks.exists(_.issue == project.get))
-						finalCheck(bspRacks)
+					// Entry returned - if it's for our project then we're happy - otherwise return error
+					if (entries.exists(_.issue == project.get))
+						Map.empty
 					else
 						Map(Some(formKey + "." + projectKey) ->
 							(componentID + " is not included in specified project.  " +
 								component.toString + " found in project" +
-								(if (bspRacks.size != 1) "s " else " ") + bspRacks.map(_.issue).mkString(",") + "."))
+								(if (entries.size != 1) "s " else " ") + entries.map(_.issue).mkString(",") + "."))
 				}
 			}
 		}
@@ -69,7 +68,7 @@ object JiraProject {
 		getIssueCollection[RackScan](() => BtllimsRacksCollection.retrieveOneRack(id).toList)
 
 	/**
-	 * Get the projects associated with a component, along with the results of BSP scans done of racks.  For each rack
+	 * Get the projects associated with a rack, along with the results of BSP scans done of racks.  For each rack
 	 * scan a list of the tubes that are part of the rack is included.
 	 * @param id component id
 	 * @return list of projects found along with associate BSP rack scans (optional error message returned as well)
@@ -78,7 +77,15 @@ object JiraProject {
 		getIssueCollection[BSPScan](() => BtllimsBSPsCollection.retrieveRack(id).toList)
 
 	/**
-	 * Get a list of racks from the DB
+	 * Get the projects associated with a plate.
+	 * @param id component id
+	 * @return list of projects found along with associated Plate information (optional error message returned as well)
+	 */
+	def getPlateIssueCollection(id: String) =
+		getIssueCollection[SamplePlate](() => BtllimsPlatesCollection.retrievePlate(id).toList)
+
+	/**
+	 * Get a list of entries from the DB
  	 * @param getList callback to get list
 	 * @tparam R type of items in list
 	 * @return list found in DB and optional error message
@@ -89,13 +96,4 @@ object JiraProject {
 		} catch {
 			case e: Exception => (List.empty[SSFIssueList[R]], Some(e.getLocalizedMessage))
 		}
-
-	/**
-	 * Is a BSP rack scan really for a DGE plate?  If the project components include "DGE" and there are no tubes
-	 * in the scans then the "BSP racks" are really DGE plates.
-	 * @param issueList List of issues returned with BSP scans
-	 * @return true if projects are all for DGE plates
-	 */
-	def isDGE(issueList: List[SSFIssueList[BSPScan]]) =
-		issueList.forall((issue) => issue.components.exists(_.contains("DGE")) && issue.list.forall(_.contents.isEmpty))
 }

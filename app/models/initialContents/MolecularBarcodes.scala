@@ -92,23 +92,20 @@ object MolecularBarcodes {
 	private val mbN728 = MolBarcode("TAGCTGCA","N728")
 	private val mbN729 = MolBarcode("GACGTCGA","N729")
 
-	// Create well names using list initialization
-	private val wA01 :: wA02 :: wA03 :: wA04 :: wA05 :: wA06 :: wA07 :: wA08 :: wA09 :: wA10 :: wA11 :: wA12 :: Nil =
-		List.tabulate(12)((x) => f"A${x+1}%02d")
-	private val wB01 :: wB02 :: wB03 :: wB04 :: wB05 :: wB06 :: wB07 :: wB08 :: wB09 :: wB10 :: wB11 :: wB12 :: Nil =
-		List.tabulate(12)((x) => f"B${x+1}%02d")
-	private val wC01 :: wC02 :: wC03 :: wC04 :: wC05 :: wC06 :: wC07 :: wC08 :: wC09 :: wC10 :: wC11 :: wC12 :: Nil =
-		List.tabulate(12)((x) => f"C${x+1}%02d")
-	private val wD01 :: wD02 :: wD03 :: wD04 :: wD05 :: wD06 :: wD07 :: wD08 :: wD09 :: wD10 :: wD11 :: wD12 :: Nil =
-		List.tabulate(12)((x) => f"D${x+1}%02d")
-	private val wE01 :: wE02 :: wE03 :: wE04 :: wE05 :: wE06 :: wE07 :: wE08 :: wE09 :: wE10 :: wE11 :: wE12 :: Nil =
-		List.tabulate(12)((x) => f"E${x+1}%02d")
-	private val wF01 :: wF02 :: wF03 :: wF04 :: wF05 :: wF06 :: wF07 :: wF08 :: wF09 :: wF10 :: wF11 :: wF12 :: Nil =
-		List.tabulate(12)((x) => f"F${x+1}%02d")
-	private val wG01 :: wG02 :: wG03 :: wG04 :: wG05 :: wG06 :: wG07 :: wG08 :: wG09 :: wG10 :: wG11 :: wG12 :: Nil =
-		List.tabulate(12)((x) => f"G${x+1}%02d")
-	private val wH01 :: wH02 :: wH03 :: wH04 :: wH05 :: wH06 :: wH07 :: wH08 :: wH09 :: wH10 :: wH11 :: wH12 :: Nil =
-		List.tabulate(12)((x) => f"H${x+1}%02d")
+	// Create well names using list initialization and patterns
+	private val wPr = 12 // Wells per row
+	private val rPp = 8 // Rows per plate
+	private val wellList = List.tabulate(wPr*rPp)((x) => f"${(x/wPr)+'A'}%c${(x%wPr)+1}%02d")
+	// It would be nice to do this as one list but unapply is limited to 22 arguments so left side, which uses
+	// unapply for its pattern, can not handle all the wells at once.
+	private val List(wA01,wA02,wA03,wA04,wA05,wA06,wA07,wA08,wA09,wA10,wA11,wA12) = wellList.slice(0,wPr)
+	private val	List(wB01,wB02,wB03,wB04,wB05,wB06,wB07,wB08,wB09,wB10,wB11,wB12) = wellList.slice(wPr*1,wPr*2)
+	private val	List(wC01,wC02,wC03,wC04,wC05,wC06,wC07,wC08,wC09,wC10,wC11,wC12) = wellList.slice(wPr*2,wPr*3)
+	private val	List(wD01,wD02,wD03,wD04,wD05,wD06,wD07,wD08,wD09,wD10,wD11,wD12) = wellList.slice(wPr*3,wPr*4)
+	private val	List(wE01,wE02,wE03,wE04,wE05,wE06,wE07,wE08,wE09,wE10,wE11,wE12) = wellList.slice(wPr*4,wPr*5)
+	private val	List(wF01,wF02,wF03,wF04,wF05,wF06,wF07,wF08,wF09,wF10,wF11,wF12) = wellList.slice(wPr*5,wPr*6)
+	private val	List(wG01,wG02,wG03,wG04,wG05,wG06,wG07,wG08,wG09,wG10,wG11,wG12) = wellList.slice(wPr*6,wPr*7)
+	private val	List(wH01,wH02,wH03,wH04,wH05,wH06,wH07,wH08,wH09,wH10,wH11,wH12) = wellList.slice(wPr*7,wPr*8)
 
 	// Now set contents of Set A
 	private val mbSetAA01 = MolBarcodeWell(wA01,mbS502,mbN701)
