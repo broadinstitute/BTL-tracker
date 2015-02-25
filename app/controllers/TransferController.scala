@@ -33,10 +33,11 @@ object TransferController extends Controller {
 	 * @return action to get additional transfer information wanted
 	 */
 	def transferWithParams(fromID: String, toID: String,
-	                       fromQuad : Boolean, toQuad: Boolean, fromPos: Boolean, toPos: Boolean) = {
+	                       fromQuad : Option[Boolean], toQuad: Option[Boolean],
+	                       fromPos: Option[Boolean], toPos: Option[Boolean]) = {
 		Action { request =>
-			Ok(views.html.transfer(Errors.addStatusFlash(request,Transfer.form),
-				fromID, toID, fromQuad, toQuad, fromPos, toPos))
+			Ok(views.html.transfer(Errors.addStatusFlash(request,Transfer.form), fromID, toID,
+				fromQuad.getOrElse(false), toQuad.getOrElse(false), fromPos.getOrElse(false), toPos.getOrElse(false)))
 		}
 	}
 
@@ -52,7 +53,7 @@ object TransferController extends Controller {
 					views.html.transferStart(formWithErrors.withGlobalError(Application.validationError)))),
 			data => {
 				val result = Redirect(routes.TransferController.transferWithParams(
-					data.from,data.to,true,true,true,true))
+					data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
 				Future.successful(FlashingKeys.setFlashingValue(
 					result,FlashingKeys.Status,"Fill in additional data to complete transfer"))
 			}

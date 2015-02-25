@@ -65,7 +65,7 @@ POST        /freezer/update/:id        controllers.FreezerController.updateFreez
 GET         /rack/BSPreport/:id        controllers.RackController.doBSPReport(id: String)
 
 GET         /transfer                  controllers.TransferController.transfer
-GET         /transferWithParams/:fromID/:toID/:fromQuad/:toQuad/:fromPos/:toPos      controllers.TransferController.transferWithParams(fromID: String, toID: String, fromQuad: Boolean, toQuad: Boolean, fromPos: Boolean, toPos: Boolean)
+GET         /transferWithParams/:fromID/:toID      controllers.TransferController.transferWithParams(fromID: String, toID: String, fromQuad: Option[Boolean], toQuad: Option[Boolean], fromPos: Option[Boolean], toPos: Option[Boolean])
 POST        /transfer                  controllers.TransferController.transferFromForm
 
 # Map static resources from the /public folder to the /assets URL path
