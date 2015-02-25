@@ -18,4 +18,7 @@
 	@form(controllers.routes.Application.add(), 'style -> "display:inline;") {
 		<input type="submit" value="Add Component" style="display:inline;">
 	}
+	@form(controllers.routes.TransferController.transfer(), 'style -> "display:inline;") {
+		<input type="submit" value="Transfer Component" style="display:inline;">
+	}
 }

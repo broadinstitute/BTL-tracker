@@ -13,7 +13,7 @@ object Application extends Controller {
 	/**
 	 * Validation error report
 	 */
-	private val validationError = "Data entry error - see below"
+	val validationError = "Data entry error - see below"
 
 	/**
 	 * Original play default action - brings up play documentation

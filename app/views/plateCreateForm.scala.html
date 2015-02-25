@@ -8,15 +8,15 @@
 
 @* Call main template to create html with form to create a plate *@
 @mainComponent("Create Plate"){
-  @componentIntro("Create Plate", plateForm)
-  @* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
-  @form(routes.PlateController.createPlateFromForm(), 'style -> "display:inline;") {
-      @component(plateForm, false, Component.ComponentType.Plate)
-@*      @inputText(plateForm(Location.locationKey), '_label -> "Location") *@
-	  @initialContents(Plate.validContents, plateForm, Plate)
-	  @select(field = plateForm(Plate.layoutKey),
-		  options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
-	  @createButtons()
-  }
+	@componentIntro("Create Plate", plateForm)
+	@* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
+	@form(routes.PlateController.createPlateFromForm(), 'style -> "display:inline;") {
+		@component(plateForm, false, Component.ComponentType.Plate)
+		@*      @inputText(plateForm(Location.locationKey), '_label -> "Location") *@
+		@initialContents(Plate.validContents, plateForm)
+		@select(field = plateForm(Plate.layoutKey),
+			options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
+		@createButtons()
+	}
 	@homeOption(Seq.empty)
 }

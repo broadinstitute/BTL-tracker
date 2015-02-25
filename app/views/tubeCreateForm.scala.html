@@ -12,7 +12,7 @@
 	@form(routes.TubeController.createTubeFromForm(), 'style -> "display:inline;") {
 		@component(tubeForm, false, Component.ComponentType.Tube)
         @inputText(tubeForm(Location.locationKey), '_label -> "Location")
-		@initialContents(Tube.validContents, tubeForm, Tube)
+		@initialContents(Tube.validContents, tubeForm)
 		@createButtons()
 	}
 	@homeOption(Seq.empty)

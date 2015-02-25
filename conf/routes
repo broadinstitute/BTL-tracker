@@ -3,66 +3,70 @@
 # ~~~~
 
 # Home page
-GET         /                           controllers.Application.index
+GET         /                          controllers.Application.index
 
 # Test page
-GET         /test                       controllers.Application.test
+GET         /test                      controllers.Application.test
 #To get play introduction
-GET         /playDoc                    controllers.Application.playDoc
+GET         /playDoc                   controllers.Application.playDoc
 
 # Get settings to add a new item
-GET         /add                        controllers.Application.add
+GET         /add                       controllers.Application.add
 # Post request to add a new item (posted data specified item type)
-POST        /add                        controllers.Application.addFromForm
+POST        /add                       controllers.Application.addFromForm
 
 # Delete from get parameter
-GET         /delete/:id                 controllers.Application.deleteByID(id: String)
+GET         /delete/:id                controllers.Application.deleteByID(id: String)
 
 # Retrieve item
-GET         /find                       controllers.Application.find
+GET         /find                      controllers.Application.find
 # Find from posted data
-POST        /find                       controllers.Application.findFromForm
+POST        /find                      controllers.Application.findFromForm
 # Find from get parameter
-GET         /find/:id                   controllers.Application.findByID(id: String)
+GET         /find/:id                  controllers.Application.findByID(id: String)
 
 # Get new tube settings
-GET         /tube/add                   controllers.TubeController.addTube
+GET         /tube/add                  controllers.TubeController.addTube
 # Create tube from posted data
-POST        /tube/add                   controllers.TubeController.createTubeFromForm
+POST        /tube/add                  controllers.TubeController.createTubeFromForm
 # Display to edit existing tube settings
-GET         /tube/:id                   controllers.TubeController.findTubeByID(id: String)
+GET         /tube/:id                  controllers.TubeController.findTubeByID(id: String)
 # Update tube from posted data
-POST        /tube/update/:id            controllers.TubeController.updateTubeFromForm(id: String)
+POST        /tube/update/:id           controllers.TubeController.updateTubeFromForm(id: String)
 
 # Get new plate settings
-GET         /plate/add                  controllers.PlateController.addPlate
+GET         /plate/add                 controllers.PlateController.addPlate
 # Create plate from posted data
-POST        /plate/add                  controllers.PlateController.createPlateFromForm
+POST        /plate/add                 controllers.PlateController.createPlateFromForm
 # Display to edit existing plate settings
-GET         /plate/:id                  controllers.PlateController.findPlateByID(id: String)
+GET         /plate/:id                 controllers.PlateController.findPlateByID(id: String)
 # Update plate from posted data
-POST        /plate/update/:id           controllers.PlateController.updatePlateFromForm(id: String)
+POST        /plate/update/:id          controllers.PlateController.updatePlateFromForm(id: String)
 
 # Get new rack settings
-GET         /rack/add                   controllers.RackController.addRack
+GET         /rack/add                  controllers.RackController.addRack
 # Create rack from posted data
-POST        /rack/add                   controllers.RackController.createRackFromForm
+POST        /rack/add                  controllers.RackController.createRackFromForm
 # Display to edit existing rack settings
-GET         /rack/:id                   controllers.RackController.findRackByID(id: String)
+GET         /rack/:id                  controllers.RackController.findRackByID(id: String)
 # Update rack from posted data
-POST        /rack/update/:id            controllers.RackController.updateRackFromForm(id: String)
+POST        /rack/update/:id           controllers.RackController.updateRackFromForm(id: String)
 
 # Get new freezer settings
-GET         /freezer/add                controllers.FreezerController.addFreezer
+GET         /freezer/add               controllers.FreezerController.addFreezer
 # Create freezer from posted data
-POST        /freezer/add                controllers.FreezerController.createFreezerFromForm
+POST        /freezer/add               controllers.FreezerController.createFreezerFromForm
 # Display to edit existing freezer settings
-GET         /freezer/:id                controllers.FreezerController.findFreezerByID(id: String)
+GET         /freezer/:id               controllers.FreezerController.findFreezerByID(id: String)
 # Update freezer from posted data
-POST        /freezer/update/:id         controllers.FreezerController.updateFreezerFromForm(id: String)
+POST        /freezer/update/:id        controllers.FreezerController.updateFreezerFromForm(id: String)
 
 # Do BSP report for specified rack
-GET         /rack/BSPreport/:id         controllers.RackController.doBSPReport(id: String)
+GET         /rack/BSPreport/:id        controllers.RackController.doBSPReport(id: String)
+
+GET         /transfer                  controllers.TransferController.transfer
+GET         /transferWithParams/:fromID/:toID/:fromQuad/:toQuad/:fromPos/:toPos      controllers.TransferController.transferWithParams(fromID: String, toID: String, fromQuad: Boolean, toQuad: Boolean, fromPos: Boolean, toPos: Boolean)
+POST        /transfer                  controllers.TransferController.transferFromForm
 
 # Map static resources from the /public folder to the /assets URL path
-GET         /assets/*file               controllers.Assets.at(path="/public", file)
+GET         /assets/*file              controllers.Assets.at(path="/public", file)

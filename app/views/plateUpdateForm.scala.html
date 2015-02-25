@@ -13,7 +13,7 @@
     @form(routes.PlateController.updatePlateFromForm(id), 'style -> "display:inline;") {
         @component(plateInput, true, Component.ComponentType.Plate, hiddenFields)
 @*        @inputText(plateInput(Location.locationKey), '_label -> "Location") *@
-	    @initialContents(Plate.validContents, plateInput, Plate)
+	    @initialContents(Plate.validContents, plateInput)
 	    @select(field = plateInput(Plate.layoutKey),
 		    options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
 	    @updateButtons()

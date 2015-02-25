@@ -13,7 +13,6 @@ import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
 import play.api.mvc.{AnyContent, Request}
-import initialContents.InitialContents.ContentType
 
 import scala.concurrent.Future
 
@@ -62,12 +61,6 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
 	val form: Form[C]
 	// Make sure a formatter is supplied by all inheriting classes
 	implicit val formatter: Format[C]
-
-	// No content string
-	private val noContents = ContentType.Nothing.toString
-	// Sorted list of display values for putting in drop down lists, etc. with no contents first
-	def getContentDisplayValues(validContents: List[ContentType.ContentType]) =
-		List(noContents) ++ validContents.map(_.toString).filterNot(_ == noContents).sorted
 }
 
 /**

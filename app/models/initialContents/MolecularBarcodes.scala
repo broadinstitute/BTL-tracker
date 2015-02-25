@@ -563,5 +563,4 @@ object MolecularBarcodes {
 	implicit val molBarcodeFormatter = Json.format[MolBarcode]
 	implicit val molBarcodeWellFormatter = Json.format[MolBarcodeWell]
 	implicit val molBarcodeContentsFormatter = Json.format[MolBarcodeContents]
-
 }

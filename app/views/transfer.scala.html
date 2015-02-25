@@ -1,0 +1,30 @@
+@(transferForm: Form[Transfer], fromID: String, toID: String,
+		fromQuad: Boolean = false, toQuad: Boolean = false, fromPos: Boolean = false, toPos: Boolean = false)
+@import helper._
+@import models.Transfer
+
+@main("Transfer Component") {
+    <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Transfer Component", transferForm)
+	@form(routes.TransferController.transferFromForm, 'style -> "display:inline;") {
+		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
+		@inputText(transferForm(Transfer.toKey).copy(value=Some(toID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
+		@if(fromQuad) {
+			@select(field = transferForm(Transfer.fromQuadKey),
+				options = options(Transfer.quadVals), '_label -> ("Component " + fromID + " quadrant to transfer from"))
+		}
+		@if(toQuad) {
+			@select(field = transferForm(Transfer.toQuadKey),
+				options = options(Transfer.quadVals), '_label -> ("Component " + toID + " quadrant to transfer to"))
+		}
+		@if(fromPos) {
+			@inputText(transferForm(Transfer.fromPosKey), '_label -> ("Component " + fromID + " position to transfer from"))
+		}
+		@if(toPos) {
+			@inputText(transferForm(Transfer.toPosKey), '_label -> ("Component " + toID + " position to transfer to"))
+		}
+		<input type="submit" value="Transfer" style="display:inline;">
+	}
+	@homeOption(Seq.empty)
+}

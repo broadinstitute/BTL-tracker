@@ -29,6 +29,10 @@ object InitialContents {
 		NexteraSetD -> MolecularBarcodes.mbSetD
 	)
 
+	// Sorted list of display values for putting in drop down lists, etc. with no contents first
+	def getContentDisplayValues(validContents: List[ContentType.ContentType]) =
+		List(noContents) ++ validContents.map(_.toString).filterNot(_ == noContents).sorted
+
 	/**
 	 * Initial contents
 	 * @tparam C content class type
