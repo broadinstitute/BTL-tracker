@@ -11,6 +11,7 @@ import mappings.CustomMappings._
 import Component.ComponentType
 import play.api.data.Form
 import play.api.data.Forms._
+import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{AnyContent, Request}
 
@@ -54,9 +55,8 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
 		}
 	}
 
-	// Create Format for ComponentType enum using our custom enum Reader and Writer
-	implicit val componentTypeFormat: Format[Component.ComponentType.ComponentType] =
-		enumFormat(Component.ComponentType)
+	// Needed to format ComponentType
+	import Component.ComponentType.componentTypeFormat
 	// Make sure a form is supplied by all inheriting classes
 	val form: Form[C]
 	// Make sure a formatter is supplied by all inheriting classes
@@ -286,6 +286,9 @@ object Component {
 	object ComponentType extends Enumeration {
 		type ComponentType = Value
 		val Tube, Plate, Rack, Freezer = Value
+		// Create Format for ComponentType enum using our custom enum Reader and Writer
+		implicit val componentTypeFormat: Format[ComponentType] =
+			enumFormat(ComponentType)
 	}
 
 	/**

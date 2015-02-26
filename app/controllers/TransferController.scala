@@ -1,8 +1,9 @@
 package controllers
 
 import controllers.Errors.FlashingKeys
-import models.{Component,Transfer}
-import play.api.mvc.{Action,Controller}
+import models.Component.ComponentType
+import models.{Transferrable,Component,Transfer}
+import play.api.mvc.{AnyContent,Request,Action,Controller}
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
 import play.api.libs.json._
@@ -50,46 +51,88 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
+	 * Take data from transfer form and check it out.
+ 	 * @param data data retrieved from transfer form
+	 * @tparam T type to return as transfer objects if they are found
+	 * @return objects found and list of missing objects - one will always be set to None
+	 */
+	private def getTransferInfo[T: Reads](data: Transfer) = {
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		for {
+			to <- collection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
+			from <- collection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
+		} yield {
+			def missingIDs(errs: List[String]) = {
+				val notFoundErrs : Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
+				Errors.fillAndSetFailureMsgs(notFoundErrs, Transfer.form, data)
+			}
+			val notFound = "ID not found"
+			(from,to) match {
+				case (Some(f),Some(t)) => (Some(f, t), None)
+				case (None,Some(_)) => (None, Some(missingIDs(List(Transfer.fromKey))))
+				case (Some(_),None) => (None, Some(missingIDs(List(Transfer.toKey))))
+				case _ => (None, Some(missingIDs(List(Transfer.fromKey, Transfer.toKey))))
+			}
+		}
+	}
+
+	private def isTransferValid(data: Transfer, from: JsObject, to: JsObject) = {
+		import models.Component.ComponentType._
+		import models.{Plate, Rack, Tube, Freezer}
+		val fromC = (from \ Component.typeKey).as[ComponentType]
+		val toC = (to \ Component.typeKey).as[ComponentType]
+		def component(comp: ComponentType) = comp match {
+			case ComponentType.Plate => from.as[Plate]
+			case ComponentType.Rack => from.as[Rack]
+			case ComponentType.Tube => from.as[Tube]
+			case ComponentType.Freezer => from.as[Freezer]
+			case _ => throw new Exception("Invalid transfer component type: " + fromC.toString())
+		}
+
+		component(fromC) match {
+			case fc: Component with Transferrable if fc.validTransfers.contains(toC) => Some(fc, component(toC))
+			case invalidComponent => None
+		}
+	}
+
+	/**
 	 * Start of transfer - we look over IDs and see what's possible.  Depending type of components being transferred
 	 * different additional information may be needed.
 	 * @return action to see what step is next to complete transfer
 	 */
 	def transferIDs = Action.async { request =>
-		// This finds implicit reader - couldn't find it on my own
-		def doTransfer[T: Reads] = {
-			import play.api.libs.concurrent.Execution.Implicits.defaultContext
-			Transfer.form.bindFromRequest()(request).fold(
-				formWithErrors =>
-					Future.successful(BadRequest(
-						views.html.transferStart(formWithErrors.withGlobalError(Errors.validationError)))),
-				data => {
-					for {
-						to <- collection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
-						from <- collection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
-					} yield {
-						def missingResult(errs: List[String]) = {
-							val f = errs.foldLeft(Transfer.form.fill(data))((f, k) => f.withError(k, "ID not found"))
-							val form = f.withGlobalError("Fix errors below")
-							BadRequest(views.html.transferStart(form))
-						}
-						(to,from) match {
-							case (Some(t),Some(f)) =>
-								val result0 = Redirect(routes.TransferController.transferWithParams(
-									data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
-								FlashingKeys.setFlashingValue(
-									result0,FlashingKeys.Status,"Fill in additional data to complete transfer")
-							case (None,Some(fid)) => missingResult(List(Transfer.fromKey))
-							case (Some(tid),None) => missingResult(List(Transfer.toKey))
-							case _ => missingResult(List(Transfer.fromKey, Transfer.toKey))
-						}
-					}
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		Transfer.form.bindFromRequest()(request).fold(
+			formWithErrors =>
+				Future.successful(BadRequest(
+					views.html.transferStart(formWithErrors.withGlobalError(Errors.validationError)))),
+			data => {
+				getTransferInfo[JsObject](data).map{
+					case (Some((from, to)), None) =>
+						val valid = isTransferValid(data, from, to)
+						val result0 = Redirect(routes.TransferController.transferWithParams(
+							data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
+						if (valid.isDefined)
+							FlashingKeys.setFlashingValue(result0,
+								FlashingKeys.Status, "Fill in additional data to complete transfer")
+						else
+							BadRequest(views.html.transferStart(
+								Errors.fillAndSetFailureMsgs(Map(None -> "Invalid transfer types"),
+									Transfer.form, data)))
+					case (None, Some(form)) => BadRequest(views.html.transferStart(form))
+					// Should never have both or neither as None but...
+					case _ => FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
+						FlashingKeys.Status,"Internal error: Failure during transferIDs")
 				}
-			).recover {
-				case err => BadRequest(
-					views.html.transferStart(Transfer.form.withGlobalError(Errors.exceptionMessage(err))))
+			}.recover {
+				case err => BadRequest(views.html.transferStart(
+					Errors.fillAndSetFailureMsgs(Map(None -> Errors.exceptionMessage(err)), Transfer.form, data)))
+
 			}
+		).recover {
+			case err => BadRequest(
+				views.html.transferStart(Transfer.form.withGlobalError(Errors.exceptionMessage(err))))
 		}
-		doTransfer[JsObject]
 	}
 
 	/**

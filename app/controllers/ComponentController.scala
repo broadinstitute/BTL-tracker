@@ -94,7 +94,8 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		findByID[C,Result](id,List(componentType),
 			// Found wanted component
-			found = (c) => viewData(Ok, c, request,	htmlForUpdate(id, Some(c.hiddenFields)), Map.empty,setMessages),
+			found = (c) => viewData(Ok, c, request,	htmlForUpdate(id, Some(c.hiddenFields)),
+				Map.empty, Errors.setMessages),
 			// NotFound - just redirect to not found view
 			notFound = Errors.notFoundRedirect
 		).recover {
@@ -118,7 +119,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 					Logger.debug(s"$success with status: $lastError")
 					// Return view of data just created
 					viewData(Ok, data, request,
-						htmlForUpdate(data.id, Some(data.hiddenFields)), Map(None -> success), setMessages)
+						htmlForUpdate(data.id, Some(data.hiddenFields)), Map(None -> success), Errors.setMessages)
 				}
 			},
 			// if trouble then show form that should be updated with error messages
@@ -151,14 +152,14 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 						Logger.debug(s"$success with status: $lastError")
 						// Return view of data just updated
 						viewData(Ok, data, request,
-							htmlForUpdate(id, Some(data.hiddenFields)), Map(None -> success), setMessages)
+							htmlForUpdate(id, Some(data.hiddenFields)), Map(None -> success), Errors.setMessages)
 					}
 				} else {
 					// If pre-update returned errors then return form with those errors - remember original
 					// hidden fields so any changes made to them are ignored for now
 					Future.successful(
 						viewData(BadRequest, data, request,
-							htmlForUpdate(id, Component.getHiddenFields(request)), errs, setFailureMsgs))
+							htmlForUpdate(id, Component.getHiddenFields(request)), errs, Errors.setFailureMsgs))
 				}
 			},
 			// if trouble then show form that should be updated with error messages
@@ -270,7 +271,7 @@ object ComponentController extends Controller with MongoController {
 				data.isRequestValid(request).flatMap {
 					case e: Map[Option[String],String] if !e.isEmpty =>
 						// Return complete future with form set with errors
-						val formWithErrors = setFailureMsgs(e, form.fill(data))
+						val formWithErrors = Errors.setFailureMsgs(e, form.fill(data))
 						Future.successful(BadRequest(onFailure(formWithErrors)))
 					// If all went well then callback to process data
 					case _ => afterBind(data)
@@ -280,37 +281,6 @@ object ComponentController extends Controller with MongoController {
 			case err => BadRequest(onFailure(bForm.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
-
-	/**
-	 * Method to take messages and put them on the form
-	 *
-	 * @param msgs map of error messages in form of fieldName->errorMessage (no fieldname for global error)
-	 * @return form to display with messages
-	 */
-	private def setMessages[I](msgs: Map[Option[String],String], form: Form[I]) = {
-		// Add messages to form - getting a new form each time a message is added
-		msgs.foldLeft(form) {
-			case (f, (Some(k),m)) => f.withError(k,m)
-			case (f, (None,m)) => f.withGlobalError(m)
-		}
-	}
-
-	/**
-	 * Method to take errors and put them on the form
-	 *
-	 * @param msgs map of error messages in form of fieldName->errorMessage
-	 * @return Complete future with result of "BadRequest" and form to display and set with errors
-	 */
-	private def setFailureMsgs[I](msgs: Map[Option[String],String], form: Form[I]) = {
-		// Make form with data filled in and errors set with fields
-		val formWithFieldErrors = setMessages(msgs, form)
-		// See if global error already exists
-		val isGlobalErrors = msgs.exists(_._1 == None)
-		// Add global error in form - if other errors set are not global they will be field specific later in form
-		formWithFieldErrors.withGlobalError("Operation not completed - fix errors" +
-			(if (!isGlobalErrors) " below" else ""))
-	}
-
 
 	/**
 	 * Class to hold redirect calls

@@ -60,7 +60,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 	private def unapplyWithComponent(r: Rack) = Some(r.getComponent,r.locationID,r.initialContent,r.layout)
 
 	val validLocations = List(ComponentType.Freezer)
-	val validTransfers = List(ComponentType.Rack,ComponentType.Plate)
+	val validTransfers = List(ComponentType.Rack,ComponentType.Plate,ComponentType.Tube)
 	val validContents = List.empty[ContentType.ContentType]
 
 	/**

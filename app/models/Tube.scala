@@ -38,7 +38,7 @@ case class Tube(override val id: String,override val description: Option[String]
  */
 object Tube extends ComponentObject[Tube](ComponentType.Tube) {
 	val validLocations = List(ComponentType.Freezer,ComponentType.Plate)
-	val validTransfers = List(ComponentType.Plate,ComponentType.Tube)
+	val validTransfers = List(ComponentType.Tube)
 	val validContents = List.empty[ContentType.ContentType]
 	/**
 	 * Form mapping for a tube.  Note that component contents must be referred to as componentData.fieldName in forms

@@ -112,4 +112,43 @@ object Errors {
 			notFoundComponentMessage(id,componentType) + " - you can add the component now")
 	}
 
+	/**
+	 * Method to take messages and put them on the form
+	 *
+	 * @param msgs map of error messages in form of fieldName->errorMessage (no fieldname for global error)
+	 * @return form to display with messages
+	 */
+	def setMessages[I](msgs: Map[Option[String],String], form: Form[I]) = {
+		// Add messages to form - getting a new form each time a message is added
+		msgs.foldLeft(form) {
+			case (f, (Some(k),m)) => f.withError(k,m)
+			case (f, (None,m)) => f.withGlobalError(m)
+		}
+	}
+
+	/**
+	 * Method to take errors and put them on the form
+	 *
+	 * @param msgs map of error messages in form of fieldName->errorMessage
+	 * @return form to display and set with errors
+	 */
+	def setFailureMsgs[I](msgs: Map[Option[String],String], form: Form[I]) = {
+		// Make form with data filled in and errors set with fields
+		val formWithFieldErrors = setMessages(msgs, form)
+		// See if global error already exists
+		val isGlobalErrors = msgs.exists(_._1 == None)
+		// Add global error in form - if other errors set are not global they will be field specific later in form
+		formWithFieldErrors.withGlobalError("Operation unsuccessful - fix errors" +
+			(if (!isGlobalErrors) " below" else ""))
+	}
+
+	/**
+	 * Method to take errors and put them on a form filled with data
+	 * @param msgs map of error messages in form of fieldName->errorMessage
+	 * @param data data to fill in form
+	 * @return form to display, filled with data and set with errors
+ 	 */
+	def fillAndSetFailureMsgs[I](msgs: Map[Option[String],String], form: Form[I], data: I) = {
+		setFailureMsgs(msgs, form.fill(data))
+	}
 }
