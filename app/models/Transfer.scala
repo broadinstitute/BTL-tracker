@@ -48,12 +48,12 @@ object Transfer {
 
 	/**
 	 * Formatter for going to/from and validating Json
+	 * Supply our custom enum Reader and Writer for content type enum
+	 * Can't use format macro because it can't handle optional enum
 	 */
 	import play.api.libs.functional.syntax._
-	// Supply our custom enum Reader and Writer for content type enum
 	implicit val quadFormat: Format[Quad.Quad] = enumFormat(Quad)
-	// Can't use format macro because it can't handle optional enum
-	implicit def transferFormat: Format[Transfer] =
+	implicit val transferFormat: Format[Transfer] =
 		((__ \ fromKey).format[String] ~
 			(__ \ toKey).format[String] ~
 			(__ \ fromQuadKey).format[Option[Quad.Quad]] ~
@@ -61,6 +61,7 @@ object Transfer {
 			(__ \ fromPosKey).format[Option[String]] ~
 			(__ \ toPosKey).format[Option[String]]
 	  )(Transfer.apply, unlift(Transfer.unapply))
+//	implicit val formatter: Format[Transfer] = Json.format[Transfer] // Not working
 
 	// Rules for a transfer - given two components a rule says that the transfer is (in)valid
 	type TransferRules = (Component,Component) => Boolean

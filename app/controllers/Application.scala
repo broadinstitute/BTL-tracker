@@ -11,11 +11,6 @@ import scala.concurrent.Future
 object Application extends Controller {
 
 	/**
-	 * Validation error report
-	 */
-	val validationError = "Data entry error - see below"
-
-	/**
 	 * Original play default action - brings up play documentation
 	 *
 	 * @return action to show play documentation
@@ -54,7 +49,7 @@ object Application extends Controller {
 	def addFromForm() = Action { request =>
 		Component.typeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
-				BadRequest(views.html.add(formWithErrors.withGlobalError(validationError))),
+				BadRequest(views.html.add(formWithErrors.withGlobalError(Errors.validationError))),
 			data =>
 				Redirect(ComponentController.redirects(data.t).add())
 		)
@@ -76,7 +71,7 @@ object Application extends Controller {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		Component.idForm.bindFromRequest()(request).fold(
 			formWithErrors =>
-				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(validationError)))),
+				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(Errors.validationError)))),
 			data =>
 				findRequestUsingID(data.id,request)(doUpdateRedirect(data.id,_,_,_))
 		).recover {
