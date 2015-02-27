@@ -34,8 +34,8 @@ import initialContents.InitialContents.ContentType
 case class Plate(override val id: String,override val description: Option[String],override val project: Option[String],
                  override val tags: List[ComponentTag],
                  override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType],
-                 layout: Division.Division)
-	extends Component with Location with Container with Transferrable with JiraProject {
+                 override val layout: Division.Division)
+	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions {
 	override val component = Plate.componentType
 	override val validLocations = Plate.validLocations
 	override val validTransfers = Plate.validTransfers

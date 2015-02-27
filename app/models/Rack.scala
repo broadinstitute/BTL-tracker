@@ -28,13 +28,13 @@ import initialContents.InitialContents.ContentType
  * @param tags name/value pairs to associate with the rack
  * @param locationID Optional ID of Component where this rack is located
  * @param initialContent Optional initial contents
- * @param layout well layout on rack
+ * @param layout tube layout on rack
  */
 case class Rack(override val id: String,override val description: Option[String],override val project: Option[String],
                 override val tags: List[ComponentTag],
                 override val locationID: Option[String], override val initialContent: Option[ContentType.ContentType],
-                layout: Division.Division)
-	extends Component with Location with Container with Transferrable with JiraProject {
+                override val layout: Division.Division)
+	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions {
 	override val component = Rack.componentType
 	override val validLocations = Rack.validLocations
 	override val validTransfers = Rack.validTransfers

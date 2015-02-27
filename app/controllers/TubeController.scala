@@ -3,6 +3,7 @@ package controllers
 import models.Component.{HiddenFields,ComponentType}
 import models.Tube
 import play.api.data.Form
+import play.api.libs.json.JsObject
 import play.api.mvc.Action
 
 /**
@@ -25,6 +26,9 @@ object TubeController extends ComponentController[Tube] {
 
 	// Component type
 	val componentType = ComponentType.Tube
+
+	// Way to make component from Json
+	def componentFromJson(json: JsObject) = json.as[Tube]
 
 	/**
 	 * Request to add a tube - we simply put up the form to get the parameters to create the tube.

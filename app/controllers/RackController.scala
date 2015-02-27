@@ -6,6 +6,7 @@ import org.broadinstitute.LIMStales.mongo.BtllimsRacksCollection
 import org.broadinstitute.LIMStales.sampleRacks.{SSFIssueList, SSFList, RackScan}
 import play.api.data.Form
 import play.api.libs.Files
+import play.api.libs.json.JsObject
 import play.api.mvc.{MultipartFormData, Action}
 import Errors.FlashingKeys
 import models.project.JiraProject
@@ -29,6 +30,9 @@ object RackController extends ComponentController[Rack] {
 
 	// Component type
 	val componentType = ComponentType.Rack
+
+	// Way to make component from Json
+	def componentFromJson(json: JsObject) = json.as[Rack]
 
 	/**
 	 * Request to add a rack - we simply put up the form to get the parameters to create the rack.

@@ -1,11 +1,20 @@
 package models
 
 import mappings.CustomMappings._
+import models.ContainerDivisions._
 import play.api.data.Form
 import play.api.data.Forms._
 
 /**
  * Created by nnovod on 1/28/15.
+ * Trait to contain layout of a container that has divisions (e.g., 96 well plate)
+ */
+trait ContainerDivisions {
+	val layout: Division.Division
+}
+
+/**
+ * Companion object with division types and associated layout information
  */
 object ContainerDivisions {
 

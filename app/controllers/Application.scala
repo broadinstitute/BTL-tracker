@@ -51,7 +51,7 @@ object Application extends Controller {
 			formWithErrors =>
 				BadRequest(views.html.add(formWithErrors.withGlobalError(Errors.validationError))),
 			data =>
-				Redirect(ComponentController.redirects(data.t).add())
+				Redirect(ComponentController.actions(data.t).addRoute())
 		)
 	}
 
@@ -136,5 +136,5 @@ object Application extends Controller {
 	 * @return results now ready for update
 	 */
 	private def doUpdateRedirect(id: String, ct: ComponentType.ComponentType, json: JsObject, request: Request[_]) =
-		Redirect(ComponentController.redirects(ct).update(id))
+		Redirect(ComponentController.actions(ct).updateRoute(id))
 }

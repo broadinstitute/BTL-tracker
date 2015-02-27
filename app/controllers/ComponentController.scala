@@ -55,6 +55,13 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	val componentType: ComponentType.ComponentType
 
 	/**
+	 * Make an object from json
+ 	 * @param json input json
+	 * @return object returned via reading of Json
+	 */
+	def componentFromJson(json: JsObject) : C
+
+	/**
 	 * Add - just say ok and display form for creating component
 	 * @return Ok status with create html
 	 */
@@ -284,31 +291,37 @@ object ComponentController extends Controller with MongoController {
 
 	/**
 	 * Class to hold redirect calls
-	 * @param update Method to get call to redirect updates to
-	 * @param add Method to get call to redirect adds to
+	 * @param updateRoute Method to get call to redirect updates to
+	 * @param addRoute Method to get call to redirect adds to
+	 * @param jsonToComponent Method to create component object from json
 	 */
-	case class Redirects(update: (String) => Call, add: () => Call)
+	case class ControllerActions(updateRoute: (String) => Call, addRoute: () => Call,
+	                             jsonToComponent: (JsObject) => Component)
 
 	/**
 	 * Map of calls to use for redirects to find (by id) or add a component
 	 */
-	val redirects =
+	val actions =
 		Map(
 			ComponentType.Freezer ->
-				Redirects(routes.FreezerController.findFreezerByID(_: String), routes.FreezerController.addFreezer),
+				ControllerActions(routes.FreezerController.findFreezerByID(_: String),
+					routes.FreezerController.addFreezer, FreezerController.componentFromJson(_: JsObject)),
 			ComponentType.Plate ->
-				Redirects(routes.PlateController.findPlateByID(_: String), routes.PlateController.addPlate),
+				ControllerActions(routes.PlateController.findPlateByID(_: String),
+					routes.PlateController.addPlate, PlateController.componentFromJson(_: JsObject)),
 			ComponentType.Rack ->
-				Redirects(routes.RackController.findRackByID(_:String), routes.RackController.addRack),
+				ControllerActions(routes.RackController.findRackByID(_:String),
+					routes.RackController.addRack, RackController.componentFromJson(_: JsObject)),
 			ComponentType.Tube ->
-				Redirects(routes.TubeController.findTubeByID(_: String), routes.TubeController.addTube)
+				ControllerActions(routes.TubeController.findTubeByID(_: String),
+					routes.TubeController.addTube, TubeController.componentFromJson(_: JsObject))
 		)
 
 	/**
-	 * Little check to make sure we didn't miss any components in the redirects
+	 * Little check to make sure we didn't miss any components in the actions
 	 */
-	private val redirectKeys = redirects.keySet
-	assert(ComponentType.values.forall(redirectKeys.contains),	"Incomplete redirect map")
+	private val actionKeys = actions.keySet
+	assert(ComponentType.values.forall(actionKeys.contains), "Incomplete action map")
 
 	/**
 	 * Some implicits needed to go to/from Json

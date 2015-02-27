@@ -1,9 +1,8 @@
 package controllers
 
 import controllers.Errors.FlashingKeys
-import models.Component.ComponentType
 import models.{Transferrable,Component,Transfer}
-import play.api.mvc.{AnyContent,Request,Action,Controller}
+import play.api.mvc.{Action,Controller}
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
 import play.api.libs.json._
@@ -66,7 +65,6 @@ object TransferController extends Controller with MongoController {
 				val notFoundErrs : Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
 				Errors.fillAndSetFailureMsgs(notFoundErrs, Transfer.form, data)
 			}
-			val notFound = "ID not found"
 			(from,to) match {
 				case (Some(f),Some(t)) => (Some(f, t), None)
 				case (None,Some(_)) => (None, Some(missingIDs(List(Transfer.fromKey))))
@@ -76,21 +74,20 @@ object TransferController extends Controller with MongoController {
 		}
 	}
 
+	/**
+	 * Is the transfer valid.  Check from component can be transferred to to component.
+	 * @param data transfer data
+	 * @param from json from find of from component
+	 * @param to json from find of to component
+	 * @return if transfer valid then from and to object
+	 */
 	private def isTransferValid(data: Transfer, from: JsObject, to: JsObject) = {
 		import models.Component.ComponentType._
-		import models.{Plate, Rack, Tube, Freezer}
 		val fromC = (from \ Component.typeKey).as[ComponentType]
 		val toC = (to \ Component.typeKey).as[ComponentType]
-		def component(comp: ComponentType) = comp match {
-			case ComponentType.Plate => from.as[Plate]
-			case ComponentType.Rack => from.as[Rack]
-			case ComponentType.Tube => from.as[Tube]
-			case ComponentType.Freezer => from.as[Freezer]
-			case _ => throw new Exception("Invalid transfer component type: " + fromC.toString())
-		}
-
-		component(fromC) match {
-			case fc: Component with Transferrable if fc.validTransfers.contains(toC) => Some(fc, component(toC))
+		ComponentController.actions(fromC).jsonToComponent(from) match {
+			case fc: Component with Transferrable if fc.validTransfers.contains(toC) =>
+				Some(fc, ComponentController.actions(toC).jsonToComponent(to))
 			case invalidComponent => None
 		}
 	}
@@ -110,12 +107,12 @@ object TransferController extends Controller with MongoController {
 				getTransferInfo[JsObject](data).map{
 					case (Some((from, to)), None) =>
 						val valid = isTransferValid(data, from, to)
-						val result0 = Redirect(routes.TransferController.transferWithParams(
-							data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
-						if (valid.isDefined)
+						if (valid.isDefined) {
+							val result0 = Redirect(routes.TransferController.transferWithParams(
+								data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
 							FlashingKeys.setFlashingValue(result0,
 								FlashingKeys.Status, "Fill in additional data to complete transfer")
-						else
+						} else
 							BadRequest(views.html.transferStart(
 								Errors.fillAndSetFailureMsgs(Map(None -> "Invalid transfer types"),
 									Transfer.form, data)))

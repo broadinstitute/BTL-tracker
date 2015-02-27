@@ -3,6 +3,7 @@ package controllers
 import models.Component.{HiddenFields,ComponentType}
 import models.Freezer
 import play.api.data.Form
+import play.api.libs.json.JsObject
 import play.api.mvc.Action
 
 /**
@@ -25,6 +26,9 @@ object FreezerController extends ComponentController[Freezer] {
 
 	// Component type
 	val componentType = ComponentType.Freezer
+
+	// Way to make component from Json
+	def componentFromJson(json: JsObject) = json.as[Freezer]
 
 	/**
 	 * Request to add a freezer - we simply put up the form to get the parameters to create the freezer.

@@ -3,6 +3,7 @@ package controllers
 import models.Component.{HiddenFields,ComponentType}
 import models.Plate
 import play.api.data.Form
+import play.api.libs.json.JsObject
 import play.api.mvc.Action
 
 /**
@@ -25,6 +26,9 @@ object PlateController extends ComponentController[Plate] {
 
 	// Component type
 	val componentType = ComponentType.Plate
+
+	// Way to make component from Json
+	def componentFromJson(json: JsObject) = json.as[Plate]
 
 	/**
 	 * Request to add a plate - we simply put up the form to get the parameters to create the plate.
