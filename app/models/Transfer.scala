@@ -11,11 +11,10 @@ import play.api.libs.json._
  * Created by nnovod on 11/27/14.
  */
 
-// Note: Must have complete path for Quad types below to avoid bug from macro Json.format which says it
-// can't find matching apply and unapply methods if type simply specified as Quad.Quad
-// See https://github.com/playframework/playframework/issues/1469
 /**
- * Transfer data.
+ * Transfer data.  Note: Must have complete path for Quad types below to avoid bug from macro Json.format which says it
+ * can't find matching apply and unapply methods if type simply specified as Quad.Quad
+ * See https://github.com/playframework/playframework/issues/1469
  * @param from ID we're transferring from
  * @param to ID we're transferring to
  * @param fromQuad optional quadrant transfer is coming from
@@ -26,6 +25,7 @@ import play.api.libs.json._
 case class Transfer(from: String, to: String, fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad],
                     fromPos: Option[String], toPos: Option[String])
 
+// Companion object
 object Transfer {
 	// Keys for form
 	val fromKey = "from"
@@ -35,12 +35,13 @@ object Transfer {
 	val fromPosKey = "fromPos"
 	val toPosKey = "toPos"
 
+	// Quadrant enumeration
 	object Quad extends Enumeration {
 		type Quad = Value
-		val Q1 = Value("1st Quadrant")
-		val Q2 = Value("2nd Quadrant")
-		val Q3 = Value("3rd Quadrant")
-		val Q4 = Value("4th Quadrant")
+		val Q1 = Value("1st quadrant")
+		val Q2 = Value("2nd quadrant")
+		val Q3 = Value("3rd quadrant")
+		val Q4 = Value("4th quadrant")
 	}
 
 	// String values for dropdown lists etc.

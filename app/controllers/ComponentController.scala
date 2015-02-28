@@ -290,7 +290,7 @@ object ComponentController extends Controller with MongoController {
 	}
 
 	/**
-	 * Class to hold redirect calls
+	 * Class to hold redirect calls and json conversions
 	 * @param updateRoute Method to get call to redirect updates to
 	 * @param addRoute Method to get call to redirect adds to
 	 * @param jsonToComponent Method to create component object from json
@@ -299,7 +299,7 @@ object ComponentController extends Controller with MongoController {
 	                             jsonToComponent: (JsObject) => Component)
 
 	/**
-	 * Map of calls to use for redirects to find (by id) or add a component
+	 * Map of calls to use for redirects to find (by id) or add a component and json to component conversions
 	 */
 	val actions =
 		Map(

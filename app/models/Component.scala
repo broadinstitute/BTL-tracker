@@ -11,7 +11,6 @@ import mappings.CustomMappings._
 import Component.ComponentType
 import play.api.data.Form
 import play.api.data.Forms._
-import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{AnyContent, Request}
 
@@ -55,8 +54,6 @@ abstract class ComponentObject[C <: Component](val componentType: ComponentType.
 		}
 	}
 
-	// Needed to format ComponentType
-	import Component.ComponentType.componentTypeFormat
 	// Make sure a form is supplied by all inheriting classes
 	val form: Form[C]
 	// Make sure a formatter is supplied by all inheriting classes
@@ -138,10 +135,10 @@ trait Component {
 	 * @return map of errors (fieldName->errorString).  Empty if no errors were found.
 	 */
 	def isRequestValid(request: Request[AnyContent]) = {
-		val locValid =
-			if (this.isInstanceOf[Location]) {
-				this.asInstanceOf[Location].isLocationValid
-			} else Future.successful(None)
+		val locValid = this match {
+			case loc: Location => loc.isLocationValid
+			case _ => Future.successful(None)
+		}
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		for {loc <- locValid
 		     valid <- isValid(request)
@@ -149,7 +146,7 @@ trait Component {
 			// Futures complete - now return any errors reported
 			(loc, valid) match {
 				case (None, v) => v
-				case (Some(loc), v) => Map(Some(Location.locationKey) -> loc) ++ v
+				case (Some(locFound), v) => Map(Some(Location.locationKey) -> locFound) ++ v
 			}
 		}
 	}
@@ -304,7 +301,9 @@ object Component {
 	 * form).
 	 */
 	val errMsgKey = "msg"
+
 	case class Error(msg: Option[String])
+
 	val blankForm =
 		Form(
 			mapping(
@@ -316,6 +315,7 @@ object Component {
 	 * @param t component type
 	 */
 	case class ComponentTypeClass(t: ComponentType.ComponentType)
+
 	val typeForm =
 		Form(
 			mapping(
@@ -327,6 +327,7 @@ object Component {
 	 * @param id id for component
 	 */
 	case class ComponentIDClass(id: String)
+
 	val idForm =
 		Form(
 			mapping(
