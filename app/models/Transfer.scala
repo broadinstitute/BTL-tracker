@@ -2,7 +2,6 @@ package models
 
 import formats.CustomFormats._
 import mappings.CustomMappings._
-import models.Component.ComponentType.ComponentType
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -12,8 +11,19 @@ import play.api.libs.json._
  * Created by nnovod on 11/27/14.
  */
 
-import Transfer._
-case class Transfer(from: String, to: String, fromQuad: Option[Quad.Quad], toQuad: Option[Quad.Quad],
+// Note: Must have complete path for Quad types below to avoid bug from macro Json.format which says it
+// can't find matching apply and unapply methods if type simply specified as Quad.Quad
+// See https://github.com/playframework/playframework/issues/1469
+/**
+ * Transfer data.
+ * @param from ID we're transferring from
+ * @param to ID we're transferring to
+ * @param fromQuad optional quadrant transfer is coming from
+ * @param toQuad optional quadrant transfer is going to
+ * @param fromPos optional position transfer is coming from
+ * @param toPos optional position transfer is going to
+ */
+case class Transfer(from: String, to: String, fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad],
                     fromPos: Option[String], toPos: Option[String])
 
 object Transfer {
@@ -36,6 +46,7 @@ object Transfer {
 	// String values for dropdown lists etc.
 	val quadVals = Quad.values.map(_.toString).toList
 
+	// Form to create/read Transfer objects
 	val form = Form(
 		mapping(
 			fromKey -> nonEmptyText,
@@ -46,19 +57,8 @@ object Transfer {
 			toPosKey -> optional(text)
 		)(Transfer.apply)(Transfer.unapply))
 
-	/**
-	 * Formatter for going to/from and validating Json
-	 * Supply our custom enum Reader and Writer for content type enum
-	 * Can't use format macro because it can't handle optional enum
-	 */
-	import play.api.libs.functional.syntax._
+	// Formatter for going to/from and validating Json
+	// Supply our custom enum Reader and Writer for content type enum
 	implicit val quadFormat: Format[Quad.Quad] = enumFormat(Quad)
-	implicit val transferFormat: Format[Transfer] =
-		((__ \ fromKey).format[String] ~
-			(__ \ toKey).format[String] ~
-			(__ \ fromQuadKey).format[Option[Quad.Quad]] ~
-			(__ \ toQuadKey).format[Option[Quad.Quad]] ~
-			(__ \ fromPosKey).format[Option[String]] ~
-			(__ \ toPosKey).format[Option[String]]
-	  )(Transfer.apply, unlift(Transfer.unapply))
+	implicit val transferFormat = Json.format[Transfer]
 }

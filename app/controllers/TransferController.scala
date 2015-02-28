@@ -6,7 +6,7 @@ import models.{ContainerDivisions, Transferrable, Component, Transfer}
 import ContainerDivisions.Division._
 import play.api.Logger
 import play.api.data.Form
-import play.api.mvc.{Action,Controller}
+import play.api.mvc.{Result, Action, Controller}
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
 import play.api.libs.json._
@@ -34,10 +34,10 @@ object TransferController extends Controller with MongoController {
 
 	/**
 	 * Initiate transfer - go bring up form to do transfer
- 	 * @return action to go get transfer information
+	 * @return action to go get transfer information
 	 */
 	def transfer() = Action { request =>
-		Ok(views.html.transferStart(Errors.addStatusFlash(request,Transfer.form)))
+		Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.form)))
 	}
 
 	/**
@@ -52,10 +52,10 @@ object TransferController extends Controller with MongoController {
 	 * @return action to get additional transfer information wanted
 	 */
 	def transferWithParams(fromID: String, toID: String,
-	                       fromQuad : Option[Boolean], toQuad: Option[Boolean],
+	                       fromQuad: Option[Boolean], toQuad: Option[Boolean],
 	                       fromPos: Option[Boolean], toPos: Option[Boolean]) = {
 		Action { request =>
-			Ok(views.html.transfer(Errors.addStatusFlash(request,Transfer.form), fromID, toID,
+			Ok(views.html.transfer(Errors.addStatusFlash(request, Transfer.form), fromID, toID,
 				fromQuad.getOrElse(false), toQuad.getOrElse(false), fromPos.getOrElse(false), toPos.getOrElse(false)))
 		}
 	}
@@ -63,7 +63,7 @@ object TransferController extends Controller with MongoController {
 	/**
 	 * Take data from transfer form and check it out.  If one or both IDs are not found we return a form with the
 	 * errors set, otherwise we return the objects found.
- 	 * @param data data retrieved from transfer form
+	 * @param data data retrieved from transfer form
 	 * @tparam T type to return as transfer objects if they are found
 	 * @return objects found and form with errors - one and only one will be set to None
 	 */
@@ -75,14 +75,14 @@ object TransferController extends Controller with MongoController {
 		} yield {
 			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
-				val notFoundErrs : Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
+				val notFoundErrs: Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
 				Errors.fillAndSetFailureMsgs(notFoundErrs, Transfer.form, data)
 			}
 			// Check out results from DB queries
-			(from,to) match {
-				case (Some(f),Some(t)) => (Some(f, t), None)
-				case (None,Some(_)) => (None, Some(missingIDs(List(Transfer.fromKey))))
-				case (Some(_),None) => (None, Some(missingIDs(List(Transfer.toKey))))
+			(from, to) match {
+				case (Some(f), Some(t)) => (Some(f, t), None)
+				case (None, Some(_)) => (None, Some(missingIDs(List(Transfer.fromKey))))
+				case (Some(_), None) => (None, Some(missingIDs(List(Transfer.toKey))))
 				case _ => (None, Some(missingIDs(List(Transfer.fromKey, Transfer.toKey))))
 			}
 		}
@@ -115,13 +115,13 @@ object TransferController extends Controller with MongoController {
 
 	/**
 	 * Make message describing component transfer
- 	 * @param from component we're transferring from
+	 * @param from component we're transferring from
 	 * @param to component we're transferring to
 	 * @return componentType ID to ComponentType ID
 	 */
 	private def fromToMsg(from: Component, to: Component) = {
 		def componentStr(c: Component) = c.component.toString + " " + c.id
-		componentStr(from) + " to " + componentStr(to)
+		"transfer of " + componentStr(from) + " to " + componentStr(to)
 	}
 
 	/**
@@ -150,7 +150,7 @@ object TransferController extends Controller with MongoController {
 	 * @param form form filled with error data
 	 * @return BadRequest to transferStart with input form
 	 */
-	private def transferErrorResult(form: Form[Transfer]) = BadRequest(views.html.transferStart(form))
+	private def transferErrorResult(form: Form[Transfer]) : Result = BadRequest(views.html.transferStart(form))
 
 	/**
 	 * Result when transfer had errors
@@ -158,12 +158,18 @@ object TransferController extends Controller with MongoController {
 	 * @param errs errors to set in form
 	 * @return BadRequest to transferStart with form set with errors
 	 */
-	private def transferErrorResult(data: Transfer, errs: Map[Option[String], String]) =
+	private def transferErrorResult(data: Transfer, errs: Map[Option[String], String]) : Result =
 		transferErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.form, data))
 
+	/**
+	 * Complete a future with a result
+	 * @param res result to set as future
+	 * @return future completed successfully with result
+	 */
+	private def now(res: Result) = Future.successful(res)
 
 	/**
-	 * Start of transfer - we look over IDs and see what's possible.  Depending type of components being transferred
+	 * Start of transfer - we look over IDs and see what's possible.  Depending on type of components being transferred
 	 * different additional information may be needed.
 	 * @return action to see what step is next to complete transfer
 	 */
@@ -172,33 +178,39 @@ object TransferController extends Controller with MongoController {
 			formWithErrors =>
 				Future.successful(transferErrorResult(formWithErrors.withGlobalError(Errors.validationError))),
 			data => {
-				// Got data from form - get from and to data (as json) - map is mapping future from retrieving DB data
-				getTransferInfo[JsObject](data).map {
+				// Got data from form - get from and to data (as json) - flatMap is mapping future from retrieving DB
+				// data - flatMap continuation is either a future that completes immediately because transfer can not
+				// be done now or a future that will complete when the DB insertion is done
+				getTransferInfo[JsObject](data).flatMap {
 					// Found both objects - now check if we can transfer between them
 					case (Some((from, to)), None) =>
 						isTransferValid(data, from, to) match {
 							case (fromData, toData, None) if fromData.id == toData.id =>
-								transferErrorResult(data, Map(None -> "Can not transfer component to itself"))
+								now(transferErrorResult(data, Map(None -> "Can not transfer component to itself")))
 							case (fromData, toData, None) if fromData.isInstanceOf[ContainerDivisions] &&
-									toData.isInstanceOf[ContainerDivisions] =>
+								toData.isInstanceOf[ContainerDivisions] =>
 								(fromData.asInstanceOf[ContainerDivisions].layout,
 									toData.asInstanceOf[ContainerDivisions].layout) match {
-									case (DIM8x12, DIM8x12) | (DIM16x24, DIM16x24) => transferCompleteResult(() =>
-										"Transfer completed from " + fromToMsg(fromData, toData))
+									// Go insert transfer between containers that are the same shape
+									case (DIM8x12, DIM8x12) | (DIM16x24, DIM16x24) =>
+										insertTransfer(data, () => fromToMsg(fromData, toData))
+									// Go ask for quadrant to set in larger destination plate
 									case (DIM8x12, DIM16x24) =>
-										transferIncompleteResult(data, fromQuad = false, toQuad = true)
+										now(transferIncompleteResult(data, fromQuad = false, toQuad = true))
+									// Go ask for quadrant to get in larger source plate
 									case (DIM16x24, DIM8x12) =>
-										transferIncompleteResult(data, fromQuad = true, toQuad = false)
+										now(transferIncompleteResult(data, fromQuad = true, toQuad = false))
 								}
-							case (fromData, toData, None) => transferCompleteResult(() =>
-								"Transfer completed from " + fromToMsg(fromData, toData))
-							case (fromData, toData, Some(err)) => transferErrorResult(data, Map(None -> err))
+							// Do transfer now of compatible types
+							case (fromData, toData, None) => insertTransfer(data, () => fromToMsg(fromData, toData))
+							// Report problem transferring between requested components
+							case (fromData, toData, Some(err)) => now(transferErrorResult(data, Map(None -> err)))
 						}
 					// Couldn't find one or both data - form returned contains errors - return it now
-					case (None, Some(form)) => transferErrorResult(form)
+					case (None, Some(form)) => now(transferErrorResult(form))
 					// Should never have both or neither as None but...
-					case _ => FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
-						FlashingKeys.Status,"Internal error: Failure during transferIDs")
+					case _ => now(FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
+						FlashingKeys.Status, "Internal error: Failure during transferIDs"))
 				}
 			}.recover {
 				case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
@@ -209,6 +221,34 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
+	 * Insert transfer into DB and return Result.
+	 * @param data transfer to record in DB
+	 * @return result to return with completion status
+	 */
+	private def insertTransfer(data: Transfer, whatDone: () => String) = {
+		transferCollection.insert(data).map {
+			(lastError) => {
+				val success = "Inserted " + whatDone()
+				Logger.debug(s"$success with status: $lastError")
+				transferCompleteResult(() => "Completed " + whatDone())
+			}
+		}.recover {
+			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
+		}
+	}
+
+
+	/**
+	 * Make a description of the transfer, including quadrant descriptions.
+	 * @param data data transferred
+	 * @return description of transfer, including quadrant information
+	 */
+	private def quadDesc(data: Transfer) = {
+		def qDesc(id: String, quad: Option[Quad]) = (if (quad.isDefined) quad.get.toString + " of " else "") + id
+		"transfer from " + qDesc(data.from, data.fromQuad) + " to " + qDesc(data.to, data.toQuad)
+	}
+
+	/**
 	 * Do transfer based on form.
  	 * @return action to do transfer
 	 */
@@ -216,19 +256,7 @@ object TransferController extends Controller with MongoController {
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(transferErrorResult(formWithErrors.withGlobalError(Errors.validationError))),
-			data => {
-				transferCollection.insert(data).map { lastError =>
-					val success = s"Successfully inserted transfer from ${data.from} to ${data.to}"
-					Logger.debug(s"$success with status: $lastError")
-					transferCompleteResult(() => {
-						def quadDesc(id: String, quad: Option[Quad]) =
-							(if (quad.isDefined) quad.get.toString + " of " else "") + id
-						"Transfer completed from " + quadDesc(data.from, data.fromQuad) +
-							" to " + quadDesc(data.to, data.toQuad)	 // Return view of data just created
-					})}
-			}.recover {
-				case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
-			}
+			data => insertTransfer(data, () => quadDesc(data))
 		).recover {
 			case err => transferErrorResult(Transfer.form.withGlobalError(Errors.exceptionMessage(err)))
 		}
