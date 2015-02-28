@@ -8,6 +8,7 @@ import play.modules.reactivemongo.json.collection.JSONCollection
 import play.api.libs.json._
 
 import scala.concurrent.Future
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
  * @author Nathaniel Novod
@@ -50,21 +51,24 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Take data from transfer form and check it out.
+	 * Take data from transfer form and check it out.  If one or both IDs are not found we return a form with the
+	 * errors set, otherwise we return the objects found.
  	 * @param data data retrieved from transfer form
 	 * @tparam T type to return as transfer objects if they are found
-	 * @return objects found and list of missing objects - one will always be set to None
+	 * @return objects found and form with errors - one and only one will be set to None
 	 */
 	private def getTransferInfo[T: Reads](data: Transfer) = {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		// Go retrieve both objects via futures
 		for {
 			to <- collection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
 			from <- collection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
 		} yield {
+			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
 				val notFoundErrs : Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
 				Errors.fillAndSetFailureMsgs(notFoundErrs, Transfer.form, data)
 			}
+			// Check out results from DB queries
 			(from,to) match {
 				case (Some(f),Some(t)) => (Some(f, t), None)
 				case (None,Some(_)) => (None, Some(missingIDs(List(Transfer.fromKey))))
@@ -83,12 +87,21 @@ object TransferController extends Controller with MongoController {
 	 */
 	private def isTransferValid(data: Transfer, from: JsObject, to: JsObject) = {
 		import models.Component.ComponentType._
-		val fromC = (from \ Component.typeKey).as[ComponentType]
-		val toC = (to \ Component.typeKey).as[ComponentType]
-		ComponentController.actions(fromC).jsonToComponent(from) match {
-			case fc: Component with Transferrable if fc.validTransfers.contains(toC) =>
-				Some(fc, ComponentController.actions(toC).jsonToComponent(to))
-			case invalidComponent => None
+		// Convert json to component object
+		def getComponent(json: JsObject) = {
+			val componentType = (json \ Component.typeKey).as[ComponentType]
+			ComponentController.actions(componentType).jsonToComponent(json)
+		}
+		// Get to component
+		val toC = getComponent(to)
+		// Get from component and see if transfer from it is valid
+		getComponent(from) match {
+			case fromC: Component with Transferrable if fromC.validTransfers.contains(toC.component) =>
+				(fromC, toC, None)
+			case fromC => {
+				(fromC, toC, Some("Can't do transfer from a " + fromC.component.toString +
+					" to a " + toC.component.toString))
+			}
 		}
 	}
 
@@ -98,24 +111,27 @@ object TransferController extends Controller with MongoController {
 	 * @return action to see what step is next to complete transfer
 	 */
 	def transferIDs = Action.async { request =>
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(
 					views.html.transferStart(formWithErrors.withGlobalError(Errors.validationError)))),
 			data => {
-				getTransferInfo[JsObject](data).map{
+				// Got data from form - get from and to data (as json) - map is mapping future from retrieving DB data
+				getTransferInfo[JsObject](data).map {
+					// Found both objects - now check if we can transfer between them
 					case (Some((from, to)), None) =>
-						val valid = isTransferValid(data, from, to)
-						if (valid.isDefined) {
-							val result0 = Redirect(routes.TransferController.transferWithParams(
-								data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
-							FlashingKeys.setFlashingValue(result0,
-								FlashingKeys.Status, "Fill in additional data to complete transfer")
-						} else
-							BadRequest(views.html.transferStart(
-								Errors.fillAndSetFailureMsgs(Map(None -> "Invalid transfer types"),
-									Transfer.form, data)))
+						isTransferValid(data, from, to) match {
+							case (fromData, toData, None) =>
+								val result0 = Redirect(routes.TransferController.transferWithParams(
+									data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
+								FlashingKeys.setFlashingValue(result0,
+									FlashingKeys.Status, "Fill in additional data to complete transfer")
+							case (fromData, toData, Some(err)) =>
+								BadRequest(views.html.transferStart(
+									Errors.fillAndSetFailureMsgs(Map(None -> err),
+										Transfer.form, data)))
+						}
+					// Couldn't find one or both data - form returned contains errors - return it now
 					case (None, Some(form)) => BadRequest(views.html.transferStart(form))
 					// Should never have both or neither as None but...
 					case _ => FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
@@ -137,7 +153,6 @@ object TransferController extends Controller with MongoController {
  	 * @return action to do transfer
 	 */
 	def transferFromForm = Action.async { request =>
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(
