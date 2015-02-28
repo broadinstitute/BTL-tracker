@@ -12,17 +12,17 @@
 		@inputText(transferForm(Transfer.toKey).copy(value=Some(toID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
 		@if(fromQuad) {
 			@select(field = transferForm(Transfer.fromQuadKey),
-				options = options(Transfer.quadVals), '_label -> ("Component " + fromID + " quadrant to transfer from"))
+				options = options(Transfer.quadVals), '_label -> (fromID + " quadrant to transfer from"))
 		}
 		@if(toQuad) {
 			@select(field = transferForm(Transfer.toQuadKey),
-				options = options(Transfer.quadVals), '_label -> ("Component " + toID + " quadrant to transfer to"))
+				options = options(Transfer.quadVals), '_label -> (toID + " quadrant to transfer to"))
 		}
 		@if(fromPos) {
-			@inputText(transferForm(Transfer.fromPosKey), '_label -> ("Component " + fromID + " position to transfer from"))
+			@inputText(transferForm(Transfer.fromPosKey), '_label -> (fromID + " position to transfer from"))
 		}
 		@if(toPos) {
-			@inputText(transferForm(Transfer.toPosKey), '_label -> ("Component " + toID + " position to transfer to"))
+			@inputText(transferForm(Transfer.toPosKey), '_label -> (toID + " position to transfer to"))
 		}
 		<input type="submit" value="Transfer" style="display:inline;">
 	}

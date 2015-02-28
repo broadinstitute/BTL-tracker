@@ -1,7 +1,9 @@
 package controllers
 
 import controllers.Errors.FlashingKeys
-import models.{Transferrable,Component,Transfer}
+import models.Transfer.Quad.Quad
+import models.{ContainerDivisions, Transferrable, Component, Transfer}
+import ContainerDivisions.Division._
 import play.api.mvc.{Action,Controller}
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
@@ -105,6 +107,21 @@ object TransferController extends Controller with MongoController {
 		}
 	}
 
+	private def fromToMsg(from: Component, to: Component) = {
+		def componentStr(c: Component) = c.component.toString + " " + c.id
+		componentStr(from) + " to " + componentStr(to)
+	}
+
+	private def transferCompleteResponse(getMsg: () => String) =
+		FlashingKeys.setFlashingValue(Redirect(routes.Application.index()), FlashingKeys.Status, getMsg())
+
+	private def transferIncompleteResponse(data: Transfer, fromQuad: Boolean, toQuad: Boolean) = {
+		val result0 = Redirect(routes.TransferController.transferWithParams(
+			data.from, data.to, Some(fromQuad), Some(toQuad), None, None))
+		FlashingKeys.setFlashingValue(result0,
+			FlashingKeys.Status, "Fill in additional data to complete transfer")
+	}
+
 	/**
 	 * Start of transfer - we look over IDs and see what's possible.  Depending type of components being transferred
 	 * different additional information may be needed.
@@ -121,11 +138,24 @@ object TransferController extends Controller with MongoController {
 					// Found both objects - now check if we can transfer between them
 					case (Some((from, to)), None) =>
 						isTransferValid(data, from, to) match {
-							case (fromData, toData, None) =>
-								val result0 = Redirect(routes.TransferController.transferWithParams(
-									data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
-								FlashingKeys.setFlashingValue(result0,
-									FlashingKeys.Status, "Fill in additional data to complete transfer")
+							case (fromData, toData, None) if (fromData.id == toData.id) =>
+								BadRequest(views.html.transferStart(
+									Errors.fillAndSetFailureMsgs(Map(None -> "Can not transfer component to itself"),
+										Transfer.form, data)))
+							case (fromData, toData, None) if (fromData.isInstanceOf[ContainerDivisions] &&
+									toData.isInstanceOf[ContainerDivisions]) =>
+								(fromData.asInstanceOf[ContainerDivisions].layout,
+									toData.asInstanceOf[ContainerDivisions].layout) match {
+									case (DIM8x12, DIM8x12) | (DIM16x24, DIM16x24) =>
+										transferCompleteResponse(() =>
+											"Transfer completed from " + fromToMsg(fromData, toData))
+									case (DIM8x12, DIM16x24) =>
+										transferIncompleteResponse(data, false, true)
+									case (DIM16x24, DIM8x12) =>
+										transferIncompleteResponse(data, true, false)
+								}
+							case (fromData, toData, None) => transferCompleteResponse(() =>
+								"Transfer completed from " + fromToMsg(fromData, toData))
 							case (fromData, toData, Some(err)) =>
 								BadRequest(views.html.transferStart(
 									Errors.fillAndSetFailureMsgs(Map(None -> err),
@@ -158,10 +188,12 @@ object TransferController extends Controller with MongoController {
 				Future.successful(BadRequest(
 					views.html.transferStart(formWithErrors.withGlobalError(Errors.validationError)))),
 			data => {
-				val result = Redirect(routes.TransferController.transferWithParams(
-					data.from,data.to,Some(true),Some(true),Some(true),Some(true)))
-				Future.successful(FlashingKeys.setFlashingValue(
-					result,FlashingKeys.Status,"Fill in additional data to complete transfer"))
+				Future.successful(transferCompleteResponse(() => {
+					def quadDesc(id: String, quad: Option[Quad]) =
+						(if (quad.isDefined) quad.get.toString + " of " else "") + id
+					"Transfer completed from " + quadDesc(data.from, data.fromQuad) +
+						" to " + quadDesc(data.to, data.toQuad)
+				}))
 			}
 		).recover {
 			case err => BadRequest(
