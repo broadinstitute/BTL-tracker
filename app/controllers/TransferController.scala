@@ -22,15 +22,9 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 object TransferController extends Controller with MongoController {
 	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
-	 * @return collection that uses JSON for input/output of tracker data
-	 */
-	private def trackerCollection: JSONCollection = db.collection[JSONCollection]("tracker")
-
-	/**
-	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
 	 * @return collection that uses JSON for input/output of transfer data
 	 */
-	private def transferCollection: JSONCollection = db.collection[JSONCollection]("transfer")
+	def transferCollection: JSONCollection = db.collection[JSONCollection]("transfer")
 
 	/**
 	 * Initiate transfer - go bring up form to do transfer
@@ -70,8 +64,8 @@ object TransferController extends Controller with MongoController {
 	private def getTransferInfo[T: Reads](data: Transfer) = {
 		// Go retrieve both objects via futures
 		for {
-			to <- trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
-			from <- trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
+			to <- ComponentController.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
+			from <- ComponentController.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
 		} yield {
 			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
@@ -89,6 +83,17 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
+	 * Get component object from json.
+	 * @param json input json
+	 * @return component object
+	 */
+	def getComponent(json: JsObject) = {
+		import models.Component.ComponentType._
+		val componentType = (json \ Component.typeKey).as[ComponentType]
+		ComponentController.actions(componentType).jsonToComponent(json)
+	}
+
+	/**
 	 * Is the transfer valid.  Check from component can be transferred to to component.
 	 * @param data transfer data
 	 * @param from json from find of from component
@@ -96,12 +101,6 @@ object TransferController extends Controller with MongoController {
 	 * @return if transfer valid then from and to object
 	 */
 	private def isTransferValid(data: Transfer, from: JsObject, to: JsObject) = {
-		import models.Component.ComponentType._
-		// Convert json to component object
-		def getComponent(json: JsObject) = {
-			val componentType = (json \ Component.typeKey).as[ComponentType]
-			ComponentController.actions(componentType).jsonToComponent(json)
-		}
 		// Get to component
 		val toC = getComponent(to)
 		// Get from component and see if transfer from it is valid
