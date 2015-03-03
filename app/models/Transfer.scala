@@ -19,11 +19,8 @@ import play.api.libs.json._
  * @param to ID we're transferring to
  * @param fromQuad optional quadrant transfer is coming from
  * @param toQuad optional quadrant transfer is going to
- * @param fromPos optional position transfer is coming from
- * @param toPos optional position transfer is going to
  */
-case class Transfer(from: String, to: String, fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad],
-                    fromPos: Option[String], toPos: Option[String])
+case class Transfer(from: String, to: String, fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad])
 
 // Companion object
 object Transfer {
@@ -32,8 +29,6 @@ object Transfer {
 	val toKey = "to"
 	val fromQuadKey = "fromQuad"
 	val toQuadKey = "toQuad"
-	val fromPosKey = "fromPos"
-	val toPosKey = "toPos"
 
 	// Quadrant enumeration
 	object Quad extends Enumeration {
@@ -53,9 +48,7 @@ object Transfer {
 			fromKey -> nonEmptyText,
 			toKey -> nonEmptyText,
 			fromQuadKey -> optional(enum(Quad)),
-			toQuadKey -> optional(enum(Quad)),
-			fromPosKey -> optional(text),
-			toPosKey -> optional(text)
+			toQuadKey -> optional(enum(Quad))
 		)(Transfer.apply)(Transfer.unapply))
 
 	// Formatter for going to/from and validating Json

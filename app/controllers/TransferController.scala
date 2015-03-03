@@ -41,16 +41,13 @@ object TransferController extends Controller with MongoController {
 	 * @param toID component ID being transferred to
 	 * @param fromQuad true if we need to get the quadrant we're transferring from
 	 * @param toQuad true if we need to get the quadrant we're transferring to
-	 * @param fromPos true if we need to get the position (e.g., well position) we're transferring from
-	 * @param toPos true if we need to get the position we're transferring to
 	 * @return action to get additional transfer information wanted
 	 */
 	def transferWithParams(fromID: String, toID: String,
-	                       fromQuad: Option[Boolean], toQuad: Option[Boolean],
-	                       fromPos: Option[Boolean], toPos: Option[Boolean]) = {
+	                       fromQuad: Option[Boolean], toQuad: Option[Boolean]) = {
 		Action { request =>
 			Ok(views.html.transfer(Errors.addStatusFlash(request, Transfer.form), fromID, toID,
-				fromQuad.getOrElse(false), toQuad.getOrElse(false), fromPos.getOrElse(false), toPos.getOrElse(false)))
+				fromQuad.getOrElse(false), toQuad.getOrElse(false)))
 		}
 	}
 
@@ -140,7 +137,7 @@ object TransferController extends Controller with MongoController {
 	 */
 	private def transferIncompleteResult(data: Transfer, fromQuad: Boolean, toQuad: Boolean) = {
 		val result = Redirect(routes.TransferController.transferWithParams(
-			data.from, data.to, Some(fromQuad), Some(toQuad), None, None))
+			data.from, data.to, Some(fromQuad), Some(toQuad)))
 		FlashingKeys.setFlashingValue(result, FlashingKeys.Status, "Fill in additional data to complete transfer")
 	}
 

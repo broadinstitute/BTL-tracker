@@ -25,8 +25,8 @@ object Errors {
 	private val dbNotFound = """.*No primary node.*""".r
 
 	// Start and end of error message indicating attempt to enter component a second time
-	private val dataEntryErr = "Data entry error - Component with ID "
-	private val alreadyCreated = " already created"
+	private val dataEntryErr =
+		"Attempt to enter duplicate data failed because the operation was previously done for component "
 
 	/**
 	 * Parse exception to get nicer error message
@@ -36,19 +36,12 @@ object Errors {
 	def exceptionMessage(e: Throwable) = {
 		val msg = e.getLocalizedMessage
 		msg match {
-			case dbExc(key) => dataEntryErr + key + alreadyCreated
+			case dbExc(key) => dataEntryErr + key
 			case dbNotFound() => "Database " +
 				Play.current.configuration.getString("mongodb.uri").getOrElse("unknown") + " not available"
 			case _ => msg
 		}
 	}
-
-	/**
-	 * Little fellow to see if error is from attempt to enter duplicate component
- 	 * @param err error string
-	 * @return true if attempt to enter component for a second time
-	 */
-	def isDuplicateErr(err: String) = err.startsWith(dataEntryErr) && err.endsWith(alreadyCreated)
 
 	/**
 	 * Values to be put into "flash".  Flash values are implemented by play by making temporary cookies to keep flash
