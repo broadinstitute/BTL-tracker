@@ -27,9 +27,9 @@ object TransferHistory extends Controller with MongoController {
 	}
 
 	/**
-	 * Future to retrieve list of components, given list of component IDs
-	 * @param ids list of component IDs
-	 * @return list of components corresponding to IDs
+	 * Future to retrieve list of source components, given list of transfers
+	 * @param ids list of transfers
+	 * @return list of components corresponding to sources in transfers and input list of transfers
 	 */
 	private def getComponents(ids: List[BSONDocument]) = {
 		// flatMap to get rid of any froms that come back as None (shouldn't be any)
@@ -37,7 +37,7 @@ object TransferHistory extends Controller with MongoController {
 		// Go find all the components that were in the from list
 		val cursor = ComponentController.trackerCollection.find(BSONDocument(
 			Component.idKey -> BSONDocument("$in" -> idList))).cursor[BSONDocument]
-		cursor.collect[List]()
+		cursor.collect[List]().map((_, ids))
 	}
 
 	/**
@@ -52,15 +52,30 @@ object TransferHistory extends Controller with MongoController {
 	}
 
 	/**
-	 * Future to get component objects for the components transferred into a single component
+	 * Get transfer object from bson.
+	 * @param bson input bson
+	 * @return transfer object
+	 */
+	private def getTransferObject(bson: BSONDocument) = {
+		// Get json since model conversions are setup to do json reads/writes
+		val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
+		import Transfer.transferFormat
+		json.as[Transfer]
+	}
+
+	/**
+	 * Future to get component objects for the components transferred into a single component as well as transfer
+	 * objects that show how transfer took place.
 	 * @param componentID we want to know what was transferred into this id
-	 * @return list of component objects that are immediate sources for the specified component
+	 * @return list of component objects that are immediate sources for the specified component and list of transfers
 	 */
 	def getHistory(componentID: String) = {
 		// First get list of components as BSON documents (note flatmap to avoid future of future)
 		val previousComponents =
 			getPreviousIDs(componentID).flatMap(getComponents)
 		// Now convert BSON returned to component objects (first map for future, next to convert bson list)
-		previousComponents.map(_.map(getComponentObject))
+		previousComponents.map {
+			case ((components, transfers)) => (components.map(getComponentObject), transfers.map(getTransferObject))
+		}
 	}
 }
