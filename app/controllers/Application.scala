@@ -30,8 +30,9 @@ object Application extends Controller {
 	/**
 	 * Just a test form
 	 */
-	def test = Action {
-		Ok("You went to the test page")
+	def test = Action.async {
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		TransferHistory.makeGraph("T123").map((g) => Ok(g.toString))
 	}
 
 	/**
