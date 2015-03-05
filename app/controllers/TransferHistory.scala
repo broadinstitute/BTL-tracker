@@ -1,7 +1,10 @@
 package controllers
 
+import models.ContainerDivisions.Division.Division
 import models.Transfer.Quad._
 import models._
+import models.initialContents.InitialContents.ContentType.ContentType
+import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFIssueList}
 import play.api.libs.json.JsObject
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
@@ -12,6 +15,8 @@ import play.modules.reactivemongo.json.BSONFormats._
 
 import scala.concurrent.Future
 import scalax.collection.immutable.Graph
+import scalax.collection.edge.Implicits._
+
 
 /**
  * @author Nathaniel Novod
@@ -79,7 +84,7 @@ object TransferHistory extends Controller with MongoController {
  	 * @param components components that were transferred from
 	 * @param transfers transfers that took place from components
 	 */
-	case class History(components: List[Component], transfers: List[Transfer])
+	private case class History(components: List[Component], transfers: List[Transfer])
 
 	/**
 	 * Future to get component objects for the components transferred into a single component as well as transfer
@@ -102,21 +107,21 @@ object TransferHistory extends Controller with MongoController {
 	 * Nasty recursive fellow to keep going back through transfers, starting at a particular component, to get
 	 * all the transfers that led to the component in question.
 	 * @param componentID component to find all transfers into
-	 * @param more callback, given history found, that converts that history into a list of wanted type
+	 * @param historyToList callback, given history found, that converts that history into a list of wanted type
 	 * @tparam T type of list to be returned
 	 * @return future to calculate wanted list from transfers into (direct or indirect) specified component
 	 */
-	def make[T](componentID: String, more: (History) => List[T]) : Future[List[T]] = {
+	private def makeTransferList[T](componentID: String, historyToList: (History) => List[T]) : Future[List[T]] = {
 		getHistory(componentID).flatMap((history) =>
 			if (history.transfers.isEmpty) Future.successful(List.empty[T]) else {
-				val latest = more(history)
+				val toList = historyToList(history)
 				val fromSet = history.transfers.map(_.from).toSet
-				Future.fold(fromSet.map((f) => make(f, more)))(latest)(_ ++ _)
+				// Go recurse to work on components leading into this one, folding the new component transfers
+				// into what we've found so far (latest)
+				Future.fold(futures = fromSet.map((f) => makeTransferList(f,historyToList)))(zero = toList)(op = _ ++ _)
 			}
 		)
 	}
-
-	import scalax.collection.edge.Implicits._
 
 	/**
 	 * An edge for a transfer graph
@@ -131,15 +136,21 @@ object TransferHistory extends Controller with MongoController {
 	 * @return future with a graph of transfers
 	 */
 	def makeGraph(componentID: String) = {
-		make(componentID, (history) => {
+		val edges = makeTransferList(componentID, (history) => {
+			// Find component in history's component list (note this list should be very small)
 			def findComponent(id: String) = {
 				history.components.find(_.id == id) match {
 					case Some(c) => c
 					case None => throw new Exception(s"Missing Component: $id")
 				}
 			}
+			// Map all the transfers into graph edges
 			history.transfers.map((t) =>
 				(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad)))
-		}).map(Graph(_: _*))
+		})
+		// Make list of edges into a graph
+		edges.map(Graph(_: _*))
 	}
+
+	case class Contents(bsp: Option[SSFIssueList[BSPScan]], mid: Option[ContentType], quad: Option[Division])
 }
