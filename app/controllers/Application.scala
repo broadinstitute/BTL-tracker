@@ -32,7 +32,7 @@ object Application extends Controller {
 	 */
 	def test = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		TransferHistory.makeGraph("T123").map((g) => Ok(g.toString))
+		TransferHistory.getContents("T123").map((g) => Ok(g.toString))
 	}
 
 	/**

@@ -1,8 +1,11 @@
 package controllers
 
+import models.Component.ComponentType
+import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division.Division
 import models.Transfer.Quad._
 import models._
+import models.initialContents.InitialContents.ContentType
 import models.initialContents.InitialContents.ContentType.ContentType
 import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFIssueList}
 import play.api.libs.json.JsObject
@@ -14,6 +17,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.modules.reactivemongo.json.BSONFormats._
 
 import scala.concurrent.Future
+import scalax.collection.edge.LkDiEdge
 import scalax.collection.immutable.Graph
 import scalax.collection.edge.Implicits._
 
@@ -81,7 +85,7 @@ object TransferHistory extends Controller with MongoController {
 
 	/**
 	 * Transfer history found.
- 	 * @param components components that were transferred from
+	 * @param components components that were transferred from
 	 * @param transfers transfers that took place from components
 	 */
 	private case class History(components: List[Component], transfers: List[Transfer])
@@ -99,7 +103,7 @@ object TransferHistory extends Controller with MongoController {
 		// Now convert BSON returned to component objects (first map for future, next to convert bson list)
 		previousComponents.map {
 			case ((components, transfers)) =>
-				History(components.map(getComponentObject),transfers.map(getTransferObject))
+				History(components.map(getComponentObject), transfers.map(getTransferObject))
 		}
 	}
 
@@ -111,24 +115,25 @@ object TransferHistory extends Controller with MongoController {
 	 * @tparam T type of list to be returned
 	 * @return future to calculate wanted list from transfers into (direct or indirect) specified component
 	 */
-	private def makeTransferList[T](componentID: String, historyToList: (History) => List[T]) : Future[List[T]] = {
+	private def makeTransferList[T](componentID: String, historyToList: (History) => List[T]): Future[List[T]] = {
 		getHistory(componentID).flatMap((history) =>
-			if (history.transfers.isEmpty) Future.successful(List.empty[T]) else {
+			if (history.transfers.isEmpty) Future.successful(List.empty[T])
+			else {
 				val toList = historyToList(history)
 				val fromSet = history.transfers.map(_.from).toSet
 				// Go recurse to work on components leading into this one, folding the new component transfers
 				// into what we've found so far (latest)
-				Future.fold(futures = fromSet.map((f) => makeTransferList(f,historyToList)))(zero = toList)(op = _ ++ _)
+				Future.fold(futures = fromSet.map((f) => makeTransferList(f, historyToList)))(zero = toList)(op = _ ++ _)
 			}
 		)
 	}
 
 	/**
 	 * An edge for a transfer graph
- 	 * @param fromQuad optional source quad of component transfer is coming from
+	 * @param fromQuad optional source quad of component transfer is coming from
 	 * @param toQuad optional destination quad of component transfer is going to
 	 */
-	case class TransferEdge(fromQuad: Option[Quad],toQuad: Option[Quad])
+	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad])
 
 	/**
 	 * Make a graph from the transfers (direct or indirect) into a component.
@@ -148,9 +153,55 @@ object TransferHistory extends Controller with MongoController {
 			history.transfers.map((t) =>
 				(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad)))
 		})
-		// Make list of edges into a graph
-		edges.map(Graph(_: _*))
+		// When future with list of edges returns make it into a graph
+		edges.map((e) => Graph(e: _*))
 	}
 
-	case class Contents(bsp: Option[SSFIssueList[BSPScan]], mid: Option[ContentType], quad: Option[Division])
+	case class Contents(bsp: Option[SSFIssueList[BSPScan]], mid: Option[ContentType], quad: Option[Quad])
+
+	// Need this to have label on edge be converted to a TransferLabel
+	import scalax.collection.edge.LBase._
+	object TransferLabel extends LEdgeImplicits[TransferEdge]
+	import TransferLabel._
+
+	def getContents(componentID: String) = {
+		makeGraph(componentID).map((graph) => {
+
+			def mergePlateContents(p: Plate, c: Contents, l: Option[TransferEdge]) =
+				Contents(c.bsp, p.initialContent, if (l.isDefined) l.get.fromQuad  else None)
+			def mergeTubeContents(t: Tube, c: Contents, l: Option[TransferEdge]) =
+				Contents(c.bsp, c.mid, c.quad)
+			def mergeRackContents(r: Rack, c: Contents, l: Option[TransferEdge]) =
+				Contents(Some(SSFIssueList("SSF-1",
+					List.empty[String], None, List.empty[BSPScan])), c.mid, c.quad)
+
+			def findContents(c: graph.NodeT,
+							 contents: Contents = Contents(None, None, None)) : Contents = {
+				val inputs = c.incoming
+				inputs.foldLeft(contents)((soFar, next) => {
+					val edge = next.edge
+
+					edge match {
+						case LkDiEdge(input, _, label) =>
+							val belowContents = findContents(input, contents)
+							input.component match {
+								case ComponentType.Plate =>
+									mergePlateContents(input.value.asInstanceOf[Plate], belowContents, Some(label))
+								case ComponentType.Tube =>
+									mergeTubeContents(input.value.asInstanceOf[Tube], belowContents, Some(label))
+								case ComponentType.Rack =>
+									mergeRackContents(input.value.asInstanceOf[Rack], belowContents, Some(label))
+							}
+					}
+				})
+			}
+
+			graph.nodes.find((p) => p.id == componentID) match {
+				case None => Contents(None, None, None)
+				// ** Need to take into account this node in contents **
+				// ** May need to have list (one per quad) of contents **
+				case Some(node) => findContents(node)
+			}
+		})
+	}
 }
