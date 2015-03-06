@@ -1,13 +1,10 @@
 package controllers
 
-import models.Component.ComponentType
-import models.ContainerDivisions.Division
-import models.ContainerDivisions.Division.Division
+import models.{Container, Rack, Component, Transfer}
 import models.Transfer.Quad._
-import models._
-import models.initialContents.InitialContents.ContentType
+
 import models.initialContents.InitialContents.ContentType.ContentType
-import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFIssueList}
+import org.broadinstitute.LIMStales.sampleRacks.{BSPTube, RackScan}
 import play.api.libs.json.JsObject
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
@@ -123,7 +120,8 @@ object TransferHistory extends Controller with MongoController {
 				val fromSet = history.transfers.map(_.from).toSet
 				// Go recurse to work on components leading into this one, folding the new component transfers
 				// into what we've found so far (latest)
-				Future.fold(futures = fromSet.map((f) => makeTransferList(f, historyToList)))(zero = toList)(op = _ ++ _)
+				Future.fold(futures = fromSet.map((f) =>
+					makeTransferList(f, historyToList)))(zero = toList)(op = _ ++ _)
 			}
 		)
 	}
@@ -157,50 +155,108 @@ object TransferHistory extends Controller with MongoController {
 		edges.map((e) => Graph(e: _*))
 	}
 
-	case class Contents(bsp: Option[SSFIssueList[BSPScan]], mid: Option[ContentType], quad: Option[Quad])
+	/**
+	 * Contents of a component.
+ 	 * @param component Component object (e.g., plate, rack, tube)
+	 * @param all Contents common across the entire plate
+	 * @param byQuad Contents specific to quadrants of plate
+	 */
+	case class ComponentContents(component: Component, all: Contents, byQuad: Map[Quad, Contents])
 
-	// Need this to have label on edge be converted to a TransferLabel
+	/**
+	 * Contents of a component - bsp samples and molecular ids.
+	 * @param bsp map, by well, of samples
+	 * @param mid molecular ID set being used
+	 */
+	case class Contents(bsp: Option[RackScan#MatchByPos[BSPTube]], mid: Option[ContentType])
+
+	/**
+	 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
+ 	 * @param c Component to find bsp sample information for
+	 * @return optional match, by well, of bsp sample information found
+	 */
+	def getBspContents(c: Component) =
+		c match {
+			case rack: Rack => RackController.getBSPmatch(rack.id,(matches, _) => Some(matches),(err) => None)
+			case _ => None
+		}
+
+	/**
+	 * Get initial contents of container.
+ 	 * @param c Component to get initial contents
+	 * @return optional initial contents found
+	 */
+	def getInitialContent(c: Component) =
+		c match {
+			case container: Container => container.initialContent
+			case _ => None
+		}
+
+	/**
+	 * Set initial contents, before transfers, of a component.
+	 * @param c Component
+	 * @return initial contents found
+	 */
+	def beginningContents(c: Component) =
+		ComponentContents(c,Contents(getBspContents(c),getInitialContent(c)),Map.empty)
+
+	// Need this to have label on edge be converted to a TransferEdge - making an implicit to be used for edge
 	import scalax.collection.edge.LBase._
 	object TransferLabel extends LEdgeImplicits[TransferEdge]
 	import TransferLabel._
 
+	/**
+	 * Get the ultimate contents of a component.  The ultimate includes both what's initially in the component as well
+	 * as everything transferred into it.
+	 * @param componentID ID for component we want to know the contents of
+	 * @return future to get contents of component
+	 */
 	def getContents(componentID: String) = {
+		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage
+		// through all the transfers that have been done.  We map that graph into our component's contents
 		makeGraph(componentID).map((graph) => {
+			/**
+			 * Merge together the contents of two components.
+			 * @param in "from" component of transfer (input to other component)
+			 * @param out "to" component of transfer (output of transfer)
+			 * @param transfer transfer that took place between components
+			 * @return output component contents now including materials transferred from input
+			 */
+			def mergeContents(in: ComponentContents, out: ComponentContents, transfer: TransferEdge) = {
+				// @TODO Work out quadrants
+				val inAll = in.all
+				val outAll = out.all
+				ComponentContents(out.component,
+					Contents(inAll.bsp.fold(outAll.bsp)(Some(_)), inAll.mid.fold(outAll.mid)(Some(_))), Map.empty)
+			}
 
-			def mergePlateContents(p: Plate, c: Contents, l: Option[TransferEdge]) =
-				Contents(c.bsp, p.initialContent, if (l.isDefined) l.get.fromQuad  else None)
-			def mergeTubeContents(t: Tube, c: Contents, l: Option[TransferEdge]) =
-				Contents(c.bsp, c.mid, c.quad)
-			def mergeRackContents(r: Rack, c: Contents, l: Option[TransferEdge]) =
-				Contents(Some(SSFIssueList("SSF-1",
-					List.empty[String], None, List.empty[BSPScan])), c.mid, c.quad)
-
-			def findContents(c: graph.NodeT,
-							 contents: Contents = Contents(None, None, None)) : Contents = {
-				val inputs = c.incoming
-				inputs.foldLeft(contents)((soFar, next) => {
+			/**
+			 * Find the contents for a component that is a node in a graph recording the transfers that lead
+			 * into the component.
+ 			 * @param output component node for which we want, taking into account transfers, the contents
+			 * @return contents of component, including both initial contents and what was transferred in
+			 */
+			def findContents(output: graph.NodeT) : ComponentContents = {
+				// Find all components directly transferred in
+				val inputs = output.incoming
+				// Fold all the incoming components into our contents
+				inputs.foldLeft(beginningContents(output))((soFar, next) => {
 					val edge = next.edge
-
 					edge match {
 						case LkDiEdge(input, _, label) =>
-							val belowContents = findContents(input, contents)
-							input.component match {
-								case ComponentType.Plate =>
-									mergePlateContents(input.value.asInstanceOf[Plate], belowContents, Some(label))
-								case ComponentType.Tube =>
-									mergeTubeContents(input.value.asInstanceOf[Tube], belowContents, Some(label))
-								case ComponentType.Rack =>
-									mergeRackContents(input.value.asInstanceOf[Rack], belowContents, Some(label))
-							}
+							// We recurse to keep looking for previous transfers
+							// Note: IDE thinks input isn't a graph.NodeT but compiler is perfectly happy
+							val inputContents = findContents(input)
+							mergeContents(inputContents, soFar, label)
+						case _ => soFar
 					}
 				})
 			}
 
+			// Find our component in the graph and then find its contents
 			graph.nodes.find((p) => p.id == componentID) match {
-				case None => Contents(None, None, None)
-				// ** Need to take into account this node in contents **
-				// ** May need to have list (one per quad) of contents **
-				case Some(node) => findContents(node)
+				case None => None
+				case Some(node) => Some(findContents(node))
 			}
 		})
 	}
