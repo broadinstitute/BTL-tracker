@@ -42,6 +42,69 @@ object Transfer {
 	// String values for dropdown lists etc.
 	val quadVals = Quad.values.map(_.toString).toList
 
+	import Quad._
+	/**
+	 * Make a well mapping going between a quadrant of a 384 well plate and a 96 well plate.
+	 * @param qtr which quarter to move to/from
+	 * @param toPair callback to make a tuple between pairs
+	 * @return map going between a quadrant of a 384 well plate and a 96 well plate
+	 */
+	private def qToQ(qtr: Quad, toPair: (Char, Int, (Int, Int)) => (String, String)) = {
+		// Get relative x/y coordinates within each group of 2x2 wells to quadrants
+		val q = qtr match {
+			case Q1 => (0, 0)
+			case Q2 => (0, 1)
+			case Q3 => (1, 0)
+			case Q4 => (1, 1)
+		}
+		// Make map
+		(for {x <- 'A' to 'H'
+			  y <- 1 to 12}
+		yield toPair(x, y, q)).toMap
+	}
+
+	/**
+	 * Make string for well within quadrant in 384 well plate
+	 * @param x row coordinate of matching well in 96-well plate
+	 * @param y column coordinate of matching well in 96-well plate
+	 * @param q relative coordinates to wanted well with each 2x2 set of wells to wanted quadrant
+	 * @return well description (letter and 2-digit number - e.g., A01)
+	 */
+	private def well384(x: Char, y: Int, q: (Int, Int)) =
+		f"${((x - 'A') * 2) + 'A' + q._1}%c${((y - 1) * 2) + 1 + q._2}%02d"
+
+	/**
+	 * Make string for well in 384 well plate
+	 * @param x row coordinate of well
+	 * @param y column coordinate of well
+	 * @return well description (letter and 2-digit number - e.g., A01)
+	 */
+	private def well96(x: Char, y: Int) = f"${x}${y}%02d"
+
+	/**
+	 * Make map of 96-well plate to quadrant of 384-well plate
+	 * @param qtr quadrant of 384-well plate
+	 * @return map of 96-well plate wells to target quadrant wells in 384-well plate
+	 */
+	private def q96to384(qtr: Quad) = qToQ(qtr, (x, y, q) => well96(x, y) -> well384(x, y, q))
+
+	/**
+	 * Make map of 384-well plate quadrant to 96-well plate
+	 * @param qtr quadrant of 384-well plate
+	 * @return map of quadrant of 384-well plate wells to target 96-well plate wells
+	 */
+	private def q384to96(qtr: Quad) = qToQ(qtr, (x, y, q) => well384(x, y, q) -> well96(x, y))
+
+	// Well mappings between 96-well plate and 384-well plate quadrants
+	val q1to384 = q96to384(Q1)
+	val q2to384 = q96to384(Q2)
+	val q3to384 = q96to384(Q3)
+	val q4to384 = q96to384(Q4)
+	val q1from384 = q384to96(Q1)
+	val q2from384 = q384to96(Q2)
+	val q3from384 = q384to96(Q3)
+	val q4from384 = q384to96(Q4)
+
 	// Form to create/read Transfer objects
 	val form = Form(
 		mapping(

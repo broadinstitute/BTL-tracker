@@ -38,11 +38,7 @@ object InitialContents {
 	 * @tparam C content class type
 	 */
 	trait Contents[C] {
-		// Identifier for content
-		val id: String
-		// type of contents
-		val contentType: ContentType.ContentType
-		// list of contents
-		val contents: List[C]
+		// map of wells to contents
+		val contents: Map[String, C]
 	}
 }

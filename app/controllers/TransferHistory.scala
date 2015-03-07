@@ -223,7 +223,7 @@ object TransferHistory extends Controller with MongoController {
 			 * @return output component contents now including materials transferred from input
 			 */
 			def mergeContents(in: ComponentContents, out: ComponentContents, transfer: TransferEdge) = {
-				// @TODO Work out quadrants
+				// @TODO Work out quadrants (good stuff in Transfer) and mids (good stuff in MolecularBarcodes)
 				val inAll = in.all
 				val outAll = out.all
 				ComponentContents(out.component,
