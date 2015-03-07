@@ -119,7 +119,7 @@ object TransferHistory extends Controller with MongoController {
 				val toList = historyToList(history)
 				val fromSet = history.transfers.map(_.from).toSet
 				// Go recurse to work on components leading into this one, folding the new component transfers
-				// into what we've found so far (latest)
+				// into what we've found so far
 				Future.fold(futures = fromSet.map((f) =>
 					makeTransferList(f, historyToList)))(zero = toList)(op = _ ++ _)
 			}

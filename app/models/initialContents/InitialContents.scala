@@ -1,5 +1,7 @@
 package models.initialContents
 
+import models.initialContents.MolecularBarcodes.MolBarcodeWell
+
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
  *
@@ -22,7 +24,7 @@ object InitialContents {
 	val	contentIDs = ContentType.values.map((v) => v -> ("@#" + v.toString + "#@")).toMap
 
 	// Get contents for each type
-	val contents = Map[ContentType, Contents[_]] (
+	val contents = Map[ContentType, Contents[_ <: MolBarcodeWell]] (
 		NexteraSetA -> MolecularBarcodes.mbSetA,
 		NexteraSetB -> MolecularBarcodes.mbSetB,
 		NexteraSetC -> MolecularBarcodes.mbSetC,

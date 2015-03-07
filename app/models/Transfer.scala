@@ -46,10 +46,10 @@ object Transfer {
 	/**
 	 * Make a well mapping going between a quadrant of a 384 well plate and a 96 well plate.
 	 * @param qtr which quarter to move to/from
-	 * @param toPair callback to make a tuple between pairs
+	 * @param toTuple callback to make a tuple of destination well and original well
 	 * @return map going between a quadrant of a 384 well plate and a 96 well plate
 	 */
-	private def qToQ(qtr: Quad, toPair: (Char, Int, (Int, Int)) => (String, String)) = {
+	private def qToQ(qtr: Quad, toTuple: (Char, Int, (Int, Int)) => (String, String)) = {
 		// Get relative x/y coordinates within each group of 2x2 wells to quadrants
 		val q = qtr match {
 			case Q1 => (0, 0)
@@ -60,7 +60,7 @@ object Transfer {
 		// Make map
 		(for {x <- 'A' to 'H'
 			  y <- 1 to 12}
-		yield toPair(x, y, q)).toMap
+		yield toTuple(x, y, q)).toMap
 	}
 
 	/**
@@ -95,7 +95,8 @@ object Transfer {
 	 */
 	private def q384to96(qtr: Quad) = qToQ(qtr, (x, y, q) => well384(x, y, q) -> well96(x, y))
 
-	// Well mappings between 96-well plate and 384-well plate quadrants
+	// Well mappings between 96-well plate and 384-well plate quadrants - can be used to see what well quadrant
+	// transfers come from and are going to
 	val q1to384 = q96to384(Q1)
 	val q2to384 = q96to384(Q2)
 	val q3to384 = q96to384(Q3)
