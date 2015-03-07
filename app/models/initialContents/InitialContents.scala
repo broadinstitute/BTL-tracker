@@ -16,6 +16,11 @@ object InitialContents {
 		val NexteraSetB = Value("NexteraXP v2 Index Set B")
 		val NexteraSetC = Value("NexteraXP v2 Index Set C")
 		val NexteraSetD = Value("NexteraXP v2 Index Set D")
+		val TruGrade384Set1 = Value("Trugrade 384 Well Set 1")
+		val TruGrade96Set1 = Value("Trugrade 96 Well Set 1")
+		val TruGrade96Set2 = Value("Trugrade 96 Well Set 2")
+		val TruGrade96Set3 = Value("Trugrade 96 Well Set 3")
+		val TruGrade96Set4 = Value("Trugrade 96 Well Set 4")
 		val Nothing = Value(noContents)
 	}
 	import ContentType._
@@ -28,7 +33,12 @@ object InitialContents {
 		NexteraSetA -> MolecularBarcodes.mbSetA,
 		NexteraSetB -> MolecularBarcodes.mbSetB,
 		NexteraSetC -> MolecularBarcodes.mbSetC,
-		NexteraSetD -> MolecularBarcodes.mbSetD
+		NexteraSetD -> MolecularBarcodes.mbSetD,
+		TruGrade384Set1 -> MolecularBarcodes.mbTG384S1,
+		TruGrade96Set1 -> MolecularBarcodes.mbTG96S1,
+		TruGrade96Set2 -> MolecularBarcodes.mbTG96S2,
+		TruGrade96Set3 -> MolecularBarcodes.mbTG96S3,
+		TruGrade96Set4 -> MolecularBarcodes.mbTG96S4
 	)
 
 	// Sorted list of display values for putting in drop down lists, etc. with no contents first
