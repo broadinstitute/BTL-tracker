@@ -139,18 +139,20 @@ object TransferHistory extends Controller with MongoController {
 	 * @return future with a graph of transfers
 	 */
 	def makeGraph(componentID: String) = {
-		val edges = makeTransferList(componentID, (history) => {
-			// Find component in history's component list (note this list should be very small)
-			def findComponent(id: String) = {
-				history.components.find(_.id == id) match {
-					case Some(c) => c
-					case None => throw new Exception(s"Missing Component: $id")
+		val edges = makeTransferList(componentID,
+			historyToList = (history) => {
+				// Find component in history's component list (note this list should be very small)
+				def findComponent(id: String) = {
+					history.components.find(_.id == id) match {
+						case Some(c) => c
+						case None => throw new Exception(s"Missing Component: $id")
+					}
 				}
+				// Map all the transfers into graph edges
+				history.transfers.map((t) =>
+					(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad)))
 			}
-			// Map all the transfers into graph edges
-			history.transfers.map((t) =>
-				(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad)))
-		})
+		)
 		// When future with list of edges returns make it into a graph
 		edges.map((e) => Graph(e: _*))
 	}
@@ -192,14 +194,6 @@ object TransferHistory extends Controller with MongoController {
 			case _ => None
 		}
 
-	/**
-	 * Set initial contents, before transfers, of a component.
-	 * @param c Component
-	 * @return initial contents found
-	 */
-	def beginningContents(c: Component) =
-		ComponentContents(c,Contents(getBspContents(c),getInitialContent(c)),Map.empty)
-
 	// Need this to have label on edge be converted to a TransferEdge - making an implicit to be used for edge
 	import scalax.collection.edge.LBase._
 	object TransferLabel extends LEdgeImplicits[TransferEdge]
@@ -216,6 +210,14 @@ object TransferHistory extends Controller with MongoController {
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		makeGraph(componentID).map((graph) => {
 			/**
+			 * Set initial contents, before transfers, of a component.
+			 * @param c Component
+			 * @return initial contents found
+			 */
+			def beginningContents(c: Component) =
+				ComponentContents(c,Contents(getBspContents(c),getInitialContent(c)),Map.empty)
+
+			/**
 			 * Merge together the contents of two components.
 			 * @param in "from" component of transfer (input to other component)
 			 * @param out "to" component of transfer (output of transfer)
@@ -223,9 +225,16 @@ object TransferHistory extends Controller with MongoController {
 			 * @return output component contents now including materials transferred from input
 			 */
 			def mergeContents(in: ComponentContents, out: ComponentContents, transfer: TransferEdge) = {
-				// @TODO Work out quadrants (good stuff in Transfer) and mids (good stuff in MolecularBarcodes)
 				val inAll = in.all
 				val outAll = out.all
+				// @TODO Work out quadrants (good stuff in Transfer) and mids (good stuff in MolecularBarcodes)
+				// if 384->96 then get contents of quadrant being used in 384 and set it to entire contents
+				// if 96->384(quadrant) then merge 96 wells into 384 contents
+				// Need to use TruGrade quadrant plates to keep MID names matched with well name?  Have method to
+				// get quadrants from mids?
+				// Get rid of map of quadrants - no need for it
+
+				// If there's something in the input then use it, otherwise leave the output as is
 				ComponentContents(out.component,
 					Contents(inAll.bsp.fold(outAll.bsp)(Some(_)), inAll.mid.fold(outAll.mid)(Some(_))), Map.empty)
 			}
@@ -239,6 +248,9 @@ object TransferHistory extends Controller with MongoController {
 			def findContents(output: graph.NodeT) : ComponentContents = {
 				// Find all components directly transferred in
 				val inputs = output.incoming
+				// @TODO Need depth limit to avoid graph cycles?
+				// Can have depth limit or keep making graphs along the way to look for cycles
+
 				// Fold all the incoming components into our contents
 				inputs.foldLeft(beginningContents(output))((soFar, next) => {
 					val edge = next.edge
