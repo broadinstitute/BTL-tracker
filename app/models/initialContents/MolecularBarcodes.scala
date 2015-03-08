@@ -113,7 +113,9 @@ object MolecularBarcodes {
 		val wPr: Int
 		// Rows per plate
 		val rPp: Int
-		val wellList = List.tabulate(wPr * rPp)((x) => f"${(x / wPr) + 'A'}%c${(x % wPr) + 1}%02d")
+		// List of well names (important to be lazy to get initialized at right time - in particular if makeSet
+		// is called before it is initialized that's trouble if it's not lazy)
+		lazy val wellList = List.tabulate(wPr * rPp)((x) => f"${(x / wPr) + 'A'}%c${(x % wPr) + 1}%02d")
 
 		/**
 		 * Make a MID set
@@ -146,26 +148,19 @@ object MolecularBarcodes {
 		val rPp = 16 // 8 rows per plate
 	}
 
-	// Create 96-well names using list initialization and patterns
-	private val mbSetARows = List(mbS502,mbS503,mbS505,mbS506,mbS507,mbS508,mbS510,mbS511)
-	private val mbSetACols = List(mbN701,mbN702,mbN703,mbN704,mbN705,mbN706,mbN707,mbN710,mbN711,mbN712,mbN714,mbN715)
+	// Set up row and column contents for Nextera paired barcodes - then making the sets are easy
+	private val mbSetABRows = List(mbS502,mbS503,mbS505,mbS506,mbS507,mbS508,mbS510,mbS511)
+	private val mbSetCDRows = List(mbS513,mbS515,mbS516,mbS517,mbS518,mbS520,mbS521,mbS522)
+	private val mbSetACCols = List(mbN701,mbN702,mbN703,mbN704,mbN705,mbN706,mbN707,mbN710,mbN711,mbN712,mbN714,mbN715)
+	private val mbSetBDCols = List(mbN716,mbN718,mbN719,mbN720,mbN721,mbN722,mbN723,mbN724,mbN726,mbN727,mbN728,mbN729)
 	// NexteraXP v2 Index Set A
-	val mbSetA = MolBarcodeContents(MIDPair96.makeSet(mbSetARows,mbSetACols))
-
-	private val mbSetBRows = List(mbS502,mbS503,mbS505,mbS506,mbS507,mbS508,mbS510,mbS511)
-	private val mbSetBCols = List(mbN716,mbN718,mbN719,mbN720,mbN721,mbN722,mbN723,mbN724,mbN726,mbN727,mbN728,mbN729)
+	val mbSetA = MolBarcodeContents(MIDPair96.makeSet(mbSetABRows,mbSetACCols))
 	// NexteraXP v2 Index Set B
-	val mbSetB = MolBarcodeContents(MIDPair96.makeSet(mbSetBRows,mbSetBCols))
-
-	private val mbSetCRows = List(mbS513,mbS515,mbS516,mbS517,mbS518,mbS520,mbS521,mbS522)
-	private val mbSetCCols = List(mbN701,mbN702,mbN703,mbN704,mbN705,mbN706,mbN707,mbN710,mbN711,mbN712,mbN714,mbN715)
+	val mbSetB = MolBarcodeContents(MIDPair96.makeSet(mbSetABRows,mbSetBDCols))
 	// NexteraXP v2 Index Set C
-	val mbSetC = MolBarcodeContents(MIDPair96.makeSet(mbSetCRows,mbSetCCols))
-
-	private val mbSetDRows = List(mbS513,mbS515,mbS516,mbS517,mbS518,mbS520,mbS521,mbS522)
-	private val mbSetDCols = List(mbN716,mbN718,mbN719,mbN720,mbN721,mbN722,mbN723,mbN724,mbN726,mbN727,mbN728,mbN729)
+	val mbSetC = MolBarcodeContents(MIDPair96.makeSet(mbSetCDRows,mbSetACCols))
 	// NexteraXP v2 Index Set D
-	val mbSetD = MolBarcodeContents(MIDPair96.makeSet(mbSetDRows,mbSetDCols))
+	val mbSetD = MolBarcodeContents(MIDPair96.makeSet(mbSetCDRows,mbSetBDCols))
 
 	// Trugrade Set1 (384 well plate)
 	val mbTG384S1 = MolBarcodeContents(Map(
@@ -572,7 +567,7 @@ object MolecularBarcodes {
 		}
 	}
 
-	// Get 96-well TruGrade barcodes (quadrants of their 384-well plate)
+	// Get 96-well TruGrade barcodes (quadrants of the 384-well plate)
 	// TruGrade 96-well Set1
 	val mbTG96S1 = MolBarcodeContents(getTruGradeQuadriant(Transfer.q1from384))
 	// TruGrade 96-well Set2

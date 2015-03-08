@@ -16,11 +16,11 @@ object InitialContents {
 		val NexteraSetB = Value("NexteraXP v2 Index Set B")
 		val NexteraSetC = Value("NexteraXP v2 Index Set C")
 		val NexteraSetD = Value("NexteraXP v2 Index Set D")
-		val TruGrade384Set1 = Value("Trugrade 384 Well Set 1")
-		val TruGrade96Set1 = Value("Trugrade 96 Well Set 1")
-		val TruGrade96Set2 = Value("Trugrade 96 Well Set 2")
-		val TruGrade96Set3 = Value("Trugrade 96 Well Set 3")
-		val TruGrade96Set4 = Value("Trugrade 96 Well Set 4")
+		val TruGrade384Set1 = Value("Trugrade 384-well Set 1")
+		val TruGrade96Set1 = Value("Trugrade 96-well Set 1")
+		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
+		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
+		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
 		val Nothing = Value(noContents)
 	}
 	import ContentType._

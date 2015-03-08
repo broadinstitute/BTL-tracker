@@ -64,7 +64,9 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 	val validLocations = List(ComponentType.Freezer)
 	val validTransfers = List(ComponentType.Plate,ComponentType.Tube)
 	val validContents =
-		List(ContentType.NexteraSetA, ContentType.NexteraSetB, ContentType.NexteraSetC, ContentType.NexteraSetD)
+		List(ContentType.NexteraSetA,ContentType.NexteraSetB,ContentType.NexteraSetC,ContentType.NexteraSetD,
+			ContentType.TruGrade384Set1,ContentType.TruGrade96Set1,ContentType.TruGrade96Set2,
+			ContentType.TruGrade96Set3,ContentType.TruGrade96Set4)
 
 	val layoutKey = "layout"
 	// Supply our custom enum Reader and Writer for enums
