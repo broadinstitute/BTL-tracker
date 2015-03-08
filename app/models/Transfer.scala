@@ -105,6 +105,8 @@ object Transfer {
 	val q2from384 = q384to96(Q2)
 	val q3from384 = q384to96(Q3)
 	val q4from384 = q384to96(Q4)
+	val qTo384 = Map(Q1 -> q1to384, Q2 -> q2to384, Q3 -> q3to384, Q4 -> q4to384)
+	val qFrom384 = Map(Q1 -> q1from384, Q2 -> q2from384, Q3 -> q3from384, Q4 -> q4from384)
 
 	// Form to create/read Transfer objects
 	val form = Form(

@@ -30,9 +30,9 @@ object Application extends Controller {
 	/**
 	 * Just a test form
 	 */
-	def test = Action.async {
+	def test(id: String) = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		TransferHistory.getContents("T123").map((g) => Ok(g.toString))
+		TransferHistory.getContents(id).map((g) => Ok(g.toString))
 	}
 
 	/**
@@ -47,7 +47,7 @@ object Application extends Controller {
 	 * Using type supplied from form go to next step to fill in type specific data for components.
 	 * @return action to execute to put up form to get component data
 	 */
-	def addFromForm() = Action { request =>
+	def addFromForm = Action { request =>
 		Component.typeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				BadRequest(views.html.add(formWithErrors.withGlobalError(Errors.validationError))),

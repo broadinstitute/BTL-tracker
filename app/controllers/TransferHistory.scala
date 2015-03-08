@@ -1,9 +1,12 @@
 package controllers
 
-import models.{Container, Rack, Component, Transfer}
+import models._
 import models.Transfer.Quad._
+import models.initialContents.InitialContents
+import InitialContents.ContentType._
 
-import models.initialContents.InitialContents.ContentType.ContentType
+import models.ContainerDivisions.Division._
+import models.initialContents.MolecularBarcodes.{MolBarcodeWell, MolBarcodeContents}
 import org.broadinstitute.LIMStales.sampleRacks.{BSPTube, RackScan}
 import play.api.libs.json.JsObject
 import play.api.mvc.Controller
@@ -88,8 +91,8 @@ object TransferHistory extends Controller with MongoController {
 	private case class History(components: List[Component], transfers: List[Transfer])
 
 	/**
-	 * Future to get component objects for the components transferred into a single component as well as transfer
-	 * objects that show how transfer took place.
+	 * Future to get two lists: one of components directly transferred into a component and one for the associated
+	 * transfers that took place.
 	 * @param componentID we want to know what was transferred into this id
 	 * @return list of component objects that are immediate sources for the specified component and list of transfers
 	 */
@@ -116,12 +119,14 @@ object TransferHistory extends Controller with MongoController {
 		getHistory(componentID).flatMap((history) =>
 			if (history.transfers.isEmpty) Future.successful(List.empty[T])
 			else {
-				val toList = historyToList(history)
+				val historyList = historyToList(history)
 				val fromSet = history.transfers.map(_.from).toSet
 				// Go recurse to work on components leading into this one, folding the new component transfers
 				// into what we've found so far
-				Future.fold(futures = fromSet.map((f) =>
-					makeTransferList(f, historyToList)))(zero = toList)(op = _ ++ _)
+				// @TODO Check for cycles
+				// on op would need to have another call back to merge lists which could check for cycles
+				Future.fold(futures = fromSet.map((from) =>
+					makeTransferList(from, historyToList)))(zero = historyList)(op = _ ++ _)
 			}
 		)
 	}
@@ -160,17 +165,17 @@ object TransferHistory extends Controller with MongoController {
 	/**
 	 * Contents of a component.
  	 * @param component Component object (e.g., plate, rack, tube)
-	 * @param all Contents common across the entire plate
-	 * @param byQuad Contents specific to quadrants of plate
+	 * @param contents Contents common across the entire plate
 	 */
-	case class ComponentContents(component: Component, all: Contents, byQuad: Map[Quad, Contents])
+	case class ComponentContents(component: Component, contents: Contents)
 
 	/**
 	 * Contents of a component - bsp samples and molecular ids.
 	 * @param bsp map, by well, of samples
 	 * @param mid molecular ID set being used
 	 */
-	case class Contents(bsp: Option[RackScan#MatchByPos[BSPTube]], mid: Option[ContentType])
+	case class Contents(bsp: Option[RackScan#MatchByPos[BSPTube]],
+						mid: Option[InitialContents.ContentsMap[MolBarcodeWell]])
 
 	/**
 	 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
@@ -190,7 +195,11 @@ object TransferHistory extends Controller with MongoController {
 	 */
 	def getInitialContent(c: Component) =
 		c match {
-			case container: Container => container.initialContent
+			case container: Container =>
+				container.initialContent match {
+					case Some(ic) if ic != Nothing => Some(InitialContents.contents(ic))
+					case _ => None
+				}
 			case _ => None
 		}
 
@@ -215,7 +224,60 @@ object TransferHistory extends Controller with MongoController {
 			 * @return initial contents found
 			 */
 			def beginningContents(c: Component) =
-				ComponentContents(c,Contents(getBspContents(c),getInitialContent(c)),Map.empty)
+				ComponentContents(c,Contents(getBspContents(c),getInitialContent(c)))
+
+			/**
+			 * If a quadrant transfer then map input wells to output wells.  If quadrant of 384-well plate being mapped
+			 * to a 96-well plate then get contents of quadrant being used in 384-well plate and set it to wells that
+			 * it will occupy on the 96-well plate.  If a 96-well plate is headed to a quadrant of a 384-well plate then
+			 * set the wells of the 96-well plate input to be the wells they will be in the 384-well plate quadrant.
+			 * @param in
+			 * @param transfer
+			 * @return
+			 */
+			def takeQuadrants(in: ComponentContents, transfer: TransferEdge) = {
+				/**
+				 * Do the mapping of a quadrant between original input wells to wells it will go to in the destination.
+				 * @param in input component contents
+				 * @param layout layout we should be going to or from
+				 * @param wellMap map of well locations in input to well locations in output
+				 * @return input component contents mapped to destination wells
+				 */
+				def mapQuadrantWells(in: ComponentContents, layout: ContainerDivisions.Division.Division,
+									 wellMap: Map[String, String]) = {
+					in.component match {
+						case cd:ContainerDivisions if cd.layout == layout =>
+							// Get new MID mapping taking wells from input that can go to output
+							val newMid = in.contents.mid.map((midContents) => {
+								val newMidContents = midContents.contents.flatMap{
+									case ((well, mid)) if wellMap.get(well).isDefined =>
+										val newWell = wellMap.getOrElse(well, well)
+										List(newWell -> mid)
+									case _ => List.empty
+								}
+								MolBarcodeContents(newMidContents)
+							})
+							// Get new BSP mapping taking tubes from rack that can go to output
+							val newBsp = in.contents.bsp.map(_.flatMap{
+								case ((well, bsp)) if wellMap.get(well).isDefined =>
+									val newWell = wellMap.getOrElse(well, well)
+									List(newWell -> bsp)
+								case _ => List.empty
+							})
+							// Create the new input contents
+							ComponentContents(in.component,Contents(newBsp, newMid))
+						case _ => in
+					}
+				}
+
+				// Go do mapping based on type of transfer
+				(transfer.fromQuad, transfer.toQuad) match {
+					case (Some(from), None) => mapQuadrantWells(in, DIM16x24, Transfer.qFrom384(from))
+					case (None, Some(to)) => mapQuadrantWells(in, DIM8x12, Transfer.qTo384(to))
+					case (Some(from), Some(to))  => in
+					case _ => in
+				}
+			}
 
 			/**
 			 * Merge together the contents of two components.
@@ -225,18 +287,17 @@ object TransferHistory extends Controller with MongoController {
 			 * @return output component contents now including materials transferred from input
 			 */
 			def mergeContents(in: ComponentContents, out: ComponentContents, transfer: TransferEdge) = {
-				val inAll = in.all
-				val outAll = out.all
-				// @TODO Work out quadrants (good stuff in Transfer) and mids (good stuff in MolecularBarcodes)
-				// if 384->96 then get contents of quadrant being used in 384 and set it to entire contents
-				// if 96->384(quadrant) then merge 96 wells into 384 contents
-				// Need to use TruGrade quadrant plates to keep MID names matched with well name?  Have method to
-				// get quadrants from mids?
-				// Get rid of map of quadrants - no need for it
+				val inWithQuads = takeQuadrants(in, transfer)
+				val inContents = inWithQuads.contents
+				val outContents = out.contents
+				// @TODO Need to use TruGrade quadrant plates to keep MID names matched with well name?  Have method to
+				// get quadrants from mids?  Need to make merges into Map[String,Set] to get multiple inputs but
+				// don't duplicate if getting same mids or bsp for same plate
 
 				// If there's something in the input then use it, otherwise leave the output as is
 				ComponentContents(out.component,
-					Contents(inAll.bsp.fold(outAll.bsp)(Some(_)), inAll.mid.fold(outAll.mid)(Some(_))), Map.empty)
+					Contents(inContents.bsp.fold(ifEmpty = outContents.bsp)(Some(_)),
+						inContents.mid.fold(outContents.mid)(Some(_))))
 			}
 
 			/**
@@ -248,9 +309,6 @@ object TransferHistory extends Controller with MongoController {
 			def findContents(output: graph.NodeT) : ComponentContents = {
 				// Find all components directly transferred in
 				val inputs = output.incoming
-				// @TODO Need depth limit to avoid graph cycles?
-				// Can have depth limit or keep making graphs along the way to look for cycles
-
 				// Fold all the incoming components into our contents
 				inputs.foldLeft(beginningContents(output))((soFar, next) => {
 					val edge = next.edge

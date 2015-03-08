@@ -1,7 +1,7 @@
 package models.initialContents
 
 import models.Transfer
-import models.initialContents.InitialContents.Contents
+import models.initialContents.InitialContents.ContentsMap
 
 /**
  * @author Nathaniel Novod
@@ -59,7 +59,7 @@ object MolecularBarcodes {
 	 * Contents for a plate of molecular barcodes.
 	 * @param contents list of well contents
 	 */
-	case class MolBarcodeContents(contents: Map[String, MolBarcodeWell]) extends Contents[MolBarcodeWell]
+	case class MolBarcodeContents(contents: Map[String, MolBarcodeWell]) extends ContentsMap[MolBarcodeWell]
 
 	// Create i5 Nextera Molecular barcodes
 	private val mbS502 = MolBarcode("CTCTCTAT","S502")

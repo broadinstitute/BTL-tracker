@@ -6,7 +6,7 @@
 GET         /                                        controllers.Application.index
 
 # Test page
-GET         /test                                    controllers.Application.test
+GET         /test/:id                                controllers.Application.test(id)
 #To get play introduction
 GET         /playDoc                                 controllers.Application.playDoc
 

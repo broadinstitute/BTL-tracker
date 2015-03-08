@@ -1,5 +1,6 @@
 package models.initialContents
 
+import models.ContainerDivisions
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 
 /**
@@ -28,8 +29,22 @@ object InitialContents {
 	// Map of types to fake IDs we'll be using
 	val	contentIDs = ContentType.values.map((v) => v -> ("@#" + v.toString + "#@")).toMap
 
+	// @TODO Will need to make sure contents are for proper size plate
+	import ContainerDivisions.Division._
+	val validDivisions = Map[ContentType, Division] (
+		NexteraSetA -> DIM8x12,
+		NexteraSetB -> DIM8x12,
+		NexteraSetC -> DIM8x12,
+		NexteraSetD -> DIM8x12,
+		TruGrade384Set1 -> DIM16x24,
+		TruGrade96Set1 -> DIM8x12,
+		TruGrade96Set2 -> DIM8x12,
+		TruGrade96Set3 -> DIM8x12,
+		TruGrade96Set4 -> DIM8x12
+	)
+
 	// Get contents for each type
-	val contents = Map[ContentType, Contents[_ <: MolBarcodeWell]] (
+	val contents = Map[ContentType, ContentsMap[MolBarcodeWell]] (
 		NexteraSetA -> MolecularBarcodes.mbSetA,
 		NexteraSetB -> MolecularBarcodes.mbSetB,
 		NexteraSetC -> MolecularBarcodes.mbSetC,
@@ -49,7 +64,7 @@ object InitialContents {
 	 * Initial contents
 	 * @tparam C content class type
 	 */
-	trait Contents[C] {
+	trait ContentsMap[C] {
 		// map of wells to contents
 		val contents: Map[String, C]
 	}
