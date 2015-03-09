@@ -123,8 +123,6 @@ object TransferHistory extends Controller with MongoController {
 				val fromSet = history.transfers.map(_.from).toSet
 				// Go recurse to work on components leading into this one, folding the new component transfers
 				// into what we've found so far
-				// @TODO Check for cycles
-				// on op would need to have another call back to merge lists which could check for cycles
 				Future.fold(futures = fromSet.map((from) =>
 					makeTransferList(from, historyToList)))(zero = historyList)(op = _ ++ _)
 			}
@@ -137,6 +135,18 @@ object TransferHistory extends Controller with MongoController {
 	 * @param toQuad optional destination quad of component transfer is going to
 	 */
 	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad])
+
+	/**
+	 * Would the addition of this transfer lead to a cyclic graph?  Get what leads into the "from" part of the transfer
+	 * and see if it contains the "to" part of the transfer.
+	 * @param data transfer to be added
+	 * @return future true if graph would become cyclic with addition of the transfer
+	 */
+	def isAdditionCyclic(data: Transfer) = {
+		TransferHistory.makeGraph(data.from).map {
+			(graph) => graph.nodes.filter((n) => n.id == data.to).nonEmpty
+		}
+	}
 
 	/**
 	 * Make a graph from the transfers (direct or indirect) into a component.
@@ -182,7 +192,7 @@ object TransferHistory extends Controller with MongoController {
  	 * @param c Component to find bsp sample information for
 	 * @return optional match, by well, of bsp sample information found
 	 */
-	def getBspContents(c: Component) =
+	private def getBspContents(c: Component) =
 		c match {
 			case rack: Rack => RackController.getBSPmatch(rack.id,(matches, _) => Some(matches),(err) => None)
 			case _ => None
@@ -193,7 +203,7 @@ object TransferHistory extends Controller with MongoController {
  	 * @param c Component to get initial contents
 	 * @return optional initial contents found
 	 */
-	def getInitialContent(c: Component) =
+	private def getInitialContent(c: Component) =
 		c match {
 			case container: Container =>
 				container.initialContent match {
@@ -210,7 +220,8 @@ object TransferHistory extends Controller with MongoController {
 
 	/**
 	 * Get the ultimate contents of a component.  The ultimate includes both what's initially in the component as well
-	 * as everything transferred into it.
+	 * as everything transferred into it.  First we make a graph of the transfers that lead into the component and then
+	 * we find the contents by travelling up the graph.
 	 * @param componentID ID for component we want to know the contents of
 	 * @return future to get contents of component
 	 */
@@ -231,9 +242,9 @@ object TransferHistory extends Controller with MongoController {
 			 * to a 96-well plate then get contents of quadrant being used in 384-well plate and set it to wells that
 			 * it will occupy on the 96-well plate.  If a 96-well plate is headed to a quadrant of a 384-well plate then
 			 * set the wells of the 96-well plate input to be the wells they will be in the 384-well plate quadrant.
-			 * @param in
-			 * @param transfer
-			 * @return
+			 * @param in contents for input to transfer
+			 * @param transfer transfer to be done from input
+			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
 			 */
 			def takeQuadrants(in: ComponentContents, transfer: TransferEdge) = {
 				/**

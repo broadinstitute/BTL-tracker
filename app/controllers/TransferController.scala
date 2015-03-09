@@ -19,9 +19,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  *         Date: 2/24/15
  *         Time: 6:27 PM
  */
-//@TODO Check for cycles by taking new transfer, making it into an edge, getting graph for transfers leading into
-//from of new edge, making new graph to include new edge and then checking for cycle
-//Also need to check for transfers when deleting component and need ability to delete individual transfers
+// @TODO Need to check for transfers when deleting component and need ability to delete individual transfers
 object TransferController extends Controller with MongoController {
 	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
@@ -225,12 +223,21 @@ object TransferController extends Controller with MongoController {
 	 * @return result to return with completion status
 	 */
 	private def insertTransfer(data: Transfer, whatDone: () => String) = {
-		transferCollection.insert(data).map {
-			(lastError) => {
-				val success = "Inserted " + whatDone()
-				Logger.debug(s"$success with status: $lastError")
-				transferCompleteResult(() => "Completed " + whatDone())
-			}
+		// @TODO 1)Get contents for new graph
+		// 2)Check if multiple MIDs - if yes then warn of possible contamination - ideally come up with new form
+		// that has warning and will ask whether to continue
+		// 3)Finally do actual insert
+		TransferHistory.isAdditionCyclic(data).flatMap {
+			case true => Future.successful(transferErrorResult(data, Map(None ->
+				s"Error: Adding transfer will create a cyclic graph (${data.to} is already a source for ${data.from})")))
+			case false =>
+				transferCollection.insert(data).map {
+					(lastError) => {
+						val success = "Inserted " + whatDone()
+						Logger.debug(s"$success with status: $lastError")
+						transferCompleteResult(() => "Completed " + whatDone())
+					}
+				}
 		}.recover {
 			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
 		}
@@ -248,7 +255,7 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Do transfer based on form.
+	 * Do transfer based on form with quadrant inputs
  	 * @return action to do transfer
 	 */
 	def transferFromForm = Action.async { request =>
