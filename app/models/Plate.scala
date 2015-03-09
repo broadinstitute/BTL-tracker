@@ -8,6 +8,7 @@ package models
 import formats.CustomFormats._
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
+import models.initialContents.InitialContents
 import models.project.JiraProject
 import play.api.data.Form
 import play.api.data.Forms._
@@ -41,12 +42,20 @@ case class Plate(override val id: String,override val description: Option[String
 	override val validTransfers = Plate.validTransfers
 	override val validContents = Plate.validContents
 
+	import play.api.libs.concurrent.Execution.Implicits.defaultContext
 	/**
-	 * Check if what's set in request is valid - specifically we check if the project set contains a plate.
+	 * Check if what's set in request is valid - specifically we check if the project specified contains the plate
+	 * and if the contents are valid for the size of the plate.
 	 * @param request HTTP request (has hidden field with project set before update)
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	override protected def isValid(request: Request[AnyContent]) = isProjectValid(request)
+	override protected def isValid(request: Request[AnyContent]) = isProjectValid(request).map((errMap) => {
+		initialContent match {
+			case Some(content) if !InitialContents.isContentValidForDivision(content, layout) =>
+				errMap + (Some(Container.contentKey) -> s"${content} is invalid for plate with ${layout}")
+			case _ => errMap
+		}
+	})
 }
 
 object Plate extends ComponentObject[Plate](ComponentType.Plate) {

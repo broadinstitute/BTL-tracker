@@ -197,7 +197,7 @@ object TransferHistory extends Controller with MongoController {
 		c match {
 			case container: Container =>
 				container.initialContent match {
-					case Some(ic) if ic != Nothing => Some(InitialContents.contents(ic))
+					case Some(ic) if ic != NoContents => Some(InitialContents.contents(ic))
 					case _ => None
 				}
 			case _ => None
@@ -251,8 +251,7 @@ object TransferHistory extends Controller with MongoController {
 							val newMid = in.contents.mid.map((midContents) => {
 								val newMidContents = midContents.contents.flatMap{
 									case ((well, mid)) if wellMap.get(well).isDefined =>
-										val newWell = wellMap.getOrElse(well, well)
-										List(newWell -> mid)
+										List(wellMap(well) -> mid)
 									case _ => List.empty
 								}
 								MolBarcodeContents(newMidContents)
@@ -260,8 +259,7 @@ object TransferHistory extends Controller with MongoController {
 							// Get new BSP mapping taking tubes from rack that can go to output
 							val newBsp = in.contents.bsp.map(_.flatMap{
 								case ((well, bsp)) if wellMap.get(well).isDefined =>
-									val newWell = wellMap.getOrElse(well, well)
-									List(newWell -> bsp)
+									List(wellMap(well) -> bsp)
 								case _ => List.empty
 							})
 							// Create the new input contents

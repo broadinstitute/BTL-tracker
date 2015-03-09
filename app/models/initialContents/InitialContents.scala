@@ -1,6 +1,7 @@
 package models.initialContents
 
 import models.ContainerDivisions
+import ContainerDivisions.Division._
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 
 /**
@@ -22,26 +23,34 @@ object InitialContents {
 		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
 		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
-		val Nothing = Value(noContents)
+		val NoContents = Value(noContents)
 	}
 	import ContentType._
 
-	// Map of types to fake IDs we'll be using
-	val	contentIDs = ContentType.values.map((v) => v -> ("@#" + v.toString + "#@")).toMap
-
-	// @TODO Will need to make sure contents are for proper size plate
-	import ContainerDivisions.Division._
-	val validDivisions = Map[ContentType, Division] (
-		NexteraSetA -> DIM8x12,
-		NexteraSetB -> DIM8x12,
-		NexteraSetC -> DIM8x12,
-		NexteraSetD -> DIM8x12,
-		TruGrade384Set1 -> DIM16x24,
-		TruGrade96Set1 -> DIM8x12,
-		TruGrade96Set2 -> DIM8x12,
-		TruGrade96Set3 -> DIM8x12,
-		TruGrade96Set4 -> DIM8x12
+	// Map of valid container sizes for different contents
+	// Note this must be lazy to avoid it being created before all ContentTypes are initialized - in particular
+	// NoContents is not be initialized before this is set because val noContents is not initialized before
+	// the object ContentType is setup
+	lazy val validDivisions = Map[ContentType, List[Division]] (
+		NexteraSetA -> List(DIM8x12),
+		NexteraSetB -> List(DIM8x12),
+		NexteraSetC -> List(DIM8x12),
+		NexteraSetD -> List(DIM8x12),
+		TruGrade384Set1 -> List(DIM16x24),
+		TruGrade96Set1 -> List(DIM8x12),
+		TruGrade96Set2 -> List(DIM8x12),
+		TruGrade96Set3 -> List(DIM8x12),
+		TruGrade96Set4 -> List(DIM8x12),
+		NoContents -> List(DIM8x12, DIM16x24)
 	)
+
+	/**
+	 * Is the content valid for the division?
+	 * @param content content of container
+	 * @param div division type of container
+	 * @return true if container with division can hold content
+	 */
+	def isContentValidForDivision(content: ContentType, div: Division) = validDivisions(content).exists(_ == div)
 
 	// Get contents for each type
 	val contents = Map[ContentType, ContentsMap[MolBarcodeWell]] (
