@@ -19,6 +19,9 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  *         Date: 2/24/15
  *         Time: 6:27 PM
  */
+//@TODO Check for cycles by taking new transfer, making it into an edge, getting graph for transfers leading into
+//from of new edge, making new graph to include new edge and then checking for cycle
+//Also need to check for transfers when deleting component and need ability to delete individual transfers
 object TransferController extends Controller with MongoController {
 	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
