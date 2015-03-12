@@ -53,9 +53,9 @@
             <th>@r.toChar.toString</th>
             @for(c <- 1 to cols; cell=r.toChar.toString+(f"$c%02d")) {
                 @plate.get(cell) match {
-                    case Some((MatchFound.Match, Some(tube))) => {<td class="ok">@tube.sampleID</td>}
-                    case Some((MatchFound.NotWell, Some(tube))) => {<td class="warning">@tube.sampleID</td>}
-                    case Some((MatchFound.NotRack, Some(tube))) => {<td class="error">@tube.sampleID</td>}
+                    case Some((MatchFound.Match, Some(tube))) => {<td class="ok">@tube.sampleID.getOrElse("")</td>}
+                    case Some((MatchFound.NotWell, Some(tube))) => {<td class="warning">@tube.sampleID.getOrElse("")</td>}
+                    case Some((MatchFound.NotRack, Some(tube))) => {<td class="error">@tube.sampleID.getOrElse("")</td>}
                     case Some((MatchFound.NotFound, None)) => {<td class="fatal"> </td>}
                     case _ => {<td> </td>}
                 }
