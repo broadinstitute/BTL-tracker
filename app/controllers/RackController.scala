@@ -3,7 +3,7 @@ package controllers
 import models.Component.{HiddenFields,ComponentType}
 import models.{Component,ContainerDivisions,Rack}
 import org.broadinstitute.LIMStales.mongo.BtllimsRacksCollection
-import org.broadinstitute.LIMStales.sampleRacks.{BSPTube, SSFIssueList, SSFList, RackScan}
+import org.broadinstitute.LIMStales.sampleRacks._
 import play.api.data.Form
 import play.api.libs.Files
 import play.api.libs.json.JsObject
@@ -142,7 +142,7 @@ object RackController extends ComponentController[Rack] {
 	 * @tparam R type returned by callback (and thus us)
 	 * @return callback return type
 	 */
-	def getBSPmatch[R](id: String, found: (RackScan#MatchByPos[BSPTube], SSFIssueList[RackScan]) => R,
+	def getBSPmatch[R](id: String, found: (RackScan#MatchByPos[BSPTube], SSFIssueList[BSPScan]) => R,
 					   notFound: (String) => R) = {
 		// Find the projects with scan of the rack
 		val (rack, err) = JiraProject.getRackIssueCollection(id)
@@ -167,7 +167,7 @@ object RackController extends ComponentController[Rack] {
 				} else {
 					// Get how scan matches up using first project from each list (should only be one in each list)
 					val matches = foundRack.list.head.matchContent(bspRacks.head.list)
-					found(matches, foundRack)
+					found(matches, bspRacks.head)
 				}
 			}
 		}

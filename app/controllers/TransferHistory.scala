@@ -180,12 +180,21 @@ object TransferHistory extends Controller with MongoController {
 	case class ComponentContents(component: Component, contents: Contents)
 
 	/**
+	 * Contents of a rack
+ 	 * @param jiraIssue Jira issue
+	 * @param jiraComponents Jira components
+	 * @param jiraSummary Jira summary
+	 * @param contents
+	 */
+	case class RackContentsInfo(jiraIssue: String, jiraComponents: List[String], jiraSummary: Option[String],
+								contents: RackScan#MatchByPos[BSPTube])
+
+	/**
 	 * Contents of a component - bsp samples and molecular ids.
 	 * @param bsp map, by well, of samples
 	 * @param mid molecular ID set being used
 	 */
-	case class Contents(bsp: Option[RackScan#MatchByPos[BSPTube]],
-						mid: Option[InitialContents.ContentsMap[MolBarcodeWell]])
+	case class Contents(bsp: Option[RackContentsInfo], mid: Option[InitialContents.ContentsMap[MolBarcodeWell]])
 
 	/**
 	 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
@@ -194,7 +203,10 @@ object TransferHistory extends Controller with MongoController {
 	 */
 	private def getBspContents(c: Component) =
 		c match {
-			case rack: Rack => RackController.getBSPmatch(rack.id,(matches, _) => Some(matches),(err) => None)
+			case rack: Rack => RackController.getBSPmatch(rack.id,
+				found = (matches, ssfIssue) => Some(RackContentsInfo(ssfIssue.issue, ssfIssue.components,
+					ssfIssue.summary, matches)),
+				notFound = (err) => None)
 			case _ => None
 		}
 
@@ -268,10 +280,15 @@ object TransferHistory extends Controller with MongoController {
 								MolBarcodeContents(newMidContents)
 							})
 							// Get new BSP mapping taking tubes from rack that can go to output
-							val newBsp = in.contents.bsp.map(_.flatMap{
-								case ((well, bsp)) if wellMap.get(well).isDefined =>
-									List(wellMap(well) -> bsp)
-								case _ => List.empty
+							val newBsp = in.contents.bsp.map((rackInfo) => {
+								val newList = rackInfo.contents.flatMap{
+									case ((well, bsp)) if wellMap.get(well).isDefined =>
+										List(wellMap(well) -> bsp)
+									case _ => List.empty
+								}
+								RackContentsInfo(jiraIssue = rackInfo.jiraIssue,
+									jiraComponents = rackInfo.jiraComponents,
+									jiraSummary = rackInfo.jiraSummary,contents = newList)
 							})
 							// Create the new input contents
 							ComponentContents(in.component,Contents(newBsp, newMid))
@@ -306,7 +323,7 @@ object TransferHistory extends Controller with MongoController {
 				// If there's something in the input then use it, otherwise leave the output as is
 				ComponentContents(out.component,
 					Contents(inContents.bsp.fold(ifEmpty = outContents.bsp)(Some(_)),
-						inContents.mid.fold(outContents.mid)(Some(_))))
+						inContents.mid.fold(ifEmpty = outContents.mid)(Some(_))))
 			}
 
 			/**
