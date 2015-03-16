@@ -46,32 +46,31 @@ object MakeEZPass {
 	val bspStockExport = bsp("Stock At Export")
 
 	val ezPassSource = Map("Sample Number" -> inc,
+		"Additional Sample Information" -> "SSF-382", // Jira ticket
+		"Project Title Description (e.g. MG1655 Jumping Library Dev.)" -> "Description", // Jira ticket summary
 		"Sample Tube Barcode" -> graphCalc,
+		"Molecular Barcode Sequence" -> graphCalc,
+		"Molecular Barcode Name" -> graphCalc,
 		"Source Sample GSSR ID" -> bspGSSRbarcode,
-		"Virtual GSSR ID" -> unknown,
-		"SQUID Project" -> unknown,
-		"Sequencing Technology (Illumina/454/TechX Internal Other)" -> "Illumina",
-		"Strain" -> unknown,"Sex (for non-human samples only)" -> unknown,
-		"Cell Line"	-> unknown,"Tissue Type" -> unknown,"Collaborator Sample ID" -> bspCollaboratorSample,
+		"Collaborator Sample ID" -> bspCollaboratorSample,
 		"Individual Name (aka Patient ID, Required for human subject samples)" -> bspCollaboratorParticipant,
 		"Library Name (External Collaborator Library ID)" -> bspSmplID,
+		"Illumina or 454 Kit Used" -> "Nextera, otherwise Illumina",
+		"Sequencing Technology (Illumina/454/TechX Internal Other)" -> "Illumina",
+		"Strain" -> unknown,"Sex (for non-human samples only)" -> unknown,
+		"Cell Line"	-> unknown,"Tissue Type" -> unknown,
 		"Library Type (see dropdown)" -> unknown, "Data Analysis Type (see dropdown)" -> unknown,
 		"Reference Sequence" -> unknown,
 		"GSSR # of Bait Pool (If submitting a hybrid selection library, please provide GSSR of bait pool used in experiment in order to properly run Hybrid Selection pipeline analyses)" -> unknown,
 		"Insert Size Range bp. (i.e the library size without adapters)" -> calc, // Library Size Range bp. - 126
 		"Library Size Range bp. (i.e. the insert size plus adapters)" -> prompt,
 		"Jump Size (kb) if applicable" -> unknown,
-		"Illumina or 454 Kit Used" -> "Nextera, otherwise Illumina",
 		"Restriction Enzyme if applicable" -> "Later, for RRBS",
 		"Molecular barcode Plate ID" -> unknown,
 		"Molecular barcode Plate well ID" -> unknown,
-		"Molecular Barcode Sequence" -> graphCalc,
-		"Molecular Barcode Name" -> graphCalc,
 		"Total Library Volume (ul)" -> prompt, // Integer, warning if under 20
 		"Total Library Concentration (ng/ul)" -> prompt, // Float
 		"Single/Double Stranded (S/D)" -> "D",
-		"Additional Sample Information" -> "SSF-382", // Jira ticket
-		"Project Title Description (e.g. MG1655 Jumping Library Dev.)" -> "Description", // Jira ticket summary
 		"Funding Source" -> "Jira parent ticket",
 		"Coverage (# Lanes/Sample)" -> "Jira parent ticket",
 		"Approved By" -> unknown,

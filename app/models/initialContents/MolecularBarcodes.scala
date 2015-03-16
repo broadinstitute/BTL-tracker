@@ -43,7 +43,7 @@ object MolecularBarcodes {
 	 */
 	case class MolBarcodePair(i5: MolBarcode, i7: MolBarcode) extends MolBarcodeWell {
 		def getName = i5.name + "+" + i7.name
-		def getSeq = i5.seq + "-" + i7.getRevCompliment + "_"
+		def getSeq = i5.seq + "-" + i7.getRevCompliment + "-"
 	}
 
 	/**

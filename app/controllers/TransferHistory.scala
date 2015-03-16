@@ -6,6 +6,7 @@ import models.initialContents.InitialContents
 import InitialContents.ContentType._
 
 import models.ContainerDivisions.Division._
+import models.initialContents.InitialContents.ContentsMap
 import models.initialContents.MolecularBarcodes.{MolBarcodeWell, MolBarcodeContents}
 import org.broadinstitute.LIMStales.sampleRacks.{BSPTube, RackScan}
 import play.api.libs.json.JsObject
@@ -304,6 +305,155 @@ object TransferHistory extends Controller with MongoController {
 					case _ => in
 				}
 			}
+
+//*********************************************************************************************************************
+
+			/**
+			 * Contents of a merged well
+			 * @param project project ID
+			 * @param mids molecular IDs set with specific well being used
+			 * @param tube bsp tube in well
+			 */
+			case class MergedWell(project: String, mids: Set[MolBarcodeWell], tube: String)
+
+			/**
+			 * Contents found from merge
+			 * @param projects map of project IDs to summary found for that issue
+			 * @param mids map of mid types to quadrants of mids used
+			 * @param tubes map of tube 2D barcodes to bsp tube contents
+			 * @param contents set of contents in this container
+			 * @param wells if contents are in wells then well-by-well contents
+			 * @param errors list of errors found along the way
+			 */
+			case class MergeContents(projects: Map[String, Option[String]],
+									 mids: Map[ContentType, Set[Quad]],
+									 tubes: Map[String, BSPTube],
+									 contents: Set[MergedWell],
+									 wells: Option[Map[String, MergedWell]], errors: List[String])
+
+			def getMidWell(well: String, mids: ContentsMap[MolBarcodeWell]) = mids.contents.get(well)
+
+			def getBspWell(well: String, bspScan: RackScan#MatchByPos[BSPTube]) = bspScan.get(well) match {
+				case Some(bspMatch) => bspMatch._2
+				case _ => None
+			}
+
+			def setWells(mids: ContentsMap[MolBarcodeWell],bspScan: RackScan#MatchByPos[BSPTube],
+						 mc: MergeContents) = {
+				val bspTubes = bspScan.flatMap {
+					case (well,(_,Some(bspTube))) => List(well -> bspTube)
+					case _ => List.empty
+				}.toMap
+				val newTubes = mc.tubes ++ bspTubes
+				val wells = (bspScan.keys ++ mids.contents.keys).toSet
+				// case class MergedWell(projects: Set[String], mids: Set[MolBarcodeWell], tubes: Set[String])
+				val mergedWells = wells.map((well) => {
+					val bspWell = getBspWell(well, bspScan) match {
+						case Some(bsp) => Set(bsp.barcode)
+						case None => Set.empty
+					}
+					val midWell = if (getMidWell(well, mids).isDefined) match {
+						case Some(_) =>
+					}
+					well -> MergedWell()
+				})
+				mids.contents.map((well, barcode) => {
+					getMidWell(well, mids) match {
+						case Some(mid) =>
+						case None =>
+					}
+				})
+			}
+
+			// 1. Set projects to include new project
+			// 2. Set mids to include new mid
+			// 3. Set tubes to include new entries via map merge
+			// 4. Set wells to include MergedWells via map merge with mids and/or tubes
+			// Alternative:
+			// Have Map of entries (indexed by sample barcode and MIDs) to entry information and list of wells -
+			//     - make special hash and eq functions for these based on tube barcode and MID names
+			//     - before changing well contents take it out of list of wells and if last well remove entry
+			//     from map
+			// Have Map of wells to entries - this is just used to combine per well stuff quicker
+
+			/**
+			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
+			 * @param c Component to find bsp sample information for
+			 * @param m Contents found through merges done so far
+			 * @return optional match, by well, of bsp sample information found
+			 */
+			def getStartingBspContents(c: Component, m: MergeContents) =
+				c match {
+					case rack: Rack =>
+						RackController.getBSPmatch(rack.id,
+							found = (matches, ssfIssue) => {
+								val project =
+									if (m.projects.get(ssfIssue.issue).isDefined)
+										m.projects
+									else
+										m.projects + (ssfIssue.issue -> ssfIssue.summary)
+								Some(RackContentsInfo(ssfIssue.issue, ssfIssue.components,
+									ssfIssue.summary, matches))
+							},
+							notFound = (err) => MergeContents(m.projects, m.mids, m.tubes, m.wells, m.errors :+ err)
+						)
+					case _ => m
+				}
+
+			/**
+			 * Get initial contents of container.
+			 * @param c Component to get initial contents
+			 * @param m Contents found through merges done so far
+			 * @return optional initial contents found
+			 */
+			def getStartingInitialContent(c: Component, m: MergeContents) =
+				c match {
+					case container: Container =>
+						container.initialContent match {
+							case Some(ic) if ic != NoContents => Some(InitialContents.contents(ic))
+							case _ => m
+						}
+					case _ => m
+				}
+
+			val startingContents = MergeContents(Map.empty, Map.empty, Map.empty, None, List.empty)
+
+			/**
+			 * Merge two contents
+ 			 */
+			// @TODO Keep one big MergeContents that has:
+			// Maps of:
+			// SSF#->SSSInfo; MIDType->SetOfQuadsUsed; BSPTubeID->BSPTube
+			// and a list of error messages
+			// Then per well keep Sets of SSF#s, MIDTypes+Well, BSPTubeIDs
+			def merge[T, S](contentsSoFar: Option[T], newContents: Option[T],
+							getMaps: (T,T) => (Map[String,S], Map[String,S])) = {
+				(contentsSoFar, newContents) match {
+					case (Some(soFar), Some(next)) =>
+						val (inMap, nextMap) = getMaps(soFar, next)
+						inMap ++ nextMap.map{
+							case (k, v) => k -> inMap.get(k) match {
+								case Some(inVal) => Set(inVal, v)
+								case None => Set(v)
+							}
+						}
+					case (None, Some(next)) => next
+					case (Some(soFar), None) => soFar
+				}
+			}
+
+			def mergeBsps(contentsSoFar: Option[RackContentsInfo], newContents: Option[RackContentsInfo]) = {
+				merge[RackContentsInfo, BSPTube](contentsSoFar, newContents,
+					(r1, r2) => {
+						def getTubes(r: RackContentsInfo) = r1.contents.flatMap {
+							case (key, (matchFound, Some(tube))) => List(key -> tube)
+							case (key, (matchFound, None)) => List.empty[(String, BSPTube)]
+						}
+						(getTubes(r1), getTubes(r2))
+					})
+			}
+
+//*********************************************************************************************************************
 
 			/**
 			 * Merge together the contents of two components.
