@@ -6,7 +6,6 @@ import models.initialContents.InitialContents
 import InitialContents.ContentType._
 
 import models.ContainerDivisions.Division._
-import models.initialContents.InitialContents.ContentsMap
 import models.initialContents.MolecularBarcodes.{MolBarcodeWell, MolBarcodeContents}
 import org.broadinstitute.LIMStales.sampleRacks.{BSPTube, RackScan}
 import play.api.libs.json.JsObject
@@ -331,40 +330,6 @@ object TransferHistory extends Controller with MongoController {
 									 contents: Set[MergedWell],
 									 wells: Option[Map[String, MergedWell]], errors: List[String])
 
-			def getMidWell(well: String, mids: ContentsMap[MolBarcodeWell]) = mids.contents.get(well)
-
-			def getBspWell(well: String, bspScan: RackScan#MatchByPos[BSPTube]) = bspScan.get(well) match {
-				case Some(bspMatch) => bspMatch._2
-				case _ => None
-			}
-
-			def setWells(mids: ContentsMap[MolBarcodeWell],bspScan: RackScan#MatchByPos[BSPTube],
-						 mc: MergeContents) = {
-				val bspTubes = bspScan.flatMap {
-					case (well,(_,Some(bspTube))) => List(well -> bspTube)
-					case _ => List.empty
-				}.toMap
-				val newTubes = mc.tubes ++ bspTubes
-				val wells = (bspScan.keys ++ mids.contents.keys).toSet
-				// case class MergedWell(projects: Set[String], mids: Set[MolBarcodeWell], tubes: Set[String])
-				val mergedWells = wells.map((well) => {
-					val bspWell = getBspWell(well, bspScan) match {
-						case Some(bsp) => Set(bsp.barcode)
-						case None => Set.empty
-					}
-					val midWell = if (getMidWell(well, mids).isDefined) match {
-						case Some(_) =>
-					}
-					well -> MergedWell()
-				})
-				mids.contents.map((well, barcode) => {
-					getMidWell(well, mids) match {
-						case Some(mid) =>
-						case None =>
-					}
-				})
-			}
-
 			// 1. Set projects to include new project
 			// 2. Set mids to include new mid
 			// 3. Set tubes to include new entries via map merge
@@ -377,80 +342,129 @@ object TransferHistory extends Controller with MongoController {
 			// Have Map of wells to entries - this is just used to combine per well stuff quicker
 
 			/**
+			 * BSP entry for merged results.
+ 			 * @param project jira ticket ID
+			 * @param projectDescription jira summary
+			 * @param sampleTube bsp tube barcode
+			 * @param gssrSample bsp GSSR barcode
+			 * @param collabSample bsp collaborator sample ID
+			 * @param individual bsp collaborator participant
+			 * @param library bsp collaborator library ID
+			 */
+			case class MergeBsp(project: String,projectDescription: Option[String],sampleTube: String,
+								gssrSample: Option[String],collabSample: Option[String],individual: Option[String],
+								library: Option[String]) {
+				// Override equals and hash to make it simpler
+				override def equals(arg: Any) = {
+					arg match {
+						case MergeBsp(p,_,s,_,_,_,_) => p == project && s == sampleTube
+						case _ => false
+					}
+				}
+				override def hashCode = (project.hashCode * 31) + sampleTube.hashCode
+			}
+
+			/**
+			 * Molecular barcodes for merged results.
+			 * @param sequence barcode sequence for EZPASS (e.g., may have "-" between multiple barodes)
+			 * @param name name of barcode
+			 */
+			case class MergeMid(sequence: String, name: String) {
+				// Override equals and hash to make them simpler
+				override def equals(arg: Any) = {
+					arg match {
+						case MergeMid(s, _) => s == sequence
+						case _ => false
+					}
+				}
+				override def hashCode = sequence.hashCode
+			}
+
+			/**
+			 * Single sample and associated MIDs.
+			 * @param bsp sample information
+			 * @param mid MIDs associated with sample
+			 */
+			case class MergeResult(bsp: Option[MergeBsp], mid: Set[MergeMid])
+
+			/**
+			 * Object used to keep track of all contents being merged together.
+			 * @param contents map by contents with well locations
+			 * @param wells map contents by well location
+			 * @param errs list of errors encountered
+			 */
+			case class MergeTotalContents(contents: Map[MergeResult, Set[String]], wells: Map[String, Set[MergeResult]],
+										  errs: List[String])
+
+			/**
 			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
 			 * @param c Component to find bsp sample information for
-			 * @param m Contents found through merges done so far
 			 * @return optional match, by well, of bsp sample information found
 			 */
-			def getStartingBspContents(c: Component, m: MergeContents) =
+			def getBspContent(c: Component) =
 				c match {
-					case rack: Rack =>
-						RackController.getBSPmatch(rack.id,
-							found = (matches, ssfIssue) => {
-								val project =
-									if (m.projects.get(ssfIssue.issue).isDefined)
-										m.projects
-									else
-										m.projects + (ssfIssue.issue -> ssfIssue.summary)
-								Some(RackContentsInfo(ssfIssue.issue, ssfIssue.components,
-									ssfIssue.summary, matches))
-							},
-							notFound = (err) => MergeContents(m.projects, m.mids, m.tubes, m.wells, m.errors :+ err)
-						)
-					case _ => m
+					case rack: Rack => RackController.getBSPmatch(rack.id,
+						found = (matches, ssfIssue) => {
+							val bspMatches = matches.flatMap {
+								case ((well, (matchFound, Some(tube)))) =>
+									List(well -> MergeResult(
+										Some(MergeBsp(project = ssfIssue.issue, projectDescription = ssfIssue.summary,
+											sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
+											collabSample = tube.collaboratorSample,
+											individual = tube.collaboratorParticipant, library = tube.sampleID)),
+										Set.empty))
+								case _ => List.empty
+							}
+							(bspMatches, List.empty[String])
+						},
+						notFound = (err) => (Map.empty[String, MergeResult], List(err)))
+					case _ => (Map.empty[String, MergeResult], List.empty[String])
 				}
 
 			/**
 			 * Get initial contents of container.
 			 * @param c Component to get initial contents
-			 * @param m Contents found through merges done so far
 			 * @return optional initial contents found
 			 */
-			def getStartingInitialContent(c: Component, m: MergeContents) =
+			def getMidContent(c: Component) =
 				c match {
 					case container: Container =>
 						container.initialContent match {
-							case Some(ic) if ic != NoContents => Some(InitialContents.contents(ic))
-							case _ => m
+							case Some(ic) if ic != NoContents => {
+								val mids = InitialContents.contents(ic).contents.map{
+									case (well, mbw) =>
+										well -> MergeResult(None, Set(MergeMid(mbw.getSeq, mbw.getName)))
+								}
+								(mids, List.empty[String])
+							}
+							case _ => (Map.empty[String, MergeResult], List.empty[String])
 						}
-					case _ => m
+					case _ => (Map.empty[String, MergeResult], List.empty[String])
 				}
-
-			val startingContents = MergeContents(Map.empty, Map.empty, Map.empty, None, List.empty)
 
 			/**
-			 * Merge two contents
- 			 */
-			// @TODO Keep one big MergeContents that has:
-			// Maps of:
-			// SSF#->SSSInfo; MIDType->SetOfQuadsUsed; BSPTubeID->BSPTube
-			// and a list of error messages
-			// Then per well keep Sets of SSF#s, MIDTypes+Well, BSPTubeIDs
-			def merge[T, S](contentsSoFar: Option[T], newContents: Option[T],
-							getMaps: (T,T) => (Map[String,S], Map[String,S])) = {
-				(contentsSoFar, newContents) match {
-					case (Some(soFar), Some(next)) =>
-						val (inMap, nextMap) = getMaps(soFar, next)
-						inMap ++ nextMap.map{
-							case (k, v) => k -> inMap.get(k) match {
-								case Some(inVal) => Set(inVal, v)
-								case None => Set(v)
-							}
+			 * Get initial contents for a component - contents can include bsp input (for a rack) or MIDs (for a plate)
+			 * @param c component
+			 * @return results with contents found
+			 */
+			def getComponentContent(c: Component) = {
+				val bsps = getBspContent(c)
+				val mids = getMidContent(c)
+				if (bsps._1.isEmpty) mids._1
+				else if (mids._1.isEmpty) bsps._1
+				else
+					bsps._1 ++ mids._1.map {
+						case (well, res) => bsps._1.get(well) match {
+							case Some(bsp) => well -> MergeResult(bsp.bsp, res.mid)
+							case _ => well -> res
 						}
-					case (None, Some(next)) => next
-					case (Some(soFar), None) => soFar
-				}
+					}
 			}
 
-			def mergeBsps(contentsSoFar: Option[RackContentsInfo], newContents: Option[RackContentsInfo]) = {
-				merge[RackContentsInfo, BSPTube](contentsSoFar, newContents,
-					(r1, r2) => {
-						def getTubes(r: RackContentsInfo) = r1.contents.flatMap {
-							case (key, (matchFound, Some(tube))) => List(key -> tube)
-							case (key, (matchFound, None)) => List.empty[(String, BSPTube)]
-						}
-						(getTubes(r1), getTubes(r2))
-					})
+			// When merging/folding for each well if there are MIDs that are not attached yet (MergeResult with
+			// bsp set to None) then attach them to all the samples (and get rid of MergeResult with bsp set to None).
+			def mergeResults(inResults: MergeTotalContents, outResults: MergeTotalContents) = {
+
 			}
 
 //*********************************************************************************************************************
