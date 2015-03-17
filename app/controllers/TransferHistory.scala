@@ -6,8 +6,6 @@ import models.initialContents.InitialContents
 import InitialContents.ContentType._
 
 import models.ContainerDivisions.Division._
-import models.initialContents.MolecularBarcodes.{MolBarcodeWell, MolBarcodeContents}
-import org.broadinstitute.LIMStales.sampleRacks.{BSPTube, RackScan}
 import play.api.libs.json.JsObject
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
@@ -173,62 +171,69 @@ object TransferHistory extends Controller with MongoController {
 	}
 
 	/**
-	 * Contents of a component.
- 	 * @param component Component object (e.g., plate, rack, tube)
-	 * @param contents Contents common across the entire plate
+	 * BSP entry for merged results.
+	 * @param project jira ticket ID
+	 * @param projectDescription jira summary
+	 * @param sampleTube bsp tube barcode
+	 * @param gssrSample bsp GSSR barcode
+	 * @param collabSample bsp collaborator sample ID
+	 * @param individual bsp collaborator participant
+	 * @param library bsp collaborator library ID
 	 */
-	case class ComponentContents(component: Component, contents: Contents)
-
-	/**
-	 * Contents of a rack
- 	 * @param jiraIssue Jira issue
-	 * @param jiraComponents Jira components
-	 * @param jiraSummary Jira summary
-	 * @param contents
-	 */
-	case class RackContentsInfo(jiraIssue: String, jiraComponents: List[String], jiraSummary: Option[String],
-								contents: RackScan#MatchByPos[BSPTube])
-
-	/**
-	 * Contents of a component - bsp samples and molecular ids.
-	 * @param bsp map, by well, of samples
-	 * @param mid molecular ID set being used
-	 */
-	case class Contents(bsp: Option[RackContentsInfo], mid: Option[InitialContents.ContentsMap[MolBarcodeWell]])
-
-	/**
-	 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
- 	 * @param c Component to find bsp sample information for
-	 * @return optional match, by well, of bsp sample information found
-	 */
-	private def getBspContents(c: Component) =
-		c match {
-			case rack: Rack => RackController.getBSPmatch(rack.id,
-				found = (matches, ssfIssue) => Some(RackContentsInfo(ssfIssue.issue, ssfIssue.components,
-					ssfIssue.summary, matches)),
-				notFound = (err) => None)
-			case _ => None
+	case class MergeBsp(project: String,projectDescription: Option[String],sampleTube: String,
+						gssrSample: Option[String],collabSample: Option[String],individual: Option[String],
+						library: Option[String]) {
+		// Override equals and hash to make it simpler
+		override def equals(arg: Any) = {
+			arg match {
+				case MergeBsp(p,_,s,_,_,_,_) => p == project && s == sampleTube
+				case _ => false
+			}
 		}
+		override def hashCode = (project.hashCode * 31) + sampleTube.hashCode
+	}
 
 	/**
-	 * Get initial contents of container.
- 	 * @param c Component to get initial contents
-	 * @return optional initial contents found
+	 * Molecular barcodes for merged results.
+	 * @param sequence barcode sequence for EZPASS (e.g., may have "-" between multiple barodes)
+	 * @param name name of barcode
 	 */
-	private def getInitialContent(c: Component) =
-		c match {
-			case container: Container =>
-				container.initialContent match {
-					case Some(ic) if ic != NoContents => Some(InitialContents.contents(ic))
-					case _ => None
-				}
-			case _ => None
+	case class MergeMid(sequence: String, name: String) {
+		// Override equals and hash to make them simpler
+		override def equals(arg: Any) = {
+			arg match {
+				case MergeMid(s, _) => s == sequence
+				case _ => false
+			}
 		}
+		override def hashCode = sequence.hashCode
+	}
+
+	/**
+	 * Single sample and associated MIDs.
+	 * @param bsp sample information
+	 * @param mid MIDs associated with sample
+	 */
+	case class MergeResult(bsp: Option[MergeBsp], mid: Set[MergeMid])
+
+	/**
+	 * Object used to keep track of all contents being merged together.
+	 * @param component component these contents have been merged into
+	 * @param wells map contents by well location
+	 * @param errs list of errors encountered
+	 */
+	case class MergeTotalContents(component: Component,
+								  wells: Map[String, Set[MergeResult]], errs: List[String])
 
 	// Need this to have label on edge be converted to a TransferEdge - making an implicit to be used for edge
 	import scalax.collection.edge.LBase._
 	object TransferLabel extends LEdgeImplicits[TransferEdge]
 	import TransferLabel._
+
+	/**
+	 * "Well" name for a single well component (e.g., a tube)
+	 */
+	val oneWell = "TOTAL_CONTENTS"
 
 	/**
 	 * Get the ultimate contents of a component.  The ultimate includes both what's initially in the component as well
@@ -241,61 +246,6 @@ object TransferHistory extends Controller with MongoController {
 		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		makeGraph(componentID).map((graph) => {
-			/**
-			 * BSP entry for merged results.
-			 * @param project jira ticket ID
-			 * @param projectDescription jira summary
-			 * @param sampleTube bsp tube barcode
-			 * @param gssrSample bsp GSSR barcode
-			 * @param collabSample bsp collaborator sample ID
-			 * @param individual bsp collaborator participant
-			 * @param library bsp collaborator library ID
-			 */
-			case class MergeBsp(project: String,projectDescription: Option[String],sampleTube: String,
-								gssrSample: Option[String],collabSample: Option[String],individual: Option[String],
-								library: Option[String]) {
-				// Override equals and hash to make it simpler
-				override def equals(arg: Any) = {
-					arg match {
-						case MergeBsp(p,_,s,_,_,_,_) => p == project && s == sampleTube
-						case _ => false
-					}
-				}
-				override def hashCode = (project.hashCode * 31) + sampleTube.hashCode
-			}
-
-			/**
-			 * Molecular barcodes for merged results.
-			 * @param sequence barcode sequence for EZPASS (e.g., may have "-" between multiple barodes)
-			 * @param name name of barcode
-			 */
-			case class MergeMid(sequence: String, name: String) {
-				// Override equals and hash to make them simpler
-				override def equals(arg: Any) = {
-					arg match {
-						case MergeMid(s, _) => s == sequence
-						case _ => false
-					}
-				}
-				override def hashCode = sequence.hashCode
-			}
-
-			/**
-			 * Single sample and associated MIDs.
-			 * @param bsp sample information
-			 * @param mid MIDs associated with sample
-			 */
-			case class MergeResult(bsp: Option[MergeBsp], mid: Set[MergeMid])
-
-			/**
-			 * Object used to keep track of all contents being merged together.
-			 * @param component component these contents have been merged into
-			 * @param wells map contents by well location
-			 * @param errs list of errors encountered
-			 */
-			case class MergeTotalContents(component: Component,
-										  wells: Map[String, Set[MergeResult]], errs: List[String])
-
 			/**
 			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
 			 * @param c Component to find bsp sample information for
@@ -413,8 +363,15 @@ object TransferHistory extends Controller with MongoController {
 				}
 			}
 
-			// When merging/folding for each well if there are MIDs that are not attached yet (MergeResult with
-			// bsp set to None) then attach them to all the samples (and get rid of MergeResult with bsp set to None).
+			/**
+			 * Merge input into output.  When merging/folding for each well if there are MIDs that are not attached
+			 * yet (MergeResult with bsp set to None) then attach them to all the samples (and get rid of MergeResult
+			 * with bsp set to None).
+			 * @param input input being merged into output
+			 * @param output output being merged into
+			 * @param transfer transfer that was done from input to output
+			 * @return new merge result with input merged into output
+			 */
 			def mergeResults(input: MergeTotalContents, output: MergeTotalContents, transfer: TransferEdge) = {
 				val inWithQuads = takeQuadrant(input, transfer)
 				val inContents = inWithQuads.wells
@@ -441,7 +398,10 @@ object TransferHistory extends Controller with MongoController {
 						case _ => well -> results
 					}
 				}
-				MergeTotalContents(output.component, newResults, input.errs ++ output.errs)
+				val finalResults =
+					if (output.component.isInstanceOf[ContainerDivisions]) newResults
+					else Map(oneWell -> getAsOneResult(newResults))
+				MergeTotalContents(output.component, finalResults, input.errs ++ output.errs)
 			}
 
 			/**
@@ -474,4 +434,12 @@ object TransferHistory extends Controller with MongoController {
 			}
 		})
 	}
+
+	/**
+	 * Merge all the wells' results into a single result
+	 * @param in map of wells to result sets
+	 * @return single result set combining all the wells' result sets
+	 */
+	def getAsOneResult(in: Map[String, Set[MergeResult]]) =
+		in.foldLeft(Set.empty[MergeResult]) ((soFar, next) => soFar ++ next._2)
 }
