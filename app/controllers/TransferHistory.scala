@@ -242,108 +242,8 @@ object TransferHistory extends Controller with MongoController {
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		makeGraph(componentID).map((graph) => {
 			/**
-			 * Set initial contents, before transfers, of a component.
-			 * @param c Component
-			 * @return initial contents found
-			 */
-			def beginningContents(c: Component) =
-				ComponentContents(c,Contents(getBspContents(c),getInitialContent(c)))
-
-			/**
-			 * If a quadrant transfer then map input wells to output wells.  If quadrant of 384-well plate being mapped
-			 * to a 96-well plate then get contents of quadrant being used in 384-well plate and set it to wells that
-			 * it will occupy on the 96-well plate.  If a 96-well plate is headed to a quadrant of a 384-well plate then
-			 * set the wells of the 96-well plate input to be the wells they will be in the 384-well plate quadrant.
-			 * @param in contents for input to transfer
-			 * @param transfer transfer to be done from input
-			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
-			 */
-			def takeQuadrants(in: ComponentContents, transfer: TransferEdge) = {
-				/**
-				 * Do the mapping of a quadrant between original input wells to wells it will go to in the destination.
-				 * @param in input component contents
-				 * @param layout layout we should be going to or from
-				 * @param wellMap map of well locations in input to well locations in output
-				 * @return input component contents mapped to destination wells
-				 */
-				def mapQuadrantWells(in: ComponentContents, layout: ContainerDivisions.Division.Division,
-									 wellMap: Map[String, String]) = {
-					in.component match {
-						case cd:ContainerDivisions if cd.layout == layout =>
-							// Get new MID mapping taking wells from input that can go to output
-							val newMid = in.contents.mid.map((midContents) => {
-								val newMidContents = midContents.contents.flatMap{
-									case ((well, mid)) if wellMap.get(well).isDefined =>
-										List(wellMap(well) -> mid)
-									case _ => List.empty
-								}
-								MolBarcodeContents(newMidContents)
-							})
-							// Get new BSP mapping taking tubes from rack that can go to output
-							val newBsp = in.contents.bsp.map((rackInfo) => {
-								val newList = rackInfo.contents.flatMap{
-									case ((well, bsp)) if wellMap.get(well).isDefined =>
-										List(wellMap(well) -> bsp)
-									case _ => List.empty
-								}
-								RackContentsInfo(jiraIssue = rackInfo.jiraIssue,
-									jiraComponents = rackInfo.jiraComponents,
-									jiraSummary = rackInfo.jiraSummary,contents = newList)
-							})
-							// Create the new input contents
-							ComponentContents(in.component,Contents(newBsp, newMid))
-						case _ => in
-					}
-				}
-
-				// Go do mapping based on type of transfer
-				(transfer.fromQuad, transfer.toQuad) match {
-					case (Some(from), None) => mapQuadrantWells(in, DIM16x24, Transfer.qFrom384(from))
-					case (None, Some(to)) => mapQuadrantWells(in, DIM8x12, Transfer.qTo384(to))
-					case (Some(from), Some(to))  => in
-					case _ => in
-				}
-			}
-
-//*********************************************************************************************************************
-
-			/**
-			 * Contents of a merged well
-			 * @param project project ID
-			 * @param mids molecular IDs set with specific well being used
-			 * @param tube bsp tube in well
-			 */
-			case class MergedWell(project: String, mids: Set[MolBarcodeWell], tube: String)
-
-			/**
-			 * Contents found from merge
-			 * @param projects map of project IDs to summary found for that issue
-			 * @param mids map of mid types to quadrants of mids used
-			 * @param tubes map of tube 2D barcodes to bsp tube contents
-			 * @param contents set of contents in this container
-			 * @param wells if contents are in wells then well-by-well contents
-			 * @param errors list of errors found along the way
-			 */
-			case class MergeContents(projects: Map[String, Option[String]],
-									 mids: Map[ContentType, Set[Quad]],
-									 tubes: Map[String, BSPTube],
-									 contents: Set[MergedWell],
-									 wells: Option[Map[String, MergedWell]], errors: List[String])
-
-			// 1. Set projects to include new project
-			// 2. Set mids to include new mid
-			// 3. Set tubes to include new entries via map merge
-			// 4. Set wells to include MergedWells via map merge with mids and/or tubes
-			// Alternative:
-			// Have Map of entries (indexed by sample barcode and MIDs) to entry information and list of wells -
-			//     - make special hash and eq functions for these based on tube barcode and MID names
-			//     - before changing well contents take it out of list of wells and if last well remove entry
-			//     from map
-			// Have Map of wells to entries - this is just used to combine per well stuff quicker
-
-			/**
 			 * BSP entry for merged results.
- 			 * @param project jira ticket ID
+			 * @param project jira ticket ID
 			 * @param projectDescription jira summary
 			 * @param sampleTube bsp tube barcode
 			 * @param gssrSample bsp GSSR barcode
@@ -389,12 +289,12 @@ object TransferHistory extends Controller with MongoController {
 
 			/**
 			 * Object used to keep track of all contents being merged together.
-			 * @param contents map by contents with well locations
+			 * @param component component these contents have been merged into
 			 * @param wells map contents by well location
 			 * @param errs list of errors encountered
 			 */
-			case class MergeTotalContents(contents: Map[MergeResult, Set[String]], wells: Map[String, Set[MergeResult]],
-										  errs: List[String])
+			case class MergeTotalContents(component: Component,
+										  wells: Map[String, Set[MergeResult]], errs: List[String])
 
 			/**
 			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
@@ -405,6 +305,7 @@ object TransferHistory extends Controller with MongoController {
 				c match {
 					case rack: Rack => RackController.getBSPmatch(rack.id,
 						found = (matches, ssfIssue) => {
+							// Get results of bsp matching into a map of wells to sample info
 							val bspMatches = matches.flatMap {
 								case ((well, (matchFound, Some(tube)))) =>
 									List(well -> MergeResult(
@@ -415,9 +316,12 @@ object TransferHistory extends Controller with MongoController {
 										Set.empty))
 								case _ => List.empty
 							}
+							// Return our sample map and that no errors found
 							(bspMatches, List.empty[String])
 						},
+						// BSP info not found for rack - return empty map and error
 						notFound = (err) => (Map.empty[String, MergeResult], List(err)))
+					// Not a rack - nothing to return
 					case _ => (Map.empty[String, MergeResult], List.empty[String])
 				}
 
@@ -444,70 +348,120 @@ object TransferHistory extends Controller with MongoController {
 
 			/**
 			 * Get initial contents for a component - contents can include bsp input (for a rack) or MIDs (for a plate)
-			 * @param c component
+			 * @param component component
 			 * @return results with contents found
 			 */
-			def getComponentContent(c: Component) = {
-				val bsps = getBspContent(c)
-				val mids = getMidContent(c)
-				if (bsps._1.isEmpty) mids._1
-				else if (mids._1.isEmpty) bsps._1
-				else
-					bsps._1 ++ mids._1.map {
+			def getComponentContent(component: Component) = {
+				// Make map with single MergeResult into a set of MergeResults
+				def mapWithSet(in: Map[String, MergeResult]) = in.map{case (k, v) => k -> Set(v)}
+
+				// Get bsp and mid content and then merge the results together
+				val bsps = getBspContent(component)
+				val mids = getMidContent(component)
+				if (bsps._1.isEmpty) MergeTotalContents(component, mapWithSet(mids._1), bsps._2 ++ mids._2)
+				else if (mids._1.isEmpty) MergeTotalContents(component, mapWithSet(bsps._1), bsps._2 ++ mids._2)
+				else {
+					// Merge together bsp and mid maps
+					val wellMap = bsps._1 ++ mids._1.map {
 						case (well, res) => bsps._1.get(well) match {
 							case Some(bsp) => well -> MergeResult(bsp.bsp, res.mid)
 							case _ => well -> res
 						}
 					}
+					MergeTotalContents(component, mapWithSet(wellMap), bsps._2 ++ mids._2)
+				}
+			}
+
+			/**
+			 * If a quadrant transfer then map input wells to output wells.  If quadrant of 384-well plate being mapped
+			 * to a 96-well plate then get contents of quadrant being used in 384-well plate and set it to wells that
+			 * it will occupy on the 96-well plate.  If a 96-well plate is headed to a quadrant of a 384-well plate then
+			 * set the wells of the 96-well plate input to be the wells they will be in the 384-well plate quadrant.
+			 * @param in contents for input to transfer
+			 * @param transfer transfer to be done from input
+			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
+			 */
+			def takeQuadrant(in: MergeTotalContents, transfer: TransferEdge) = {
+				/**
+				 * Do the mapping of a quadrant between original input wells to wells it will go to in the destination.
+				 * @param in input component contents
+				 * @param layout layout we should be going to or from
+				 * @param wellMap map of well locations in input to well locations in output
+				 * @return input component contents mapped to destination wells
+				 */
+				def mapQuadrantWells(in: MergeTotalContents, layout: ContainerDivisions.Division.Division,
+									 wellMap: Map[String, String]) = {
+					in.component match {
+						case cd:ContainerDivisions if cd.layout == layout =>
+							val newWells = in.wells.flatMap{
+								case (well, contents) if wellMap.get(well).isDefined =>
+									List(wellMap(well) -> contents)
+								case _ => List.empty
+							}
+							// Create the new input contents
+							MergeTotalContents(in.component, newWells, in.errs)
+						case _ => in
+					}
+				}
+
+				// Go do mapping based on type of transfer
+				(transfer.fromQuad, transfer.toQuad) match {
+					case (Some(from), None) => mapQuadrantWells(in, DIM16x24, Transfer.qFrom384(from))
+					case (None, Some(to)) => mapQuadrantWells(in, DIM8x12, Transfer.qTo384(to))
+					case (Some(from), Some(to))  => in
+					case _ => in
+				}
 			}
 
 			// When merging/folding for each well if there are MIDs that are not attached yet (MergeResult with
 			// bsp set to None) then attach them to all the samples (and get rid of MergeResult with bsp set to None).
-			def mergeResults(inResults: MergeTotalContents, outResults: MergeTotalContents) = {
-
-			}
-
-//*********************************************************************************************************************
-
-			/**
-			 * Merge together the contents of two components.
-			 * @param in "from" component of transfer (input to other component)
-			 * @param out "to" component of transfer (output of transfer)
-			 * @param transfer transfer that took place between components
-			 * @return output component contents now including materials transferred from input
-			 */
-			def mergeContents(in: ComponentContents, out: ComponentContents, transfer: TransferEdge) = {
-				val inWithQuads = takeQuadrants(in, transfer)
-				val inContents = inWithQuads.contents
-				val outContents = out.contents
-				// @TODO Need to use TruGrade quadrant plates to keep MID names matched with well name?  Have method to
-				// get quadrants from mids?  Need to make merges into Map[String,Set] to get multiple inputs but
-				// don't duplicate if getting same mids or bsp for same plate
-
-				// If there's something in the input then use it, otherwise leave the output as is
-				ComponentContents(out.component,
-					Contents(inContents.bsp.fold(ifEmpty = outContents.bsp)(Some(_)),
-						inContents.mid.fold(ifEmpty = outContents.mid)(Some(_))))
+			def mergeResults(input: MergeTotalContents, output: MergeTotalContents, transfer: TransferEdge) = {
+				val inWithQuads = takeQuadrant(input, transfer)
+				val inContents = inWithQuads.wells
+				val outContents = output.wells
+				// @TODO Need to use TruGrade quadrant plates to keep MID names matched with well name?
+				val newResults = inContents ++ outContents.map {
+					case (well, results) => (inContents.get(well), outContents.get(well)) match {
+						case (Some(inResults), Some(outResults)) =>
+							// Combine input and output sets (will eliminate duplicates)
+							val allResults = inResults ++ outResults
+							// Separate those with and without MIDs
+							val midsVsSamples = allResults.groupBy(_.bsp.isDefined)
+							val mids = midsVsSamples(false)
+							val samples = midsVsSamples(true)
+							// Merge together lists attaching MIDs not yet associated with samples
+							val mergedResults =
+								if (mids.size == 0 || samples.size == 0) allResults
+								else {
+									samples.map((sample) =>
+										MergeResult(sample.bsp, sample.mid ++ (mids.flatMap(_.mid)))
+									)
+								}
+							well -> mergedResults
+						case _ => well -> results
+					}
+				}
+				MergeTotalContents(output.component, newResults, input.errs ++ output.errs)
 			}
 
 			/**
 			 * Find the contents for a component that is a node in a graph recording the transfers that lead
 			 * into the component.
- 			 * @param output component node for which we want, taking into account transfers, the contents
+			 * @param output component node for which we want, taking into account transfers, the contents
 			 * @return contents of component, including both initial contents and what was transferred in
 			 */
-			def findContents(output: graph.NodeT) : ComponentContents = {
+			def findContents(output: graph.NodeT) : MergeTotalContents = {
 				// Find all components directly transferred in
 				val inputs = output.incoming
 				// Fold all the incoming components into our contents
-				inputs.foldLeft(beginningContents(output))((soFar, next) => {
+				inputs.foldLeft(getComponentContent(output))((soFar, next) => {
 					val edge = next.edge
 					edge match {
 						case LkDiEdge(input, _, label) =>
 							// We recurse to keep looking for previous transfers
 							// Note: IDE thinks input isn't a graph.NodeT but compiler is perfectly happy
 							val inputContents = findContents(input)
-							mergeContents(inputContents, soFar, label)
+							mergeResults(inputContents, soFar, label)
 						case _ => soFar
 					}
 				})
