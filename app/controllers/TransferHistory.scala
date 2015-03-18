@@ -98,8 +98,7 @@ object TransferHistory extends Controller with MongoController {
 	 */
 	private def getHistory(componentID: String) = {
 		// First get list of components as BSON documents (note flatmap to avoid future of future)
-		val previousComponents =
-			getPreviousIDs(componentID).flatMap(getComponents)
+		val previousComponents = getPreviousIDs(componentID).flatMap(getComponents)
 		// Now convert BSON returned to component objects (first map for future, next to convert bson list)
 		previousComponents.map {
 			case ((components, transfers)) =>

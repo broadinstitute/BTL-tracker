@@ -29,30 +29,53 @@ object MolecularBarcodes {
 	}
 
 	/**
+	 * Illumina molecular barcode
+	 * @param seq sequence
+	 * @param name name
+	 * @param name1 alternate name
+	 */
+	class MolBarcodeIllumina(seq: String, name: String, name1: String) extends MolBarcode(seq, name)
+	// Companion object with apply - can't have case class extending from case class so apply will do
+	object MolBarcodeIllumina {
+		def apply(seq: String, name: String, name1: String) = new MolBarcodeIllumina(seq,name,name1)
+	}
+
+	/**
 	 * Common interface for molecular barcodes placed in wells
 	 */
 	trait MolBarcodeWell {
 		def getName: String
 		def getSeq: String
+		def isIllumina: Boolean
 	}
 
 	/**
 	 * Molecular barcode pairs in a well
-	 * @param i5 i5 barcode
-	 * @param i7 i7 barcode
 	 */
-	case class MolBarcodePair(i5: MolBarcode, i7: MolBarcode) extends MolBarcodeWell {
-		def getName = i5.name + "+" + i7.name
-		def getSeq = i5.seq + "-" + i7.getRevCompliment + "-"
+	trait MolBarcodePair extends MolBarcodeWell {
+		val i5: MolBarcode
+		val i7: MolBarcode
 	}
 
 	/**
-	 * Molecular barcode in a well
+	 * Illumina molecular barcode pairs in a well
+	 * @param i5 i5 barcode
+	 * @param i7 i7 barcode
+	 */
+	case class MolBarcodeIlluminaPair(i5: MolBarcode, i7: MolBarcode) extends MolBarcodePair {
+		def getName = "Illumina_P5-" + i5.name + "_P7-" + i7.name
+		def getSeq = i5.seq + "-" + i7.getRevCompliment + "-"
+		def isIllumina = true
+	}
+
+	/**
+	 * Single molecular barcode in a well
  	 * @param m molecular barcode
 	 */
 	case class MolBarcodeSingle(m: MolBarcode) extends MolBarcodeWell {
 		def getName = m.name
 		def getSeq = m.seq
+		def isIllumina = false
 	}
 
 	/**
@@ -62,57 +85,59 @@ object MolecularBarcodes {
 	case class MolBarcodeContents(contents: Map[String, MolBarcodeWell]) extends ContentsMap[MolBarcodeWell]
 
 	// Create i5 Nextera Molecular barcodes
-	private val mbS502 = MolBarcode("CTCTCTAT","S502")
-	private val mbS503 = MolBarcode("TATCCTCT","S503")
-	private val mbS505 = MolBarcode("GTAAGGAG","S505")
-	private val mbS506 = MolBarcode("ACTGCATA","S506")
-	private val mbS507 = MolBarcode("AAGGAGTA","S507")
-	private val mbS508 = MolBarcode("CTAAGCCT","S508")
-	private val mbS510 = MolBarcode("CGTCTAAT","S510")
-	private val mbS511 = MolBarcode("TCTCTCCG","S511")
-	private val mbS513 = MolBarcode("TCGACTAG","S513")
-	private val mbS515 = MolBarcode("TTCTAGCT","S515")
-	private val mbS516 = MolBarcode("CCTAGAGT","S516")
-	private val mbS517 = MolBarcode("GCGTAAGA","S517")
-	private val mbS518 = MolBarcode("CTATTAAG","S518")
-	private val mbS520 = MolBarcode("AAGGCTAT","S520")
-	private val mbS521 = MolBarcode("GAGCCTTA","S521")
-	private val mbS522 = MolBarcode("TTATGCGA","S522")
+	private val mbS502 = MolBarcodeIllumina("CTCTCTAT","Lexof","S502")
+	private val mbS503 = MolBarcodeIllumina("TATCCTCT","Wojol","S503")
+	private val mbS505 = MolBarcodeIllumina("GTAAGGAG","Tadid","S505")
+	private val mbS506 = MolBarcodeIllumina("ACTGCATA","Copaw","S506")
+	private val mbS507 = MolBarcodeIllumina("AAGGAGTA","Biniw","S507")
+	private val mbS508 = MolBarcodeIllumina("CTAAGCCT","Ladel","S508")
+	private val mbS510 = MolBarcodeIllumina("CGTCTAAT","Kolaf","S510")
+	private val mbS511 = MolBarcodeIllumina("TCTCTCCG","Xolek","S511")
+	private val mbS513 = MolBarcodeIllumina("TCGACTAG","Xicod","S513")
+	private val mbS515 = MolBarcodeIllumina("TTCTAGCT","Zewil","S515")
+	private val mbS516 = MolBarcodeIllumina("CCTAGAGT","Jodat","S516")
+	private val mbS517 = MolBarcodeIllumina("GCGTAAGA","Piwan","S517")
+	private val mbS518 = MolBarcodeIllumina("CTATTAAG","Lazad","S518")
+	private val mbS520 = MolBarcodeIllumina("AAGGCTAT","Bipof","S520")
+	private val mbS521 = MolBarcodeIllumina("GAGCCTTA","Nijow","S521")
+	private val mbS522 = MolBarcodeIllumina("TTATGCGA","Zayen","S522")
 
 	// Create i7 Nextera Molecular barcodes
-	private val mbN701 = MolBarcode("TCGCCTTA","N701")
-	private val mbN702 = MolBarcode("CTAGTACG","N702")
-	private val mbN703 = MolBarcode("TTCTGCCT","N703")
-	private val mbN704 = MolBarcode("GCTCAGGA","N704")
-	private val mbN705 = MolBarcode("AGGAGTCC","N705")
-	private val mbN706 = MolBarcode("CATGCCTA","N706")
-	private val mbN707 = MolBarcode("GTAGAGAG","N707")
-	private val mbN710 = MolBarcode("CAGCCTCG","N710")
-	private val mbN711 = MolBarcode("TGCCTCTT","N711")
-	private val mbN712 = MolBarcode("TCCTCTAC","N712")
-	private val mbN714 = MolBarcode("TCATGAGC","N714")
-	private val mbN715 = MolBarcode("CCTGAGAT","N715")
-	private val mbN716 = MolBarcode("TAGCGAGT","N716")
-	private val mbN718 = MolBarcode("GTAGCTCC","N718")
-	private val mbN719 = MolBarcode("TACTACGC","N719")
-	private val mbN720 = MolBarcode("AGGCTCCG","N720")
-	private val mbN721 = MolBarcode("GCAGCGTA","N721")
-	private val mbN722 = MolBarcode("CTGCGCAT","N722")
-	private val mbN723 = MolBarcode("GAGCGCTA","N723")
-	private val mbN724 = MolBarcode("CGCTCAGT","N724")
-	private val mbN726 = MolBarcode("GTCTTAGG","N726")
-	private val mbN727 = MolBarcode("ACTGATCG","N727")
-	private val mbN728 = MolBarcode("TAGCTGCA","N728")
-	private val mbN729 = MolBarcode("GACGTCGA","N729")
+	private val mbN701 = MolBarcodeIllumina("TCGCCTTA","Waren","N701")
+	private val mbN702 = MolBarcodeIllumina("CTAGTACG","Kocod","N702")
+	private val mbN703 = MolBarcodeIllumina("TTCTGCCT","Dihib","N703")
+	private val mbN704 = MolBarcodeIllumina("GCTCAGGA","Xeyap","N704")
+	private val mbN705 = MolBarcodeIllumina("AGGAGTCC","Ralel","N705")
+	private val mbN706 = MolBarcodeIllumina("CATGCCTA","Wipay","N706")
+	private val mbN707 = MolBarcodeIllumina("GTAGAGAG","Lexoc","N707")
+	private val mbN710 = MolBarcodeIllumina("CAGCCTCG","Karey","N710")
+	private val mbN711 = MolBarcodeIllumina("TGCCTCTT","Bidih","N711")
+	private val mbN712 = MolBarcodeIllumina("TCCTCTAC","Tanin","N712")
+	private val mbN714 = MolBarcodeIllumina("TCATGAGC","Pohon","N714")
+	private val mbN715 = MolBarcodeIllumina("CCTGAGAT","Fexar","N715")
+	private val mbN716 = MolBarcodeIllumina("TAGCGAGT","Cokew","N716")
+	private val mbN718 = MolBarcodeIllumina("GTAGCTCC","Rapoc","N718")
+	private val mbN719 = MolBarcodeIllumina("TACTACGC","Piwiw","N719")
+	private val mbN720 = MolBarcodeIllumina("AGGCTCCG","Kidel","N720")
+	private val mbN721 = MolBarcodeIllumina("GCAGCGTA","Wepop","N721")
+	private val mbN722 = MolBarcodeIllumina("CTGCGCAT","Fiked","N722")
+	private val mbN723 = MolBarcodeIllumina("GAGCGCTA","Wikex","N723")
+	private val mbN724 = MolBarcodeIllumina("CGCTCAGT","Conik","N724")
+	private val mbN726 = MolBarcodeIllumina("GTCTTAGG","Jobic","N726")
+	private val mbN727 = MolBarcodeIllumina("ACTGATCG","Kaxat","N727")
+	private val mbN728 = MolBarcodeIllumina("TAGCTGCA","Yedew","N728")
+	private val mbN729 = MolBarcodeIllumina("GACGTCGA","Xicix","N729")
 
 	/**
-	 * Trait for MID plates made up pairs
+	 * Trait for MID plates made up of pairs
  	 */
 	private trait MIDPairPlate {
 		// Wells per row
 		val wPr: Int
 		// Rows per plate
 		val rPp: Int
+		// Fill in pair
+		def getPair(i5: MolBarcode, i7: MolBarcode): MolBarcodePair
 		// List of well names (important to be lazy to get initialized at right time - in particular if makeSet
 		// is called before it is initialized that's trouble if it's not lazy)
 		lazy val wellList = List.tabulate(wPr * rPp)((x) => f"${(x / wPr) + 'A'}%c${(x % wPr) + 1}%02d")
@@ -127,23 +152,30 @@ object MolecularBarcodes {
 			(for {row <- 0 until rPp
 				  col <- 0 until wPr
 			} yield {
-				wellList((row * wPr) + col) -> MolBarcodePair(rows(row), cols(col))
+				wellList((row * wPr) + col) -> getPair(rows(row), cols(col))
 			}).toMap
 		}
 	}
 
 	/**
-	 * 96-well MID plate with pairs
+	 * Illumina MID pair plate
 	 */
-	private object MIDPair96 extends MIDPairPlate {
+	private trait MIDIlluminaPairPlate extends MIDPairPlate {
+		def getPair(i5: MolBarcode, i7: MolBarcode) = MolBarcodeIlluminaPair(i5, i7)
+	}
+
+	/**
+	 * 96-well Illumina MID plate with pairs
+	 */
+	private object MIDIlluminaPair96 extends MIDIlluminaPairPlate {
 		val wPr = 12 // 12 Wells per row
 		val rPp = 8  // 8 rows per plate
 	}
 
 	/**
-	 * 384-well MID plate with pairs
+	 * 384-well Illumina MID plate with pairs
 	 */
-	private object MIDPair384 extends MIDPairPlate {
+	private object MIDIlluminaPair384 extends MIDIlluminaPairPlate {
 		val wPr = 24 // 24 Wells per row
 		val rPp = 16 // 8 rows per plate
 	}
@@ -154,13 +186,13 @@ object MolecularBarcodes {
 	private val mbSetACCols = List(mbN701,mbN702,mbN703,mbN704,mbN705,mbN706,mbN707,mbN710,mbN711,mbN712,mbN714,mbN715)
 	private val mbSetBDCols = List(mbN716,mbN718,mbN719,mbN720,mbN721,mbN722,mbN723,mbN724,mbN726,mbN727,mbN728,mbN729)
 	// NexteraXP v2 Index Set A
-	val mbSetA = MolBarcodeContents(MIDPair96.makeSet(mbSetABRows,mbSetACCols))
+	val mbSetA = MolBarcodeContents(MIDIlluminaPair96.makeSet(mbSetABRows,mbSetACCols))
 	// NexteraXP v2 Index Set B
-	val mbSetB = MolBarcodeContents(MIDPair96.makeSet(mbSetABRows,mbSetBDCols))
+	val mbSetB = MolBarcodeContents(MIDIlluminaPair96.makeSet(mbSetABRows,mbSetBDCols))
 	// NexteraXP v2 Index Set C
-	val mbSetC = MolBarcodeContents(MIDPair96.makeSet(mbSetCDRows,mbSetACCols))
+	val mbSetC = MolBarcodeContents(MIDIlluminaPair96.makeSet(mbSetCDRows,mbSetACCols))
 	// NexteraXP v2 Index Set D
-	val mbSetD = MolBarcodeContents(MIDPair96.makeSet(mbSetCDRows,mbSetBDCols))
+	val mbSetD = MolBarcodeContents(MIDIlluminaPair96.makeSet(mbSetCDRows,mbSetBDCols))
 
 	// Trugrade Set1 (384 well plate)
 	val mbTG384S1 = MolBarcodeContents(Map(

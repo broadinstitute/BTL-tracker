@@ -220,19 +220,26 @@ object TransferContents {
 			 * @return new merge result with input merged into output
 			 */
 			def mergeResults(input: MergeTotalContents, output: MergeTotalContents, transfer: TransferEdge) = {
-				val inWithQuads = takeQuadrant(input, transfer)
-				val inContents = inWithQuads.wells
+				// Make sure we only get quadrants transferred (either one quadrant of input or reassign of wells
+				// if full plate only going to one quadrant of output
+				val inWithQuads = takeQuadrant(input, transfer).wells
+				// If going to a component without divisions (e.g., a tube) put all of input into one "well"
+				val inContent =
+					if (output.component.isInstanceOf[ContainerDivisions]) inWithQuads
+					else Map(oneWell -> getAsOneResult(inWithQuads))
 				val outContents = output.wells
 				// @TODO Need to use TruGrade quadrant plates to keep MID names matched with well name?
-				val newResults = inContents ++ outContents.map {
-					case (well, results) => (inContents.get(well), outContents.get(well)) match {
+				// Merge input into output - combine maps to get entries that might be in one but not the other and
+				// then within map combine what's in the same well
+				val newResults = inContent ++ outContents.map {
+					case (well, results) => (inContent.get(well), outContents.get(well)) match {
 						case (Some(inResults), Some(outResults)) =>
 							// Combine input and output sets (will eliminate duplicates)
 							val allResults = inResults ++ outResults
 							// Separate those with and without MIDs
 							val midsVsSamples = allResults.groupBy(_.bsp.isDefined)
-							val mids = midsVsSamples(false)
-							val samples = midsVsSamples(true)
+							val mids = midsVsSamples.getOrElse(false, Set.empty)
+							val samples = midsVsSamples.getOrElse(true, Set.empty)
 							// Merge together lists attaching MIDs not yet associated with samples
 							val mergedResults =
 								if (mids.size == 0 || samples.size == 0) allResults
@@ -245,10 +252,8 @@ object TransferContents {
 						case _ => well -> results
 					}
 				}
-				val finalResults =
-					if (output.component.isInstanceOf[ContainerDivisions]) newResults
-					else Map(oneWell -> getAsOneResult(newResults))
-				MergeTotalContents(output.component, finalResults, input.errs ++ output.errs)
+				// Finally return total contents with input merged into output
+				MergeTotalContents(output.component, newResults, input.errs ++ output.errs)
 			}
 
 			/**
@@ -258,14 +263,14 @@ object TransferContents {
 			 * @return contents of component, including both initial contents and what was transferred in
 			 */
 			def findContents(output: graph.NodeT) : MergeTotalContents = {
-				// Find all components directly transferred in, sorting by when transfer occurred
+				// Find all components directly transferred in to output, sorting them by when transfer occurred
 				val inputs = output.incoming.toList.sortWith((edge1, edge2) => edge1.label.time < edge2.label.time)
-				// Fold all the incoming components into our contents
+				// Fold all the incoming components into output
 				inputs.foldLeft(getComponentContent(output))((soFar, next) => {
 					val edge = next.edge
 					edge match {
 						case LkDiEdge(input, _, label) =>
-							// We recurse to keep looking for previous transfers
+							// We recurse to look for transfers into the input (output for recursion)
 							// Note: IDE thinks input isn't a graph.NodeT but compiler is perfectly happy
 							val inputContents = findContents(input)
 							mergeResults(inputContents, soFar, label)
