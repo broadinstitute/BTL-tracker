@@ -308,8 +308,9 @@ object TransferHistory extends Controller with MongoController {
 				// Get bsp and mid content and then merge the results together
 				val bsps = getBspContent(component)
 				val mids = getMidContent(component)
-				if (bsps._1.isEmpty) MergeTotalContents(component, mapWithSet(mids._1), bsps._2 ++ mids._2)
-				else if (mids._1.isEmpty) MergeTotalContents(component, mapWithSet(bsps._1), bsps._2 ++ mids._2)
+				val errs = bsps._2 ++ mids._2
+				if (bsps._1.isEmpty) MergeTotalContents(component, mapWithSet(mids._1), errs)
+				else if (mids._1.isEmpty) MergeTotalContents(component, mapWithSet(bsps._1), errs)
 				else {
 					// Merge together bsp and mid maps
 					val wellMap = bsps._1 ++ mids._1.map {
@@ -318,7 +319,7 @@ object TransferHistory extends Controller with MongoController {
 							case _ => well -> res
 						}
 					}
-					MergeTotalContents(component, mapWithSet(wellMap), bsps._2 ++ mids._2)
+					MergeTotalContents(component, mapWithSet(wellMap), errs)
 				}
 			}
 
