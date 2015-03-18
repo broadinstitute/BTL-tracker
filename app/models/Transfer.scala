@@ -122,3 +122,30 @@ object Transfer {
 	implicit val quadFormat: Format[Quad.Quad] = enumFormat(Quad)
 	implicit val transferFormat = Json.format[Transfer]
 }
+
+/**
+ * Transfer with time added
+ * @param from ID we're transferring from
+ * @param to ID we're transferring to
+ * @param fromQuad optional quadrant transfer is coming from
+ * @param toQuad optional quadrant transfer is going to
+ * @param time time transfer was created
+ */
+class TransferWithTime(override val from: String, override val to: String,
+					   override val fromQuad: Option[Transfer.Quad.Quad],
+					   override val toQuad: Option[Transfer.Quad.Quad], val time: Long)
+	extends Transfer(from, to, fromQuad, toQuad)
+
+/**
+ * Companion object
+ */
+object TransferWithTime {
+	/**
+	 * Create a transfer with time
+	 * @param transfer transfer done
+	 * @param time time transfer was done
+	 * @return object with transfer data and time of transfer
+	 */
+	def apply(transfer: Transfer, time: Long) : TransferWithTime =
+		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad, time)
+}

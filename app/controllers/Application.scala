@@ -33,7 +33,7 @@ object Application extends Controller {
 	// @TODO Add find, add add for multiple IDs
 	def test(id: String) = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		TransferHistory.getContents(id).map((g) => Ok(g.toString))
+		TransferContents.getContents(id).map((g) => Ok(g.toString))
 	}
 
 	/**
