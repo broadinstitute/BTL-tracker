@@ -41,12 +41,13 @@ object TransferContents {
 	 * Molecular barcodes for merged results.
 	 * @param sequence barcode sequence for EZPASS (e.g., may have "-" between multiple barodes)
 	 * @param name name of barcode
+	 * @param isNextera is it a Nextera barcode
 	 */
-	case class MergeMid(sequence: String, name: String) {
+	case class MergeMid(sequence: String, name: String, isNextera: Boolean) {
 		// Override equals and hash to make them simpler
 		override def equals(arg: Any) = {
 			arg match {
-				case MergeMid(s, _) => s == sequence
+				case MergeMid(s, _, isNext) => s == sequence && isNext == isNextera
 				case _ => false
 			}
 		}
@@ -133,7 +134,7 @@ object TransferContents {
 							case Some(ic) if ic != NoContents => {
 								val mids = InitialContents.contents(ic).contents.map{
 									case (well, mbw) =>
-										well -> MergeResult(None, Set(MergeMid(mbw.getSeq, mbw.getName)))
+										well -> MergeResult(None, Set(MergeMid(mbw.getSeq, mbw.getName, mbw.isNextera)))
 								}
 								(mids, List.empty[String])
 							}
