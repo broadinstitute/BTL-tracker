@@ -1,18 +1,60 @@
 package controllers
 
-import java.io.FileOutputStream
+import java.io.{File, FileOutputStream}
 
 import controllers.TransferContents.{MergeResult, MergeMid, MergeBsp}
+import models.EZPass
 import org.broadinstitute.spreadsheets.HeadersToValues
 import org.apache.poi.ss.usermodel._
+import play.api.mvc.{Action, Controller}
 
 import scala.annotation.tailrec
+import scala.concurrent.Future
 
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 /**
  * Created by nnovod on 3/10/15.
  * Methods to make an EZPass
  */
-object MakeEZPass {
+object EZPassController extends Controller {
+
+	/**
+	 * Simple action to put up the form to get the ezpass parameters
+ 	 * @param id id of component
+	 * @return form to get ezpass parameters
+	 */
+	def ezpass(id: String) = Action { request =>
+		Ok(views.html.ezpass(Errors.addStatusFlash(request, EZPass.form), id))
+	}
+
+	/**
+	 * Action to create an EZPASS
+	 * @param id id of component
+	 * @return Future to download EZPASS
+	 */
+	def createEZPass(id: String) = Action.async { request =>
+		EZPass.form.bindFromRequest()(request).fold(
+			formWithErrors => {
+				Future.successful(BadRequest(
+					views.html.ezpass(formWithErrors.withGlobalError(Errors.validationError), id)))
+			},
+			data => {
+				import play.api.libs.concurrent.Execution.Implicits.defaultContext
+				//@TODO update processing of Jira BSP files, check that relative path below works on actual
+				// installation, and check what's wanted for sample tube barcode (looks like input id wanted)
+				// Finally make it possible to report errors (can't simply be sendFile
+				EZPassController.makeEZPass("conf/data/EZPass.xlsx", id,
+					data.libSize, data.libVol, data.libConcentration).map((e) => {
+					val file = new File(e._1.get)
+					Ok.sendFile(content = file, inline = false,
+						fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => file.delete())
+					//			Ok(e._1.getOrElse("") + " Errors: " + e._2.mkString("<br>")))
+				})
+			}.recover {
+				case err => BadRequest(views.html.ezpass(EZPass.form.withGlobalError(Errors.exceptionMessage(err)), id))
+			}
+		)
+	}
 
 	/**
 	 * Make an EZPASS file.
@@ -157,7 +199,7 @@ object MakeEZPass {
 	private def getMidFields(mids: Set[MergeMid]) = {
 		// Combine all the MIDs (should normally be only one but we allow for more)
 		val allMids = mids.foldLeft(("", "", ""))((soFar, mid) =>
-			(soFar._1 + mid.sequence, if (soFar._2.isEmpty) mid.name else soFar._2 + "-" + mid.name, {
+			(soFar._1 + mid.sequence, if (soFar._2.isEmpty) mid.name else soFar._2 + "+" + mid.name, {
 				val nextKit = if (mid.isNextera) "Nextera" else "Illumina"
 				if (soFar._3.isEmpty || soFar._3 == nextKit) nextKit else "Nextera/Illumina"
 			})

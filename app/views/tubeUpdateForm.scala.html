@@ -15,5 +15,6 @@
 	    @initialContents(Tube.validContents, tubeInput)
 	    @updateButtons()
     }
-	@homeUpdateOption(tubeInput, Seq.empty)
+	@homeUpdateOption(tubeInput, Seq((routes.EZPassController.ezpass(
+		tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "Create EZPASS")))
 }

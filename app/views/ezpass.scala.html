@@ -1,0 +1,18 @@
+@(ezpassForm: Form[EZPass], id: String)
+@import helper._
+@import models.EZPass
+
+@main("Create EZPASS") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Create EZPASS", ezpassForm)
+	@form(routes.EZPassController.createEZPass(id), 'style -> "display:inline;") {
+		@inputText(ezpassForm(EZPass.idKey).copy(value=Some(id)), 'readonly -> "readonly",
+			'_showConstraints -> false, '_label -> "ID")
+		@inputText(ezpassForm(EZPass.libSizeKey), '_label -> "Library Insert Size (including adapters)")
+		@inputText(ezpassForm(EZPass.libVolKey), '_label -> "Library Volume (ul)")
+		@inputText(ezpassForm(EZPass.libConcKey), '_label -> "Library Concentration (ng/ul)")
+		<input type="submit" value="Create EZPASS" style="display:inline;">
+	}
+	@homeOption(Seq.empty)
+}

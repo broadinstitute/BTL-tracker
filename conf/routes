@@ -69,5 +69,8 @@ GET         /transferWithParams/:fromID/:toID        controllers.TransferControl
 POST        /transfer                                controllers.TransferController.transferFromForm
 POST        /transferIDs                             controllers.TransferController.transferIDs
 
+GET         /EZPASS/:id                              controllers.EZPassController.ezpass(id: String)
+POST        /EZPASS/create/:id                       controllers.EZPassController.createEZPass(id: String)
+
 # Map static resources from the /public folder to the /assets URL path
 GET         /assets/*file                            controllers.Assets.at(path="/public", file)

@@ -5,6 +5,7 @@ import play.api.libs.json._
 import play.api.mvc._
 import models._
 import Errors.FlashingKeys
+import java.io.File
 
 import scala.concurrent.Future
 
@@ -35,8 +36,12 @@ object Application extends Controller {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		//@TODO prompt for values, download file, update processing of Jira BSP files, check that relative path below
 		// works on actual installation, and check what's wanted for sample tube barcode (looks like input id wanted)
-		MakeEZPass.makeEZPass("conf/data/EZPass.xlsx", id, 390, 20, 5.0f).map((e) =>
-			Ok(e._1.getOrElse("") + " Errors: " + e._2.mkString("<br>")))
+		EZPassController.makeEZPass("conf/data/EZPass.xlsx", id, 390, 20, 5.0f).map((e) => {
+			val file = new File(e._1.get)
+			Ok.sendFile(content = file, inline = false,
+				fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => file.delete())
+//			Ok(e._1.getOrElse("") + " Errors: " + e._2.mkString("<br>")))
+		})
 	}
 
 	/**
