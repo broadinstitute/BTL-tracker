@@ -1,5 +1,7 @@
 package controllers
 
+import java.io.FileOutputStream
+
 import controllers.TransferContents.{MergeResult, MergeMid, MergeBsp}
 import org.broadinstitute.spreadsheets.HeadersToValues
 import org.apache.poi.ss.usermodel._
@@ -14,38 +16,63 @@ object MakeEZPass {
 
 	def makeEZPass(inFile: String, component: String, libSize: Int, libVol: Int, libConcentration: Float) = {
 
-		val headers = HeadersToValues(inFile, 0, List("ID"), Map.empty[String, (List[String], List[String])])
-		val sheet = headers.getSheet.get
+		val headerPositions = HeadersToValues(inFile, 0, headers, Map.empty[String, (List[String], List[String])])
+		val sheet = headerPositions.getSheet.get
 		val workBook = sheet.getWorkbook
+
+		def setValues[T](fields: Map[String, T], setCell: (Cell, T) => Unit) =
+			fields.foreach {
+				case (header, value) => headerPositions.getHeaderLocation(header) match {
+					case Some((r, c)) =>
+						val row = sheet.getRow(r + 1) match {
+							case null => sheet.createRow(r + 1)
+							case rowFound => rowFound
+						}
+						val cell = row.getCell(c) match {
+							case null => row.createCell(c)
+							case cellFound => cellFound
+						}
+						setCell(cell, value)
+				}
+			}
 
 		@tailrec
 		def processResults(index: Int, results: Iterator[MergeResult], errs: List[String]) : List[String] = {
 			if (results.hasNext) {
 				val result = results.next
-				val bspFields = result.bsp match {
+				val ezPassResults = result.bsp match {
 					case Some(bsp) =>
-						val bspFields = getBspFields(bsp)
-						val midFields = getMidFields(result.mid)
-						val constFields = getConstantFields
-						val calcIntFields = getCalcIntFields(index, libSize, libVol)
-						val calcFloatFields = getCalcFloatFields(libConcentration)
+						val strOptionFields = getBspFields(bsp).flatMap {
+							case (k, Some(str)) => List(k -> str)
+							case _ => List.empty
+						}
+						val strFields = strOptionFields ++ getMidFields(result.mid) ++ constantFields
+						val intFields = getCalcIntFields(index, libSize, libVol)
+						val floatFields = getCalcFloatFields(libConcentration)
+						setValues[String](strFields, (cell, value) => cell.setCellValue(value))
+						setValues[Int](intFields, (cell, value) => cell.setCellValue(value))
+						setValues[Float](floatFields, (cell, value) => cell.setCellValue(value))
 						List.empty
 					case None => List("No sample found")
 				}
-				processResults(index + 1, results, errs ++ bspFields)
+				processResults(index + 1, results, errs ++ ezPassResults)
 			} else errs
 		}
 
+		import java.io.File
 		TransferContents.getContents(component).map {
 			case Some(contents) => contents.wells.get(TransferContents.oneWell) match {
-				case Some(resultSet) => processResults(1, resultSet.toIterator, List.empty)
-				case None =>
+				case Some(resultSet) =>
+					val errs = processResults(1, resultSet.toIterator, contents.errs)
+					val outFile = new FileOutputStream(File.createTempFile("RIP", ".xlsx"))
+					workBook.write(outFile)
+					outFile.close()
+					errs
+				case None => List(s"$component is a multi-well component") ++ contents.errs
 			}
-			case None =>
+			case None => List(s"$component has no contents")
 		}
 	}
-
-	val unknown = "Unknown"
 
 	private def getProject(bsp: MergeBsp) = Some(bsp.project)
 	private def getProjectDescription(bsp: MergeBsp) = bsp.projectDescription
@@ -62,43 +89,68 @@ object MakeEZPass {
 			"Individual Name (aka Patient ID, Required for human subject samples)" -> getIndividual,
 			"Library Name (External Collaborator Library ID)" -> getLibrary,
 			"Sample Tube Barcode" -> getSampleTube)
-
 	private def getBspFields(bsp: MergeBsp) = bspMap.map{
 		case (k, v) => k -> v(bsp)
 	}
 
+	private case class MidInfo(seq: String, name: String, kit: String)
+	private def getMidSeq(mids: MidInfo) = mids.seq
+	private def getMidName(mids: MidInfo) = mids.name
+	private def getMidKit(mids: MidInfo) = mids.kit
+	private val	midFields : Map[String,(MidInfo) => String] =
+		Map("Molecular Barcode Sequence" -> getMidSeq,
+		"Molecular Barcode Name" -> getMidName,
+		"Illumina or 454 Kit Used" -> getMidKit
+	)
 	private def getMidFields(mids: Set[MergeMid]) = {
 		val allMids = mids.foldLeft(("", "", ""))((soFar, mid) =>
-			(soFar._1 + mid.sequence, soFar._1 + "-" + mid.name, {
+			(soFar._1 + mid.sequence, soFar._2 + "-" + mid.name, {
 				val nextKit = if (mid.isNextera) "Nextera" else "Illumina"
 				if (soFar._3.isEmpty || soFar._3 == nextKit) nextKit else "Nextera/Illumina"
 			})
 		)
-		Map("Molecular Barcode Sequence" -> allMids._1,
-			"Molecular Barcode Name" -> allMids._2,
-			"Illumina or 454 Kit Used" -> allMids._3
-		)
+		val mi = MidInfo(allMids._1, allMids._2, allMids._3)
+		midFields.map{
+			case (k, v) => k -> v(mi)
+		}
 	}
 
-	private def getConstantFields =
+	private val constantFields =
 		Map("Sequencing Technology (Illumina/454/TechX Internal Other)" -> "Illumina",
 			"Single/Double Stranded (S/D)" -> "D",
 			"Pooled" -> "Y"
 		)
 
+	private def getIndex(index: Int, libSize: Int, libVol: Int) = index
+	private def getInsertSize(index: Int, libSize: Int, libVol: Int) = libSize - 126
+	private def getLibSize(index: Int, libSize: Int, libVol: Int) = libSize
+	private def getLibVol(index: Int, libSize: Int, libVol: Int) = libVol
+	private val calcIntFields: Map[String, (Int, Int, Int) => Int] =
+		Map("Sample Number" -> getIndex,
+		"Insert Size Range bp. (i.e the library size without adapters)" -> getInsertSize,
+		"Library Size Range bp. (i.e. the insert size plus adapters)" -> getLibSize,
+		"Total Library Volume (ul)" -> getLibVol // Integer, warning if under 20
+	)
 	private def getCalcIntFields(index: Int, libSize: Int, libVol: Int) =
-		Map("Sample Number" -> index,
-			"Insert Size Range bp. (i.e the library size without adapters)" -> (libSize - 126),
-			"Library Size Range bp. (i.e. the insert size plus adapters)" -> libSize,
-			"Total Library Volume (ul)" -> libVol // Integer, warning if under 20
-		)
+		calcIntFields.map {
+			case (k, v) => k -> v(index, libSize, libVol)
+		}
 
+	private def getLibConcentration(libConcentration: Float) = libConcentration
+	private val calcFloatFields: Map[String, (Float) => Float] =
+		Map("Total Library Concentration (ng/ul)" -> getLibConcentration)
 	private def getCalcFloatFields(libConcentration: Float) =
-		Map("Total Library Concentration (ng/ul)" -> libConcentration)
+		calcFloatFields.map {
+			case (k, v) => k -> v(libConcentration)
+		}
 
+	val headers =
+		(bspMap.keys ++ midFields.keys ++ constantFields.keys ++ calcIntFields.keys ++ calcFloatFields.keys).toList
+
+	private val unknown = "Unknown"
 	private val unKnownFields = Map(
-		"Funding Source" -> "Jira parent ticket",
-		"Coverage (# Lanes/Sample)" -> "Jira parent ticket",
+		"Funding Source" -> "Get from Jira parent ticket",
+		"Coverage (# Lanes/Sample)" -> "Get from Jira parent ticket",
 		"Strain" -> unknown,
 		"Sex (for non-human samples only)" -> unknown,
 		"Cell Line"	-> unknown,
