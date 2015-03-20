@@ -136,6 +136,20 @@ object Errors {
 	}
 
 	/**
+	 * Set global errors
+	 * @param msgs list of global errors
+	 * @param form filled form
+	 * @tparam I form type
+	 * @return form that includes global errors
+	 */
+	def setGlobalErrors[I](msgs: List[String], form: Form[I]) = {
+		if (msgs.isEmpty) form else {
+			val formWithError = form.withGlobalError("Operation unsuccessful - fix errors below")
+			msgs.foldLeft(formWithError)((soFar, next) => setMessages(Map(None -> next), soFar))
+		}
+	}
+
+	/**
 	 * Method to take errors and put them on a form filled with data
 	 * @param msgs map of error messages in form of fieldName->errorMessage
 	 * @param data data to fill in form

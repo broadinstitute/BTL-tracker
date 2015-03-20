@@ -10,8 +10,8 @@ import play.api.mvc.{Action, Controller}
 
 import scala.annotation.tailrec
 import scala.concurrent.Future
-
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+
 /**
  * Created by nnovod on 3/10/15.
  * Methods to make an EZPass
@@ -39,16 +39,20 @@ object EZPassController extends Controller {
 					views.html.ezpass(formWithErrors.withGlobalError(Errors.validationError), id)))
 			},
 			data => {
-				import play.api.libs.concurrent.Execution.Implicits.defaultContext
 				//@TODO update processing of Jira BSP files, check that relative path below works on actual
 				// installation, and check what's wanted for sample tube barcode (looks like input id wanted)
 				// Finally make it possible to report errors (can't simply be sendFile
 				EZPassController.makeEZPass("conf/data/EZPass.xlsx", id,
 					data.libSize, data.libVol, data.libConcentration).map((e) => {
-					val file = new File(e._1.get)
-					Ok.sendFile(content = file, inline = false,
-						fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => file.delete())
-					//			Ok(e._1.getOrElse("") + " Errors: " + e._2.mkString("<br>")))
+					e._1 match {
+						case Some(file) =>
+							val outFile = new File(file)
+							Ok.sendFile(content = outFile, inline = false,
+								fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => outFile.delete())
+						case None =>
+							val filledForm = EZPass.form.fill(data)
+							BadRequest(views.html.ezpass(Errors.setGlobalErrors(e._2, filledForm), id))
+					}
 				})
 			}.recover {
 				case err => BadRequest(views.html.ezpass(EZPass.form.withGlobalError(Errors.exceptionMessage(err)), id))
@@ -100,11 +104,11 @@ object EZPassController extends Controller {
 		 * Process the results of looking at transfers into wanted component.
  		 * @param index sample number
 		 * @param results results from transfers
-		 * @param errs errors found so far
-		 * @return update list of errors
+		 * @param samplesFound # of bsp samples found so far
+		 * @return total # of samples found
 		 */
 		@tailrec
-		def processResults(index: Int, results: Iterator[MergeResult], errs: List[String]) : List[String] = {
+		def processResults(index: Int, results: Iterator[MergeResult], samplesFound: Int) : Int = {
 			if (results.hasNext) {
 				val result = results.next()
 				val ezPassResults = result.bsp match {
@@ -122,13 +126,14 @@ object EZPassController extends Controller {
 						setValues[String](strFields, index, (cell, value) => cell.setCellValue(value))
 						setValues[Int](intFields, index, (cell, value) => cell.setCellValue(value))
 						setValues[Float](floatFields, index, (cell, value) => cell.setCellValue(value))
-						// No errors
-						List.empty
-					case None => List("No sample found")
+						// Found sample
+						1
+					// Sample not found
+					case None => 0
 				}
 				// Go get next sample
-				processResults(index + 1, results, errs ++ ezPassResults)
-			} else errs
+				processResults(index + 1, results, samplesFound + ezPassResults)
+			} else samplesFound
 		}
 
 		import java.io.File
@@ -139,13 +144,15 @@ object EZPassController extends Controller {
 			case Some(contents) => contents.wells.get(TransferContents.oneWell) match {
 				case Some(resultSet) =>
 					// Go put results into the EZPASS
-					val errs = processResults(1, resultSet.toIterator, contents.errs)
-					// Create temporary file and write new EZPASS there
-					val tFile = File.createTempFile("TRACKER_", ".xlsx")
-					val outFile = new FileOutputStream(tFile)
-					workBook.write(outFile)
-					outFile.close()
-					(Some(tFile.getCanonicalPath), errs)
+					val samplesFound = processResults(1, resultSet.toIterator, 0)
+					if (samplesFound != 0) {
+						// Create temporary file and write new EZPASS there
+						val tFile = File.createTempFile("TRACKER_", ".xlsx")
+						val outFile = new FileOutputStream(tFile)
+						workBook.write(outFile)
+						outFile.close()
+						(Some(tFile.getCanonicalPath), contents.errs)
+					} else (None, List(s"No samples found") ++ contents.errs)
 				case None => (None, List(s"$component is a multi-well component") ++ contents.errs)
 			}
 			case None => (None, List(s"$component has no contents"))
