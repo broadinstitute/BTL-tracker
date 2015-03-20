@@ -30,10 +30,13 @@ object Application extends Controller {
 	/**
 	 * Just a test form
 	 */
-	// @TODO Add find, add add for multiple IDs
+	// @TODO Add find, and add for multiple IDs
 	def test(id: String) = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		TransferContents.getContents(id).map((g) => Ok(g.toString))
+		//@TODO prompt for values, download file, update processing of Jira BSP files, check that relative path below
+		// works on actual installation, and check what's wanted for sample tube barcode (looks like input id wanted)
+		MakeEZPass.makeEZPass("conf/data/EZPass.xlsx", id, 390, 20, 5.0f).map((e) =>
+			Ok(e._1.getOrElse("") + " Errors: " + e._2.mkString("<br>")))
 	}
 
 	/**
