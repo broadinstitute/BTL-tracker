@@ -6,6 +6,7 @@ import controllers.TransferContents.{MergeResult, MergeMid, MergeBsp}
 import models.EZPass
 import org.broadinstitute.spreadsheets.HeadersToValues
 import org.apache.poi.ss.usermodel._
+import play.Play
 import play.api.mvc.{Action, Controller}
 
 import scala.annotation.tailrec
@@ -17,7 +18,6 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * Methods to make an EZPass
  */
 object EZPassController extends Controller {
-
 	/**
 	 * Simple action to put up the form to get the ezpass parameters
  	 * @param id id of component
@@ -39,21 +39,20 @@ object EZPassController extends Controller {
 					views.html.ezpass(formWithErrors.withGlobalError(Errors.validationError), id)))
 			},
 			data => {
+				val filePath = Play.application().path().getCanonicalPath + "/conf/data/EZPass.xlsx"
 				//@TODO update processing of Jira BSP files, check that relative path below works on actual
 				// installation, and check what's wanted for sample tube barcode (looks like input id wanted)
 				// Finally make it possible to report errors (can't simply be sendFile
-				EZPassController.makeEZPass("conf/data/EZPass.xlsx", id,
-					data.libSize, data.libVol, data.libConcentration).map((e) => {
-					e._1 match {
-						case Some(file) =>
-							val outFile = new File(file)
-							Ok.sendFile(content = outFile, inline = false,
-								fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => outFile.delete())
-						case None =>
-							val filledForm = EZPass.form.fill(data)
-							BadRequest(views.html.ezpass(Errors.setGlobalErrors(e._2, filledForm), id))
-					}
-				})
+				EZPassController.makeEZPass(filePath, id,
+					data.libSize, data.libVol, data.libConcentration).map {
+					case (Some(file), errs) =>
+						val outFile = new File(file)
+						Ok.sendFile(content = outFile, inline = false,
+							fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => outFile.delete())
+					case (None, errs) =>
+						val filledForm = EZPass.form.fill(data)
+						BadRequest(views.html.ezpass(Errors.setGlobalErrors(errs, filledForm), id))
+				}
 			}.recover {
 				case err => BadRequest(views.html.ezpass(EZPass.form.withGlobalError(Errors.exceptionMessage(err)), id))
 			}
