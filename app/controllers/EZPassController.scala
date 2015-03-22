@@ -40,9 +40,8 @@ object EZPassController extends Controller {
 			},
 			data => {
 				val filePath = Play.application().path().getCanonicalPath + "/conf/data/EZPass.xlsx"
-				//@TODO update processing of Jira BSP files, check that relative path below works on actual
-				// installation, and check what's wanted for sample tube barcode (looks like input id wanted)
-				// Finally make it possible to report errors (can't simply be sendFile
+				//@TODO update processing of Jira BSP files, check what's wanted for sample tube barcode (looks like
+				// input id wanted). Finally make it possible to report errors (can't simply be sendFile).
 				EZPassController.makeEZPass(filePath, id,
 					data.libSize, data.libVol, data.libConcentration).map {
 					case (Some(file), errs) =>
@@ -54,7 +53,8 @@ object EZPassController extends Controller {
 						BadRequest(views.html.ezpass(Errors.setGlobalErrors(errs, filledForm), id))
 				}
 			}.recover {
-				case err => BadRequest(views.html.ezpass(EZPass.form.withGlobalError(Errors.exceptionMessage(err)), id))
+				case err => BadRequest(
+					views.html.ezpass(EZPass.form.fill(data).withGlobalError(Errors.exceptionMessage(err)), id))
 			}
 		)
 	}
@@ -62,7 +62,7 @@ object EZPassController extends Controller {
 	/**
 	 * Make an EZPASS file.
 	 * @param inFile template EZPASS
-	 * @param component component to make EZPASS for
+	 * @param component ID of component to make EZPASS for
 	 * @param libSize library insert size including adapters
 	 * @param libVol library volume (ul)
 	 * @param libConcentration library concentration (ng/ul)
@@ -107,7 +107,8 @@ object EZPassController extends Controller {
 		 * @return total # of samples found
 		 */
 		@tailrec
-		def processResults(index: Int, results: Iterator[MergeResult], samplesFound: Int) : Int = {
+		def processResults(index: Int, results: Iterator[MergeResult], samplesFound: Int)
+						  (setFields: (Map[String, String], Map[String, Int], Map[String, Float], Int) => Unit): Int = {
 			if (results.hasNext) {
 				val result = results.next()
 				val ezPassResults = result.bsp match {
@@ -118,20 +119,18 @@ object EZPassController extends Controller {
 							case _ => List.empty
 						}
 						// Get string, integer and floating point values
-						val strFields = strOptionFields ++ getMidFields(result.mid) ++ constantFields
+						val strFields = strOptionFields ++ getMidFields(result.mid) ++
+							getCalcStrFields(component) ++ constantFields
 						val intFields = getCalcIntFields(index, libSize, libVol)
 						val floatFields = getCalcFloatFields(libConcentration)
-						// Now go set the values into the spreadsheet
-						setValues[String](strFields, index, (cell, value) => cell.setCellValue(value))
-						setValues[Int](intFields, index, (cell, value) => cell.setCellValue(value))
-						setValues[Float](floatFields, index, (cell, value) => cell.setCellValue(value))
+						setFields(strFields, intFields, floatFields, index)
 						// Found sample
 						1
 					// Sample not found
 					case None => 0
 				}
 				// Go get next sample
-				processResults(index + 1, results, samplesFound + ezPassResults)
+				processResults(index + 1, results, samplesFound + ezPassResults)(setFields)
 			} else samplesFound
 		}
 
@@ -143,7 +142,13 @@ object EZPassController extends Controller {
 			case Some(contents) => contents.wells.get(TransferContents.oneWell) match {
 				case Some(resultSet) =>
 					// Go put results into the EZPASS
-					val samplesFound = processResults(1, resultSet.toIterator, 0)
+					val samplesFound = processResults(1, resultSet.toIterator, 0)(
+						(strFields, intFields, floatFields, index) => {
+							// Now go set the values into the spreadsheet
+							setValues[String](strFields, index, (cell, value) => cell.setCellValue(value))
+							setValues[Int](intFields, index, (cell, value) => cell.setCellValue(value))
+							setValues[Float](floatFields, index, (cell, value) => cell.setCellValue(value))
+						})
 					if (samplesFound != 0) {
 						// Create temporary file and write new EZPASS there
 						val tFile = File.createTempFile("TRACKER_", ".xlsx")
@@ -165,7 +170,7 @@ object EZPassController extends Controller {
 	private def getCollabSample(bsp: MergeBsp) = bsp.collabSample
 	private def getIndividual(bsp: MergeBsp) = bsp.individual
 	private def getLibrary(bsp: MergeBsp) = bsp.library
-	private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
+	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
 	// Map of headers to methods to retrieve value
 	private val bspMap : Map[String, (MergeBsp) => Option[String]]=
 		Map("Additional Sample Information" -> getProject, // Jira ticket
@@ -173,8 +178,7 @@ object EZPassController extends Controller {
 			"Source Sample GSSR ID" -> getGssrSample,
 			"Collaborator Sample ID" -> getCollabSample,
 			"Individual Name (aka Patient ID, Required for human subject samples)" -> getIndividual,
-			"Library Name (External Collaborator Library ID)" -> getLibrary,
-			"Sample Tube Barcode" -> getSampleTube)
+			"Library Name (External Collaborator Library ID)" -> getLibrary)
 
 	/**
 	 * Get bsp fields - go through bsp map and return new map with fetched values
@@ -265,9 +269,25 @@ object EZPassController extends Controller {
 			case (k, v) => k -> v(libConcentration)
 		}
 
+	// String values - methods to retreive values
+	private def getTubeBarcode(id: String) = id
+	// Map of headers to methods to retrieve values
+	private val calcStrFields: Map[String, (String) => String] =
+		Map("Sample Tube Barcode" -> getTubeBarcode)
+
+	/**
+	 * Retrieve string values.
+	 * @param id ID for EZPASS tube
+	 */
+	private def getCalcStrFields(id: String) =
+		calcStrFields.map {
+			case (k, v) => k -> v(id)
+		}
+
 	// All the headers we want to set
-	val headers =
-		(bspMap.keys ++ midFields.keys ++ constantFields.keys ++ calcIntFields.keys ++ calcFloatFields.keys).toList
+	private val headers =
+		(bspMap.keys ++ midFields.keys ++ constantFields.keys ++
+			calcIntFields.keys ++ calcFloatFields.keys ++ calcStrFields.keys).toList
 
 	// EZPASS fields we don't know how to fill in yet
 	private val unknown = "Unknown"
