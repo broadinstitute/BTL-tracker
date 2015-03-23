@@ -34,14 +34,7 @@ object Application extends Controller {
 	// @TODO Add find, and add for multiple IDs
 	def test(id: String) = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		//@TODO prompt for values, download file, update processing of Jira BSP files, check that relative path below
-		// works on actual installation, and check what's wanted for sample tube barcode (looks like input id wanted)
-		EZPassController.makeEZPass("conf/data/EZPass.xlsx", id, 390, 20, 5.0f).map((e) => {
-			val file = new File(e._1.get)
-			Ok.sendFile(content = file, inline = false,
-				fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => file.delete())
-//			Ok(e._1.getOrElse("") + " Errors: " + e._2.mkString("<br>")))
-		})
+		TransferHistory.makeDot(id).map(Ok(_))
 	}
 
 	/**

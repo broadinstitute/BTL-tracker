@@ -175,21 +175,20 @@ object TransferHistory extends Controller with MongoController {
 	import scalax.collection.io.dot._
 	import scalax.collection.edge.LkDiEdge
 	import scalax.collection.Graph
-//	import implicits._
+	// import implicits._
 	def makeDot(componentID: String) = {
 		makeGraph(componentID).map((graph) => {
 			val root = DotRootGraph(directed = true, id = Some(Id(s"Graph for $componentID")))
+			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = node.value.asInstanceOf[Component].id
 			def edgeHandler(innerEdge: Graph[Component,LkDiEdge]#EdgeT) =
 				innerEdge.edge match {
 					case LkDiEdge(source, target, edgeLabel) => {
-						def makeEdgeStmt(label: String) = DotEdgeStmt(NodeId(source.asInstanceOf[Component].id),
-							NodeId(target.asInstanceOf[Component].id),
-							List(DotAttr(Id("label"), Id(label))))
+						def makeEdgeStmt(label: String) = DotEdgeStmt(NodeId(getNodeId(source)),
+							NodeId(getNodeId(target)), List(DotAttr(Id("label"), Id(label))))
 						edgeLabel match {
-							case TransferEdge(Some(fromQ), _, _) => Some(root, makeEdgeStmt(fromQ.toString))
-							case TransferEdge(_, Some(toQ), _) => Some(root, makeEdgeStmt(toQ.toString))
-							case _ =>  Some(root, DotEdgeStmt(NodeId(source.asInstanceOf[Component].id),
-								NodeId(target.asInstanceOf[Component].id)))
+							case TransferEdge(Some(fromQ), _, _) => Some(root, makeEdgeStmt(s"from ${fromQ.toString}"))
+							case TransferEdge(_, Some(toQ), _) => Some(root, makeEdgeStmt(s"to ${toQ.toString}"))
+							case _ =>  Some(root, DotEdgeStmt(NodeId(getNodeId(source)), NodeId(getNodeId(target))))
 						}
 					}}
 			graph.toDot(root, edgeHandler)
