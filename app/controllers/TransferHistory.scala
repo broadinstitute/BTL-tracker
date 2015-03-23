@@ -2,6 +2,7 @@ package controllers
 
 import models._
 import models.Transfer.Quad._
+import models.initialContents.InitialContents.ContentType
 import play.api.libs.json.JsObject
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
@@ -11,6 +12,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.modules.reactivemongo.json.BSONFormats._
 
 import scala.concurrent.Future
+import scalax.collection.edge.LkDiEdge
 import scalax.collection.immutable.Graph
 import scalax.collection.edge.Implicits._
 
@@ -144,9 +146,26 @@ object TransferHistory extends Controller with MongoController {
 	 */
 	def isAdditionCyclic(data: Transfer) = {
 		TransferHistory.makeGraph(data.from).map {
-			(graph) => graph.nodes.filter((n) => n.id == data.to).nonEmpty
+			(graph) => isGraphAdditionCyclic(data.to, graph)
 		}
 	}
+
+	/**
+	 * Will adding this node to the graph make it cyclic?
+	 * @param addition id of node to be added
+	 * @param graph graph that the node will be added to
+	 * @return true if node is already in graph and graph will thus become cyclic if node is added
+	 */
+	def isGraphAdditionCyclic(addition: String, graph: Graph[Component, LkDiEdge]) =
+		graph.nodes.filter((n) => n.id == addition).nonEmpty
+
+	/**
+	 * Get list of all projects referenced in a graph
+ 	 * @param graph graph to be searched
+	 * @return components that have a project set
+	 */
+	def getGraphProjects(graph: Graph[Component, LkDiEdge]) =
+		graph.nodes.filter((n) => n.project.isDefined).map(_.value.asInstanceOf[Component].project.get)
 
 	/**
 	 * Make a graph from the transfers (direct or indirect) into a component.
@@ -176,10 +195,18 @@ object TransferHistory extends Controller with MongoController {
 	import scalax.collection.edge.LkDiEdge
 	import scalax.collection.Graph
 	// import implicits._
-	def makeDot(componentID: String) = {
+	def makeDot(componentID: String) : Future[String] = {
 		makeGraph(componentID).map((graph) => {
-			val root = DotRootGraph(directed = true, id = Some(Id(s"Graph for $componentID")))
-			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = node.value.asInstanceOf[Component].id
+			val root = DotRootGraph(directed = true, id = Some(Id(s"$componentID")))
+			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
+				val component = node.value.asInstanceOf[Component]
+				component match {
+					case c: Container if c.initialContent.isDefined && c.initialContent.get != ContentType.NoContents =>
+						component.id + s" (${c.initialContent.get.toString})"
+					case _ if component.project.isDefined => component.id + s" (${component.project.get.toString})"
+					case _ => component.id
+				}
+			}
 			def edgeHandler(innerEdge: Graph[Component,LkDiEdge]#EdgeT) =
 				innerEdge.edge match {
 					case LkDiEdge(source, target, edgeLabel) => {

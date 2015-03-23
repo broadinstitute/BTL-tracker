@@ -19,8 +19,10 @@ import play.api.libs.json._
  * @param to ID we're transferring to
  * @param fromQuad optional quadrant transfer is coming from
  * @param toQuad optional quadrant transfer is going to
+ * @param project optional project transfer is associated with
  */
-case class Transfer(from: String, to: String, fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad])
+case class Transfer(from: String, to: String,
+					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String])
 
 // Companion object
 object Transfer {
@@ -29,6 +31,7 @@ object Transfer {
 	val toKey = "to"
 	val fromQuadKey = "fromQuad"
 	val toQuadKey = "toQuad"
+	val projectKey = "project"
 
 	// Quadrant enumeration
 	object Quad extends Enumeration {
@@ -114,7 +117,8 @@ object Transfer {
 			fromKey -> nonEmptyText,
 			toKey -> nonEmptyText,
 			fromQuadKey -> optional(enum(Quad)),
-			toQuadKey -> optional(enum(Quad))
+			toQuadKey -> optional(enum(Quad)),
+			projectKey -> optional(text)
 		)(Transfer.apply)(Transfer.unapply))
 
 	// Formatter for going to/from and validating Json
@@ -133,8 +137,9 @@ object Transfer {
  */
 class TransferWithTime(override val from: String, override val to: String,
 					   override val fromQuad: Option[Transfer.Quad.Quad],
-					   override val toQuad: Option[Transfer.Quad.Quad], val time: Long)
-	extends Transfer(from, to, fromQuad, toQuad)
+					   override val toQuad: Option[Transfer.Quad.Quad],
+					   override val project: Option[String], val time: Long)
+	extends Transfer(from, to, fromQuad, toQuad, project)
 
 /**
  * Companion object
@@ -147,5 +152,5 @@ object TransferWithTime {
 	 * @return object with transfer data and time of transfer
 	 */
 	def apply(transfer: Transfer, time: Long) : TransferWithTime =
-		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad, time)
+		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad, transfer.project, time)
 }

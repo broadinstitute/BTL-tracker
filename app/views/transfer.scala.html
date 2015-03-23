@@ -1,4 +1,4 @@
-@(transferForm: Form[Transfer], fromID: String, toID: String, fromQuad: Boolean = false, toQuad: Boolean = false)
+@(transferForm: Form[Transfer], fromID: String, toID: String, project: Option[String], fromQuad: Boolean = false, toQuad: Boolean = false)
 @import helper._
 @import models.Transfer
 
@@ -9,6 +9,7 @@
 	@form(routes.TransferController.transferFromForm, 'style -> "display:inline;") {
 		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
 		@inputText(transferForm(Transfer.toKey).copy(value=Some(toID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
+        @inputText(transferForm(Transfer.projectKey).copy(value=project), 'readonly -> "readonly", '_label -> "Project")
 		@if(fromQuad) {
 			@select(field = transferForm(Transfer.fromQuadKey),
 				options = options(Transfer.quadVals), '_label -> (fromID + " quadrant to transfer from"))

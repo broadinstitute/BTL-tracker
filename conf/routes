@@ -65,7 +65,7 @@ POST        /freezer/update/:id                      controllers.FreezerControll
 GET         /rack/BSPreport/:id                      controllers.RackController.doBSPReport(id: String)
 
 GET         /transfer                                controllers.TransferController.transfer
-GET         /transferWithParams/:fromID/:toID        controllers.TransferController.transferWithParams(fromID: String, toID: String, fromQuad: Option[Boolean], toQuad: Option[Boolean])
+GET         /transferWithParams/:fromID/:toID        controllers.TransferController.transferWithParams(fromID: String, toID: String, project: Option[String], fromQuad: Option[Boolean], toQuad: Option[Boolean])
 POST        /transfer                                controllers.TransferController.transferFromForm
 POST        /transferIDs                             controllers.TransferController.transferIDs
 

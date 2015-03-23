@@ -40,14 +40,15 @@ object TransferController extends Controller with MongoController {
 	 * there's additional information needed to complete the transfer.
 	 * @param fromID component ID being transferred from
 	 * @param toID component ID being transferred to
+	 * @param project optional project associated with transfer
 	 * @param fromQuad true if we need to get the quadrant we're transferring from
 	 * @param toQuad true if we need to get the quadrant we're transferring to
 	 * @return action to get additional transfer information wanted
 	 */
-	def transferWithParams(fromID: String, toID: String,
+	def transferWithParams(fromID: String, toID: String, project: Option[String],
 	                       fromQuad: Option[Boolean], toQuad: Option[Boolean]) = {
 		Action { request =>
-			Ok(views.html.transfer(Errors.addStatusFlash(request, Transfer.form), fromID, toID,
+			Ok(views.html.transfer(Errors.addStatusFlash(request, Transfer.form), fromID, toID, project,
 				fromQuad.getOrElse(false), toQuad.getOrElse(false)))
 		}
 	}
@@ -138,7 +139,7 @@ object TransferController extends Controller with MongoController {
 	 */
 	private def transferIncompleteResult(data: Transfer, fromQuad: Boolean, toQuad: Boolean) = {
 		val result = Redirect(routes.TransferController.transferWithParams(
-			data.from, data.to, Some(fromQuad), Some(toQuad)))
+			data.from, data.to, data.project, Some(fromQuad), Some(toQuad)))
 		FlashingKeys.setFlashingValue(result, FlashingKeys.Status, "Fill in additional data to complete transfer")
 	}
 
@@ -223,22 +224,39 @@ object TransferController extends Controller with MongoController {
 	 * @return result to return with completion status
 	 */
 	private def insertTransfer(data: Transfer, whatDone: () => String) = {
-		// @TODO 1)Get contents for new graph
-		// 2)Check if multiple MIDs - if yes then warn of possible contamination - ideally come up with new form
-		// that has warning and will ask whether to continue
-		// 3)Finally do actual insert
-		TransferHistory.isAdditionCyclic(data).flatMap {
-			case true => Future.successful(transferErrorResult(data, Map(None ->
-				s"Error: Adding transfer will create a cyclic graph (${data.to} is already a source for ${data.from})")))
-			case false =>
-				transferCollection.insert(data).map {
-					(lastError) => {
-						val success = "Inserted " + whatDone()
-						Logger.debug(s"$success with status: $lastError")
-						transferCompleteResult(() => "Completed " + whatDone())
+		// Make graph of what leads into source of this transfer
+		TransferHistory.makeGraph(data.from).flatMap((graph) => {
+			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
+			TransferHistory.isGraphAdditionCyclic(data.to,graph) match {
+				case true => Future.successful(transferErrorResult(data, Map(None ->
+					s"Error: Adding transfer will create a cyclic graph (${data.to} is already a source for ${data.from})")))
+				case false =>
+					// Method to do insert
+					def doInsert =
+						transferCollection.insert(data).map {
+							(lastError) => {
+								val success = "Inserted " + whatDone()
+								Logger.debug(s"$success with status: $lastError")
+								transferCompleteResult(() => "Completed " + whatDone())
+							}
+						}
+
+					// If project specified make sure it is part of graph - do insert if project is ok
+					//@TODO What if from itself has part of project - maybe move this entire thing to isTransferValid
+					//Fix up error message below for when there are no projects found
+					data.project match {
+						case Some(projectWanted) =>
+							// Get projects in graph
+							val projects = TransferHistory.getGraphProjects(graph)
+							// If specified project there then proceed with insert, otherwise complete with error
+							if (projects.exists(_ == projectWanted)) doInsert else {
+								Future.successful(transferErrorResult(data, Map(None ->
+									s"${projectWanted} not in input components, found projects ${projects.mkString(",")}")))
+							}
+						case None => doInsert
 					}
-				}
-		}.recover {
+			}
+		}).recover {
 			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
 		}
 	}
