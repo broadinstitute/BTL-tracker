@@ -191,33 +191,49 @@ object TransferHistory extends Controller with MongoController {
 		edges.map((e) => Graph(e: _*))
 	}
 
+	// Some imports needed for making dot output - note that collection.Graph is needed even though immutable Graph
+	// was already imported - otherwise edgeHandler thinks we're not dealing with a Graph
 	import scalax.collection.io.dot._
 	import scalax.collection.edge.LkDiEdge
 	import scalax.collection.Graph
-	// import implicits._
+
+	/**
+	 * Make a dot format representation of a graph
+	 * @param componentID id of final destination of graph
+	 * @return dot output for graph
+	 */
 	def makeDot(componentID: String) : Future[String] = {
 		makeGraph(componentID).map((graph) => {
+			// Make root of dot graph
 			val root = DotRootGraph(directed = true, id = Some(Id(s"$componentID")))
+			// Get representation for node (Component) in Graph
 			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
 				val component = node.value.asInstanceOf[Component]
 				component match {
+					// If there's initial content include it in identifier
 					case c: Container if c.initialContent.isDefined && c.initialContent.get != ContentType.NoContents =>
 						component.id + s" (${c.initialContent.get.toString})"
+					// Otherwise, if no initial contents but a project, include project
 					case _ if component.project.isDefined => component.id + s" (${component.project.get.toString})"
+					// Otherwise just identify the node by its id
 					case _ => component.id
 				}
 			}
+			// Handler to display edge
 			def edgeHandler(innerEdge: Graph[Component,LkDiEdge]#EdgeT) =
 				innerEdge.edge match {
 					case LkDiEdge(source, target, edgeLabel) => {
+						// Make the edge format
 						def makeEdgeStmt(label: String) = DotEdgeStmt(NodeId(getNodeId(source)),
 							NodeId(getNodeId(target)), List(DotAttr(Id("label"), Id(label))))
+						// Make edge label: If a quad transfer then quad we're going to or from, otherwise nothing
 						edgeLabel match {
 							case TransferEdge(Some(fromQ), _, _) => Some(root, makeEdgeStmt(s"from ${fromQ.toString}"))
 							case TransferEdge(_, Some(toQ), _) => Some(root, makeEdgeStmt(s"to ${toQ.toString}"))
 							case _ =>  Some(root, DotEdgeStmt(NodeId(getNodeId(source)), NodeId(getNodeId(target))))
 						}
 					}}
+			// Go get the Dot output (note IDE gives error on edgeHandler but it compiles without any problem)
 			graph.toDot(root, edgeHandler)
 		})
 	}
