@@ -183,26 +183,35 @@ object TransferController extends Controller with MongoController {
 					// Found both objects - now check if we can transfer between them
 					case (Some((from, to)), None) =>
 						isTransferValid(data, from, to) match {
+							// Report attempt to transfer to itself
 							case (fromData, toData, None) if fromData.id == toData.id =>
 								now(transferErrorResult(data, Map(None -> "Can not transfer component to itself")))
-							case (fromData, toData, None) if fromData.isInstanceOf[ContainerDivisions] &&
-								toData.isInstanceOf[ContainerDivisions] =>
-								(fromData.asInstanceOf[ContainerDivisions].layout,
-									toData.asInstanceOf[ContainerDivisions].layout) match {
-									// Go insert transfer between containers that are the same shape
-									case (DIM8x12, DIM8x12) | (DIM16x24, DIM16x24) =>
-										insertTransfer(data, () => fromToMsg(fromData, toData))
-									// Go ask for quadrant to set in larger destination plate
-									case (DIM8x12, DIM16x24) =>
-										now(transferIncompleteResult(data, fromQuad = false, toQuad = true))
-									// Go ask for quadrant to get in larger source plate
-									case (DIM16x24, DIM8x12) =>
-										now(transferIncompleteResult(data, fromQuad = true, toQuad = false))
-								}
-							// Do transfer now of compatible types
-							case (fromData, toData, None) => insertTransfer(data, () => fromToMsg(fromData, toData))
 							// Report problem transferring between requested components
 							case (fromData, toData, Some(err)) => now(transferErrorResult(data, Map(None -> err)))
+							// OK so far - now we need to check if it's ok to add this transfer to the graph leading in
+							case (fromData, toData, None) => checkGraph(data, fromData, toData).flatMap {
+								// Problem found
+								case Some(err) => now(transferErrorResult(data, Map(None -> err)))
+								// All is well - now just check if transfer should be done now or we need additional
+								// information about what quadrants to transfer from/to
+								case None =>
+									if (fromData.isInstanceOf[ContainerDivisions] &&
+										toData.isInstanceOf[ContainerDivisions])
+										// See how quadrants line up
+										(fromData.asInstanceOf[ContainerDivisions].layout,
+											toData.asInstanceOf[ContainerDivisions].layout) match {
+											// Go insert transfer between containers that are the same shape
+											case (DIM8x12, DIM8x12) | (DIM16x24, DIM16x24) =>
+												insertTransfer(data, () => fromToMsg(fromData, toData))
+											// Go ask for quadrant to set in larger destination plate
+											case (DIM8x12, DIM16x24) =>
+												now(transferIncompleteResult(data, fromQuad = false, toQuad = true))
+											// Go ask for quadrant to get in larger source plate
+											case (DIM16x24, DIM8x12) =>
+												now(transferIncompleteResult(data, fromQuad = true, toQuad = false))
+										}
+									else insertTransfer(data, () => fromToMsg(fromData, toData))
+							}
 						}
 					// Couldn't find one or both data - form returned contains errors - return it now
 					case (None, Some(form)) => now(transferErrorResult(form))
@@ -219,48 +228,70 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
+	 * Check if what will lead into this transfer is legit.  First we create a graph of what leads into the from
+	 * component of this transfer.  Then we check that adding the new transfer will not make the graph cyclic and
+	 * then we insure that any project specified with the transfer exists in the graph.
+	 * @param data transfer data
+	 * @param from where transfer is taking place from
+	 * @param to where transfer is taking place to
+	 * @return Future with error message if check fails, otherwise None
+	 */
+	private def checkGraph(data: Transfer, from: Component, to: Component) = {
+		// Make graph of what leads into source of this transfer
+		TransferHistory.makeGraph(data.from).map((graph) => {
+			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
+			val isCyclic = TransferHistory.isGraphAdditionCyclic(data.to,graph) match {
+				case true =>
+					Some(s"Error: Adding transfer will create a cyclic graph (${data.to} is already a source for ${data.from})")
+				case _ => None
+			}
+			isCyclic match {
+				// Graph would become cylic - report error
+				case Some(err) => Some(err)
+				// Graph will not be cylic - go on to check more
+				case None =>
+					// If project specified make sure it is part of graph
+					data.project match {
+						case Some(projectWanted) if from.project.isDefined && from.project.get == projectWanted => None
+						case Some(projectWanted) =>
+							// Get projects in graph
+							val projects = TransferHistory.getGraphProjects(graph)
+							// If specified project there then proceed with insert, otherwise complete with error
+							if (projects.exists(_ == projectWanted)) None else {
+								val projectsFound = from.project match {
+									case Some(project) => projects + project
+									case None => projects
+								}
+								val plural = if (projectsFound.size != 1) "s" else ""
+								val projectsFoundStr = if (projectsFound.isEmpty) "" else
+									s"Project${plural} found: ${projectsFound.mkString(",")}"
+								Some(s"${projectWanted} not in ${from.id} or its derivatives. ${projectsFoundStr}")
+							}
+						// No project on transfer so nothing to check there
+						case _ => None
+					}
+			}
+		}).recover {
+			case err => Some(Errors.exceptionMessage(err))
+		}
+	}
+
+	/**
 	 * Insert transfer into DB and return Result.
 	 * @param data transfer to record in DB
 	 * @return result to return with completion status
 	 */
 	private def insertTransfer(data: Transfer, whatDone: () => String) = {
-		// Make graph of what leads into source of this transfer
-		TransferHistory.makeGraph(data.from).flatMap((graph) => {
-			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
-			TransferHistory.isGraphAdditionCyclic(data.to,graph) match {
-				case true => Future.successful(transferErrorResult(data, Map(None ->
-					s"Error: Adding transfer will create a cyclic graph (${data.to} is already a source for ${data.from})")))
-				case false =>
-					// Method to do insert
-					def doInsert =
-						transferCollection.insert(data).map {
-							(lastError) => {
-								val success = "Inserted " + whatDone()
-								Logger.debug(s"$success with status: $lastError")
-								transferCompleteResult(() => "Completed " + whatDone())
-							}
-						}
-
-					// If project specified make sure it is part of graph - do insert if project is ok
-					//@TODO What if from itself has part of project - maybe move this entire thing to isTransferValid
-					//Fix up error message below for when there are no projects found
-					data.project match {
-						case Some(projectWanted) =>
-							// Get projects in graph
-							val projects = TransferHistory.getGraphProjects(graph)
-							// If specified project there then proceed with insert, otherwise complete with error
-							if (projects.exists(_ == projectWanted)) doInsert else {
-								Future.successful(transferErrorResult(data, Map(None ->
-									s"${projectWanted} not in input components, found projects ${projects.mkString(",")}")))
-							}
-						case None => doInsert
-					}
+		transferCollection.insert(data).map {
+			(lastError) => {
+				val success = "Inserted " + whatDone()
+				Logger.debug(s"$success with status: $lastError")
+				transferCompleteResult(() => "Completed " + whatDone())
 			}
-		}).recover {
+		}.recover {
 			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
 		}
 	}
-
 
 	/**
 	 * Make a description of the transfer, including quadrant descriptions.
