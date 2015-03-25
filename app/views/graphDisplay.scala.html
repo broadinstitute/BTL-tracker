@@ -1,4 +1,4 @@
-@(graph: String)
+@(graph: String, nodeID: String)
 @import helper._
 
 <!DOCTYPE html>
@@ -32,11 +32,9 @@
     window.onload=function(){
     // Parse the DOT syntax into a graphlib object.
     var g = graphlibDot.parse(@Html(graph));
-
     // Render the graphlib object using d3.
     var renderer = new dagreD3.Renderer();
     renderer.run(g, d3.select("svg g"));
-
 
     // Optional - resize the SVG element based on the contents.
     var svg=document.querySelector('#graphContainer');

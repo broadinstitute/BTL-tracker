@@ -5,7 +5,6 @@ import play.api.libs.json._
 import play.api.mvc._
 import models._
 import Errors.FlashingKeys
-import java.io.File
 
 import scala.concurrent.Future
 
@@ -34,9 +33,9 @@ object Application extends Controller {
 	// @TODO Add find, and add for multiple IDs
 	def test(id: String) = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		TransferHistory.makeSourceDot(id).map((dot) => {
+		TransferHistory.makeBidirectionalDot(id).map((dot) => {
 			val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
-			Ok(views.html.graphDisplay(htmlStr))
+			Ok(views.html.graphDisplay(htmlStr, id))
 		})
 	}
 

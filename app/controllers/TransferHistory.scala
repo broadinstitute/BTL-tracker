@@ -64,6 +64,16 @@ object TransferHistory extends Controller with MongoController {
 	private def getTargetTransferID(transfer: Transfer) = transfer.to
 
 	/**
+	 * Partial function to make a graph of sources
+	 */
+	private val sourceGraphParams = makeDirectionalGraph(_: String, getSourceIDs, getSourceTransferID)
+
+	/**
+	 * Partial function to make a graph of targets
+	 */
+	private val targetGraphParams = makeDirectionalGraph(_: String, getTargetIDs, getTargetTransferID)
+
+	/**
 	 * Future to retrieve list of source components, given list of transfers
 	 * @param transfers list of transfers
 	 * @return list of components corresponding to sources in transfers and input list of transfers
@@ -191,7 +201,7 @@ object TransferHistory extends Controller with MongoController {
 	 * @return true if node is already in graph and graph will thus become cyclic if node is added
 	 */
 	def isGraphAdditionCyclic(addition: String, graph: Graph[Component, LkDiEdge]) =
-		graph.nodes.filter((n) => n.id == addition).nonEmpty
+		graph.nodes.exists((n) => n.id == addition)
 
 	/**
 	 * Get list of all projects referenced in a graph
@@ -233,14 +243,25 @@ object TransferHistory extends Controller with MongoController {
 	 * @param componentID id of target component
 	 * @return future with a graph of transfers
 	 */
-	def makeSourceGraph(componentID: String) = makeDirectionalGraph(componentID, getSourceIDs, getSourceTransferID)
+	def makeSourceGraph(componentID: String) = sourceGraphParams(componentID)
 
 	/**
 	 * Make a graph from the transfers (direct or indirect) from a component.
 	 * @param componentID id of source component
 	 * @return future with a graph of transfers
 	 */
-	def makeTargetGraph(componentID: String) = makeDirectionalGraph(componentID, getTargetIDs, getTargetTransferID)
+	def makeTargetGraph(componentID: String) = targetGraphParams(componentID)
+
+	/**
+	 * Make a graph of the transfers, direct or indirect, that are sources and targets of a component.
+	 * @param componentID id of component
+	 * @return future with a graph of transfers
+	 */
+	def makeBidirectionalGraph(componentID: String) = {
+		val source = makeSourceGraph(componentID)
+		val target = makeTargetGraph(componentID)
+		source.flatMap((sourceGraph) => target.map((targetGraph) => sourceGraph ++ targetGraph))
+	}
 
 	// Some imports needed for making dot output - note that collection.Graph is needed even though immutable Graph
 	// was already imported - otherwise edgeHandler thinks we're not dealing with a Graph
@@ -249,21 +270,21 @@ object TransferHistory extends Controller with MongoController {
 	import scalax.collection.Graph
 
 	/**
-	 * Make a dot format representation of a graph
+	 * Make a dot format representation of a graph (can be components sources, targets or both)
 	 * @param componentID id of final destination or target of graph
-	 * @param getIDs callback to get sources or targets of tranfers to/from specified component
-	 * @param getTransferID callback to get id from transfer
+	 * @param makeGraph callback to make wanted graph for component
 	 * @return dot output for graph
 	 */
-	private def makeDot(componentID: String, getIDs: (String) => Future[List[BSONDocument]],
-						getTransferID: (Transfer) => String) : Future[String] = {
-		makeDirectionalGraph(componentID, getIDs, getTransferID).map((graph) => {
+	private def makeDot(componentID: String, makeGraph: (String) => Future[Graph[Component, LkDiEdge]]) = {
+		makeGraph(componentID).map((graph) => {
 			// Make root of dot graph
 			val root = DotRootGraph(directed = true, id = Some(Id(s"$componentID")))
+			// Get Node's Component
+			def getNodeComponent(node: Graph[Component,LkDiEdge]#NodeT) = node.value.asInstanceOf[Component]
 			// Get representation for node (Component) in Graph
 			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
-				val component = node.value.asInstanceOf[Component]
-				component match {
+				val component = getNodeComponent(node)
+				val id = component match {
 					// If there's initial content include it in identifier
 					case c: Container if c.initialContent.isDefined && c.initialContent.get != ContentType.NoContents =>
 						component.id + s" (${c.initialContent.get.toString})"
@@ -272,6 +293,15 @@ object TransferHistory extends Controller with MongoController {
 					// Otherwise just identify the node by its id
 					case _ => component.id
 				}
+				if (component.id == componentID) ">>> " + id + " <<<" else id
+			}
+			// Get representation of node by itself (not on edge)
+			// Doesn't pass on color for some reason - so we're not using it
+			def nodeHandler(node: Graph[Component,LkDiEdge]#NodeT): Option[(DotGraph,DotNodeStmt)]= {
+				val component = getNodeComponent(node)
+				if (component.id == componentID) {
+					Some(root, DotNodeStmt(NodeId(getNodeId(node)), List(DotAttr(Id("style"), Id("filled")), DotAttr(Id("fillcolor"), Id("red")))))
+				} else None
 			}
 			// Handler to display edge
 			def edgeHandler(innerEdge: Graph[Component,LkDiEdge]#EdgeT) =
@@ -288,23 +318,31 @@ object TransferHistory extends Controller with MongoController {
 						}
 				}
 			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
-			graph.toDot(root, edgeHandler)
+			graph.toDot(dotRoot = root, edgeTransformer = edgeHandler) // , cNodeTransformer = Some(nodeHandler))
 		})
 	}
 
 	/**
-	 * Make a dot format representation of a graph of components that are sources for the specified component (directly
-	 * or indirectly).
+	 * Make a dot format representation of a graph of components that are sources (directly or indirectly) for the
+	 * specified component.
 	 * @param componentID id of target component
 	 * @return dot output for graph
 	 */
-	def makeSourceDot(componentID: String) = makeDot(componentID, getSourceIDs, getSourceTransferID)
+	def makeSourceDot(componentID: String) = makeDot(componentID, makeSourceGraph)
 
 	/**
-	 * Make a dot form representation of a graph of components that are targets of the specified component (directly
-	 * or indirectly).
+	 * Make a dot form representation of a graph of components that are targets (directly or indirectly) of the
+	 * specified component.
 	 * @param componentID id of source component
 	 * @return dot output for graph
 	 */
-	def makeTargetDot(componentID: String) = makeDot(componentID, getTargetIDs, getTargetTransferID)
+	def makeTargetDot(componentID: String) = makeDot(componentID, makeTargetGraph)
+
+	/**
+	 * Make a dot form representation of a graph of components that are sources or targets (directly or indirectly) of
+	 * the specified component.
+	 * @param componentID id of source component
+	 * @return dot output for graph
+	 */
+	def makeBidirectionalDot(componentID: String) = makeDot(componentID, makeBidirectionalGraph)
 }
