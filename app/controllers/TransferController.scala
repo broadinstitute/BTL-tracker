@@ -238,7 +238,7 @@ object TransferController extends Controller with MongoController {
 	 */
 	private def checkGraph(data: Transfer, from: Component, to: Component) = {
 		// Make graph of what leads into source of this transfer
-		TransferHistory.makeGraph(data.from).map((graph) => {
+		TransferHistory.makeSourceGraph(data.from).map((graph) => {
 			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
 			val isCyclic = TransferHistory.isGraphAdditionCyclic(data.to,graph) match {
 				case true =>

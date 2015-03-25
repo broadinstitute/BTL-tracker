@@ -25,14 +25,43 @@ import scalax.collection.edge.Implicits._
 object TransferHistory extends Controller with MongoController {
 
 	/**
+	 * Future to get list of component that are source/destination of transfers to/from a specified component
+ 	 * @param id component id
+	 * @param directionKey transfer key to indicate to or from
+	 * @return list of components that were target or source of transfers to specified component
+	 */
+	private def getTransferIDs(id: String, directionKey: String) = {
+		val cursor = TransferController.transferCollection.find(BSONDocument(directionKey -> id)).cursor[BSONDocument]
+		cursor.collect[List]()
+	}
+
+	/**
 	 * Future to get list of components that were directly transferred into a component id
 	 * @param id component ID
 	 * @return list of components that were directly transferred to the input component id
 	 */
-	private def getPreviousIDs(id: String) = {
-		val cursor = TransferController.transferCollection.find(BSONDocument(Transfer.toKey -> id)).cursor[BSONDocument]
-		cursor.collect[List]()
-	}
+	private def getSourceIDs(id: String) = getTransferIDs(id, Transfer.toKey)
+
+	/**
+	 * Future to get list of components that were directly transferred from a component id
+	 * @param id component ID
+	 * @return list of components that were directly transferred to from the input component id
+	 */
+	private def getTargetIDs(id: String) = getTransferIDs(id, Transfer.fromKey)
+
+	/**
+	 * Get source of transfer
+	 * @param transfer transfer to look at
+	 * @return source of transfer
+	 */
+	private def getSourceTransferID(transfer: Transfer) = transfer.from
+
+	/**
+	 * Get target of transfer
+	 * @param transfer transfer to look at
+	 * @return target of transfer
+	 */
+	private def getTargetTransferID(transfer: Transfer) = transfer.to
 
 	/**
 	 * Future to retrieve list of source components, given list of transfers
@@ -93,14 +122,15 @@ object TransferHistory extends Controller with MongoController {
 	private case class History(components: List[Component], transfers: List[TransferWithTime])
 
 	/**
-	 * Future to get two lists: one of components directly transferred into a component and one for the associated
+	 * Future to get two lists: one of components directly transferred to or from a component and one for the associated
 	 * transfers that took place.
-	 * @param componentID we want to know what was transferred into this id
-	 * @return list of component objects that are immediate sources for the specified component and list of transfers
+	 * @param componentID we want to know what was transferred to or from this id
+	 * @param getIDs callback to get sources or targets of tranfers to/from specified component
+	 * @return list of component objects that are sources or targets for the specified component and list of transfers
 	 */
-	private def getHistory(componentID: String) = {
+	private def getHistory(componentID: String, getIDs: (String) => Future[List[BSONDocument]]) = {
 		// First get list of components as BSON documents (note flatmap to avoid future of future)
-		val previousComponents = getPreviousIDs(componentID).flatMap(getComponents)
+		val previousComponents = getIDs(componentID).flatMap(getComponents)
 		// Now convert BSON returned to component objects (first map for future, next to convert bson list)
 		previousComponents.map {
 			case ((components, transfers)) =>
@@ -110,22 +140,26 @@ object TransferHistory extends Controller with MongoController {
 
 	/**
 	 * Nasty recursive fellow to keep going back through transfers, starting at a particular component, to get
-	 * all the transfers that led to the component in question.
-	 * @param componentID component to find all transfers into
+	 * all the transfers that led to or from the component in question.
+	 * @param componentID component to find all transfers to or from
+	 * @param getIDs callback to get sources or targets of tranfers to/from specified component
+	 * @param getTransferID callback to get id from transfer
 	 * @param historyToList callback, given history found, that converts that history into a list of wanted type
 	 * @tparam T type of list to be returned
-	 * @return future to calculate wanted list from transfers into (direct or indirect) specified component
+	 * @return future to calculate wanted list from transfers to or from (direct or indirect) specified component
 	 */
-	private def makeTransferList[T](componentID: String, historyToList: (History) => List[T]): Future[List[T]] = {
-		getHistory(componentID).flatMap((history) =>
+	private def makeTransferList[T](componentID: String, getIDs: (String) => Future[List[BSONDocument]],
+									getTransferID: (Transfer) => String,
+									historyToList: (History) => List[T]): Future[List[T]] = {
+		getHistory(componentID, getIDs).flatMap((history) =>
 			if (history.transfers.isEmpty) Future.successful(List.empty[T])
 			else {
 				val historyList = historyToList(history)
-				val fromSet = history.transfers.map(_.from).toSet
+				val fromSet = history.transfers.map(getTransferID).toSet
 				// Go recurse to work on components leading into this one, folding the new component transfers
 				// into what we've found so far
 				Future.fold(futures = fromSet.map((from) =>
-					makeTransferList(from, historyToList)))(zero = historyList)(op = _ ++ _)
+					makeTransferList(from, getIDs, getTransferID, historyToList)))(zero = historyList)(op = _ ++ _)
 			}
 		)
 	}
@@ -145,7 +179,7 @@ object TransferHistory extends Controller with MongoController {
 	 * @return future true if graph would become cyclic with addition of the transfer
 	 */
 	def isAdditionCyclic(data: Transfer) = {
-		TransferHistory.makeGraph(data.from).map {
+		TransferHistory.makeSourceGraph(data.from).map {
 			(graph) => isGraphAdditionCyclic(data.to, graph)
 		}
 	}
@@ -168,12 +202,15 @@ object TransferHistory extends Controller with MongoController {
 		graph.nodes.filter((n) => n.project.isDefined).map(_.value.asInstanceOf[Component].project.get)
 
 	/**
-	 * Make a graph from the transfers (direct or indirect) into a component.
+	 * Make a graph from the transfers (direct or indirect) to or from a component.
 	 * @param componentID id of target component
+	 * @param getIDs callback to get sources or targets of tranfers to/from specified component
+	 * @param getTransferID callback to get id from transfer
 	 * @return future with a graph of transfers
 	 */
-	def makeGraph(componentID: String) = {
-		val edges = makeTransferList(componentID,
+	private def makeDirectionalGraph(componentID: String, getIDs: (String) => Future[List[BSONDocument]],
+									 getTransferID: (Transfer) => String) = {
+		val edges = makeTransferList(componentID, getIDs, getTransferID,
 			historyToList = (history) => {
 				// Find component in history's component list (note this list should be very small)
 				def findComponent(id: String) = {
@@ -191,6 +228,20 @@ object TransferHistory extends Controller with MongoController {
 		edges.map((e) => Graph(e: _*))
 	}
 
+	/**
+	 * Make a graph from the transfers (direct or indirect) to a component.
+	 * @param componentID id of target component
+	 * @return future with a graph of transfers
+	 */
+	def makeSourceGraph(componentID: String) = makeDirectionalGraph(componentID, getSourceIDs, getSourceTransferID)
+
+	/**
+	 * Make a graph from the transfers (direct or indirect) from a component.
+	 * @param componentID id of source component
+	 * @return future with a graph of transfers
+	 */
+	def makeTargetGraph(componentID: String) = makeDirectionalGraph(componentID, getTargetIDs, getTargetTransferID)
+
 	// Some imports needed for making dot output - note that collection.Graph is needed even though immutable Graph
 	// was already imported - otherwise edgeHandler thinks we're not dealing with a Graph
 	import scalax.collection.io.dot._
@@ -199,11 +250,14 @@ object TransferHistory extends Controller with MongoController {
 
 	/**
 	 * Make a dot format representation of a graph
-	 * @param componentID id of final destination of graph
+	 * @param componentID id of final destination or target of graph
+	 * @param getIDs callback to get sources or targets of tranfers to/from specified component
+	 * @param getTransferID callback to get id from transfer
 	 * @return dot output for graph
 	 */
-	def makeDot(componentID: String) : Future[String] = {
-		makeGraph(componentID).map((graph) => {
+	private def makeDot(componentID: String, getIDs: (String) => Future[List[BSONDocument]],
+						getTransferID: (Transfer) => String) : Future[String] = {
+		makeDirectionalGraph(componentID, getIDs, getTransferID).map((graph) => {
 			// Make root of dot graph
 			val root = DotRootGraph(directed = true, id = Some(Id(s"$componentID")))
 			// Get representation for node (Component) in Graph
@@ -222,7 +276,7 @@ object TransferHistory extends Controller with MongoController {
 			// Handler to display edge
 			def edgeHandler(innerEdge: Graph[Component,LkDiEdge]#EdgeT) =
 				innerEdge.edge match {
-					case LkDiEdge(source, target, edgeLabel) => {
+					case LkDiEdge(source, target, edgeLabel) =>
 						// Make the edge format
 						def makeEdgeStmt(label: String) = DotEdgeStmt(NodeId(getNodeId(source)),
 							NodeId(getNodeId(target)), List(DotAttr(Id("label"), Id(label))))
@@ -232,9 +286,25 @@ object TransferHistory extends Controller with MongoController {
 							case TransferEdge(_, Some(toQ), _) => Some(root, makeEdgeStmt(s"to ${toQ.toString}"))
 							case _ =>  Some(root, DotEdgeStmt(NodeId(getNodeId(source)), NodeId(getNodeId(target))))
 						}
-					}}
-			// Go get the Dot output (note IDE gives error on edgeHandler but it compiles without any problem)
+				}
+			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
 			graph.toDot(root, edgeHandler)
 		})
 	}
+
+	/**
+	 * Make a dot format representation of a graph of components that are sources for the specified component (directly
+	 * or indirectly).
+	 * @param componentID id of target component
+	 * @return dot output for graph
+	 */
+	def makeSourceDot(componentID: String) = makeDot(componentID, getSourceIDs, getSourceTransferID)
+
+	/**
+	 * Make a dot form representation of a graph of components that are targets of the specified component (directly
+	 * or indirectly).
+	 * @param componentID id of source component
+	 * @return dot output for graph
+	 */
+	def makeTargetDot(componentID: String) = makeDot(componentID, getTargetIDs, getTargetTransferID)
 }

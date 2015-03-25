@@ -92,7 +92,7 @@ object TransferContents {
 	def getContents(componentID: String) = {
 		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage
 		// through all the transfers that have been done.  We map that graph into our component's contents
-		TransferHistory.makeGraph(componentID).map((graph) => {
+		TransferHistory.makeSourceGraph(componentID).map((graph) => {
 			/**
 			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
 			 * @param c Component to find bsp sample information for
