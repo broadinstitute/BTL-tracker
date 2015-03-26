@@ -278,13 +278,13 @@ object TransferHistory extends Controller with MongoController {
 	private def makeDot(componentID: String, makeGraph: (String) => Future[Graph[Component, LkDiEdge]]) = {
 		makeGraph(componentID).map((graph) => {
 			// Make root of dot graph
-			val root = DotRootGraph(directed = true, id = Some(Id(s"$componentID")))
+			val root = DotRootGraph(directed = true, id = Some(Id(componentID)))
 			// Get Node's Component
 			def getNodeComponent(node: Graph[Component,LkDiEdge]#NodeT) = node.value.asInstanceOf[Component]
 			// Get representation for node (Component) in Graph
 			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
 				val component = getNodeComponent(node)
-				val id = component match {
+				component match {
 					// If there's initial content include it in identifier
 					case c: Container if c.initialContent.isDefined && c.initialContent.get != ContentType.NoContents =>
 						component.id + s" (${c.initialContent.get.toString})"
@@ -293,14 +293,14 @@ object TransferHistory extends Controller with MongoController {
 					// Otherwise just identify the node by its id
 					case _ => component.id
 				}
-				if (component.id == componentID) ">>> " + id + " <<<" else id
 			}
 			// Get representation of node by itself (not on edge)
 			// Doesn't pass on color for some reason - so we're not using it
 			def nodeHandler(node: Graph[Component,LkDiEdge]#NodeT): Option[(DotGraph,DotNodeStmt)]= {
 				val component = getNodeComponent(node)
 				if (component.id == componentID) {
-					Some(root, DotNodeStmt(NodeId(getNodeId(node)), List(DotAttr(Id("style"), Id("filled")), DotAttr(Id("fillcolor"), Id("red")))))
+					//					Some(root, DotNodeStmt(NodeId(getNodeId(node)), List(DotAttr(Id("shape"), Id("doubleoctagon")))))
+					Some(root, DotNodeStmt(NodeId(getNodeId(node)), List(DotAttr(Id("label"), Id("\"<<FONT COLOR=\"RED\">" + getNodeId(node) + "</FONT>>\"")))))
 				} else None
 			}
 			// Handler to display edge
@@ -318,7 +318,7 @@ object TransferHistory extends Controller with MongoController {
 						}
 				}
 			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
-			graph.toDot(dotRoot = root, edgeTransformer = edgeHandler) // , cNodeTransformer = Some(nodeHandler))
+			graph.toDot(dotRoot = root, edgeTransformer = edgeHandler)//, cNodeTransformer = Some(nodeHandler))
 		})
 	}
 
