@@ -29,5 +29,12 @@
             });
         })
     </script>
+    <script language="javascript" type="text/javascript">
+        function popitup(url) {
+            newwindow=window.open(url, 'popup', 'height=1000,width=750');
+            if (window.focus) {newwindow.focus()}
+        return false;
+        }
+</script>
 }{@content}
 

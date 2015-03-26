@@ -31,7 +31,11 @@ object Application extends Controller {
 	 * Just a test form
 	 */
 	// @TODO Add find, and add for multiple IDs
-	def test(id: String) = Action.async {
+	def test(id: String) = Action {
+		Ok(views.html.popup(routes.Application.graphDisplay(id).url, id))
+	}
+
+	def graphDisplay(id: String) = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		TransferHistory.makeBidirectionalDot(id).map((dot) => {
 			val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
