@@ -35,6 +35,12 @@ object Application extends Controller {
 		Ok("Test!")
 	}
 
+	/**
+	 * Display the graph of transfers, direct and indirect, from and to specified component.  First the graph is made
+	 * into "dot" format and then the view is called to convert it to pretty html.
+	 * @param id component id
+	 * @return puts up pretty picture of graph of transfers to and from a component
+	 */
 	def graphDisplay(id: String) = Action.async {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		TransferHistory.makeBidirectionalDot(id).map((dot) => {
