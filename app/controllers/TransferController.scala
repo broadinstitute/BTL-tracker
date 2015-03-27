@@ -31,8 +31,8 @@ object TransferController extends Controller with MongoController {
 	 * Initiate transfer - go bring up form to do transfer
 	 * @return action to go get transfer information
 	 */
-	def transfer() = Action { request =>
-		Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.form)))
+	def transfer(fromID: String) = Action { request =>
+		Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.form), fromID))
 	}
 
 	/**
@@ -146,9 +146,11 @@ object TransferController extends Controller with MongoController {
 	/**
 	 * Result when transfer form had errors
 	 * @param form form filled with error data
+	 * @param fromID ID of component we're transferrring from
 	 * @return BadRequest to transferStart with input form
 	 */
-	private def transferErrorResult(form: Form[Transfer]) : Result = BadRequest(views.html.transferStart(form))
+	private def transferFormErrorResult(form: Form[Transfer], fromID: String) =
+		BadRequest(views.html.transferStart(form, fromID))
 
 	/**
 	 * Result when transfer had errors
@@ -156,8 +158,8 @@ object TransferController extends Controller with MongoController {
 	 * @param errs errors to set in form
 	 * @return BadRequest to transferStart with form set with errors
 	 */
-	private def transferErrorResult(data: Transfer, errs: Map[Option[String], String]) : Result =
-		transferErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.form, data))
+	private def transferErrorResult(data: Transfer, errs: Map[Option[String], String]) =
+		transferFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.form, data), data.from)
 
 	/**
 	 * Complete a future with a result
@@ -171,10 +173,10 @@ object TransferController extends Controller with MongoController {
 	 * different additional information may be needed.
 	 * @return action to see what step is next to complete transfer
 	 */
-	def transferIDs = Action.async { request =>
+	def transferIDs(fromID: String) = Action.async { request =>
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors =>
-				Future.successful(transferErrorResult(formWithErrors.withGlobalError(Errors.validationError))),
+				Future.successful(transferFormErrorResult(formWithErrors.withGlobalError(Errors.validationError), fromID)),
 			data => {
 				// Got data from form - get from and to data (as json) - flatMap is mapping future from retrieving DB
 				// data - flatMap continuation is either a future that completes immediately because transfer can not
@@ -214,7 +216,7 @@ object TransferController extends Controller with MongoController {
 							}
 						}
 					// Couldn't find one or both data - form returned contains errors - return it now
-					case (None, Some(form)) => now(transferErrorResult(form))
+					case (None, Some(form)) => now(transferFormErrorResult(form, fromID))
 					// Should never have both or neither as None but...
 					case _ => now(FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
 						FlashingKeys.Status, "Internal error: Failure during transferIDs"))
@@ -223,7 +225,7 @@ object TransferController extends Controller with MongoController {
 				case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
 			}
 		).recover {
-			case err => transferErrorResult(Transfer.form.withGlobalError(Errors.exceptionMessage(err)))
+			case err => transferFormErrorResult(Transfer.form.withGlobalError(Errors.exceptionMessage(err)), fromID)
 		}
 	}
 
@@ -307,13 +309,13 @@ object TransferController extends Controller with MongoController {
 	 * Do transfer based on form with quadrant inputs
  	 * @return action to do transfer
 	 */
-	def transferFromForm = Action.async { request =>
+	def transferFromForm(fromID: String) = Action.async { request =>
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors =>
-				Future.successful(transferErrorResult(formWithErrors.withGlobalError(Errors.validationError))),
+				Future.successful(transferFormErrorResult(formWithErrors.withGlobalError(Errors.validationError), fromID)),
 			data => insertTransfer(data, () => quadDesc(data))
 		).recover {
-			case err => transferErrorResult(Transfer.form.withGlobalError(Errors.exceptionMessage(err)))
+			case err => transferFormErrorResult(Transfer.form.withGlobalError(Errors.exceptionMessage(err)), fromID)
 		}
 	}
 

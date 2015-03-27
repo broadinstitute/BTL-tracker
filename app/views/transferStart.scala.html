@@ -1,4 +1,4 @@
-@(transferForm: Form[Transfer])
+@(transferForm: Form[Transfer], fromID: String)
 @import helper._
 @import models.Transfer
 
@@ -6,8 +6,8 @@
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
 	@componentIntro("Transfer Component", transferForm)
-	@form(routes.TransferController.transferIDs, 'style -> "display:inline;") {
-		@inputText(transferForm(Transfer.fromKey), '_label -> "From ID")
+	@form(routes.TransferController.transferIDs(fromID), 'style -> "display:inline;") {
+		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
 		@inputText(transferForm(Transfer.toKey), '_label -> "To ID")
         @inputText(transferForm(Transfer.projectKey), '_label -> "Project")
 		<input type="submit" value="Transfer" style="display:inline;">

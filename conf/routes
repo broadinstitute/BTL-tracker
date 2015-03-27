@@ -64,14 +64,20 @@ POST        /freezer/update/:id                      controllers.FreezerControll
 # Do BSP report for specified rack
 GET         /rack/BSPreport/:id                      controllers.RackController.doBSPReport(id: String)
 
-GET         /transfer                                controllers.TransferController.transfer
+# Initial transfer requests - first one with just from id, other with all parameters
+GET         /transfer/:fromID                        controllers.TransferController.transfer(fromID)
 GET         /transferWithParams/:fromID/:toID        controllers.TransferController.transferWithParams(fromID: String, toID: String, project: Option[String], fromQuad: Option[Boolean], toQuad: Option[Boolean])
-POST        /transfer                                controllers.TransferController.transferFromForm
-POST        /transferIDs                             controllers.TransferController.transferIDs
+# Transfer using input from form that includes just IDs - may be enough to do transfer or we may need to get quadrants
+POST        /transferIDs/:fromID                     controllers.TransferController.transferIDs(fromID: String)
+# Transfer using input from form that includes IDs and quadrants
+POST        /transfer/:fromID                        controllers.TransferController.transferFromForm(fromID: String)
 
+# Initial EZPASS request
 GET         /EZPASS/:id                              controllers.EZPassController.ezpass(id: String)
+# Post from form with parameters needed (e.g., dilution) to create EZPASS
 POST        /EZPASS/create/:id                       controllers.EZPassController.createEZPass(id: String)
 
+# Make a display of the graph of transfers into and out of a component
 GET         /display/:id                             controllers.Application.graphDisplay(id: String)
 
 # Map static resources from the /public folder to the /assets URL path

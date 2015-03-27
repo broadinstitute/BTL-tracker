@@ -3,5 +3,6 @@
 @defining(componentForm(Component.formKey + "." + Component.idKey).value.getOrElse("0")) { id =>
 	@homeOption(Seq[(Call, String, Option[String])]
 		((routes.Application.deleteByID(id), "Delete", None),
+				(routes.TransferController.transfer(id), "Transfer", None),
 				(routes.Application.findByID(id), "Graph", Some(routes.Application.graphDisplay(id).url)))++others.map((other)=>(other._1,other._2,None)))
 }
