@@ -10,6 +10,9 @@ import play.api.mvc.{Result, Action, Controller}
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
 import play.api.libs.json._
+import reactivemongo.api.collections.default.BSONCollection
+import reactivemongo.bson.{BSONArray, BSONDocument}
+import reactivemongo.core.commands.Count
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -25,7 +28,9 @@ object TransferController extends Controller with MongoController {
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
 	 * @return collection that uses JSON for input/output of transfer data
 	 */
-	def transferCollection: JSONCollection = db.collection[JSONCollection]("transfer")
+	val transferCollectionName = "transfer"
+	def transferCollection: JSONCollection = db.collection[JSONCollection](transferCollectionName)
+	def transferCollectionBSON: BSONCollection = db.collection[BSONCollection](transferCollectionName)
 
 	/**
 	 * Initiate transfer - go bring up form to do transfer
@@ -293,6 +298,39 @@ object TransferController extends Controller with MongoController {
 		}.recover {
 			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
 		}
+	}
+
+	/**
+	 * Remove transfers involving a component.
+	 * @param id component id
+	 * @return future with optional string containing error
+	 */
+	def removeTransfers(id: String) = {
+		val removeBson = BSONDocument("$or" -> BSONArray(
+			BSONDocument("from" -> id),
+			BSONDocument("to" -> id)))
+		transferCollectionBSON.remove(removeBson).map {
+			(lastError) => {
+				val success = s"Successfully deleted transfers for $id"
+				Logger.debug(s"$success with status: $lastError")
+				None
+			}
+		}.recover {
+			case err => Some(err)
+		}
+	}
+
+	/**
+	 * Remove transfers involving a component.
+	 * @param id component id
+	 * @return future with optional string containing error
+	 */
+	def countTransfers(id: String) = {
+		val removeBson = BSONDocument("$or" -> BSONArray(
+			BSONDocument("from" -> id),
+			BSONDocument("to" -> id)))
+		val command = Count(transferCollectionName, Some(removeBson))
+		db.command(command)
 	}
 
 	/**

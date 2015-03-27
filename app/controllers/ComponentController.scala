@@ -195,10 +195,13 @@ object ComponentController extends Controller with MongoController {
 	def delete[R](id: String, deleted: () => R, error: (Throwable) => R) = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		val key = Json.obj(Component.idKey -> id)
-		trackerCollection.remove(Json.toJson(key)).map { lastError =>
+		trackerCollection.remove(Json.toJson(key)).flatMap { lastError =>
 			val success = s"Successfully deleted item ${id}"
 			Logger.debug(s"$success with status: $lastError")
-			deleted()
+			TransferController.removeTransfers(id).map {
+				case Some(err) => error(err)
+				case None =>deleted()
+			}
 		}.recover{
 			case err => error(err)
 		}

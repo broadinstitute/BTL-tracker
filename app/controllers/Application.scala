@@ -5,6 +5,7 @@ import play.api.libs.json._
 import play.api.mvc._
 import models._
 import Errors.FlashingKeys
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.concurrent.Future
 
@@ -42,7 +43,6 @@ object Application extends Controller {
 	 * @return puts up pretty picture of graph of transfers to and from a component
 	 */
 	def graphDisplay(id: String) = Action.async {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		TransferHistory.makeBidirectionalDot(id).map((dot) => {
 			val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
 			Ok(views.html.graphDisplay(htmlStr, id))
@@ -83,7 +83,6 @@ object Application extends Controller {
 	 * @return action to find and display wanted component
 	 */
 	def findFromForm = Action.async { request =>
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		Component.idForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(Errors.validationError)))),
@@ -92,6 +91,20 @@ object Application extends Controller {
 		).recover {
 			case err => BadRequest(
 				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
+		}
+	}
+
+	/**
+	 * Go bring up view to confirm if delete is to proceed
+	 * @param id component id to delete
+	 * @return result with
+	 */
+	def deleteCheck(id: String) = Action.async { request =>
+		TransferController.countTransfers(id).map((count) => {
+			Ok(views.html.deleteConfirm(id, count))
+		}).recover {
+			case err => BadRequest(
+				views.html.index(Component.blankForm.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
 
@@ -120,7 +133,6 @@ object Application extends Controller {
 	 * @return action to find and display wanted component
 	 */
 	def findByID(id: String) = Action.async { request =>
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		findRequestUsingID(id,request)(doUpdateRedirect(id,_,_,_)).recover {
 			case err => BadRequest(
 				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))

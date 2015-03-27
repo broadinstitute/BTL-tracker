@@ -1,0 +1,18 @@
+@***********************************
+* Home page                        *
+***********************************@
+@(id: String, count: Int)
+@import helper._
+
+@* Call main template with title and html to display *@
+@main("Delete Confirmation"){
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@if(count==1){<h3>Sure you want to delete @id and 1 associated transfer?</h3>}else{<h3>Sure you want to delete @id and @count associated transfers?</h3>}
+	@form(controllers.routes.Application.deleteByID(id), 'style -> "display:inline;") {
+		<input type="submit" value="You betcha!" style="display:inline;">
+	}
+	@form(controllers.routes.Application.findByID(id), 'style -> "display:inline;") {
+		<input type="submit" value="No way!" style="display:inline;">
+	}
+}

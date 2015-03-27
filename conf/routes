@@ -15,7 +15,8 @@ GET         /add                                     controllers.Application.add
 # Post request to add a new item (posted data specified item type)
 POST        /add                                     controllers.Application.addFromForm
 
-# Delete from get parameter
+# Delete confirm and actual delete from get parameter
+GET         /deleteConfirm/:id                       controllers.Application.deleteCheck(id: String)
 GET         /delete/:id                              controllers.Application.deleteByID(id: String)
 
 # Retrieve item
