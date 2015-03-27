@@ -32,7 +32,7 @@ object Application extends Controller {
 	 */
 	// @TODO Add find, and add for multiple IDs
 	def test(id: String) = Action {
-		Ok(views.html.popup(routes.Application.graphDisplay(id).url, id))
+		Ok("Test!")
 	}
 
 	def graphDisplay(id: String) = Action.async {

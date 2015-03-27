@@ -1,8 +1,12 @@
-@(others: Seq[(Call, String)])
+@(others: Seq[(Call, String, Option[String])])
 @import helper._
 @others.map{(call) =>
 	@form(call._1, 'style -> "display:inline;") {
-		<input type="submit" value="@call._2" style="display:inline;">
+		@if(call._3.isDefined){
+			<input type="submit" value="@call._2" style="display:inline;" onclick="return popitup('@call._3.get')">
+		}else{
+			<input type="submit" value="@call._2" style="display:inline;">
+		}
 	}
 }
 <br><br>

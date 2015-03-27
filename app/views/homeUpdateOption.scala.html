@@ -1,3 +1,7 @@
 @(componentForm: Form[_ <: Component], others: Seq[(Call, String)])
-@homeOption(Seq[(Call, String)]((routes.Application.deleteByID(
-	componentForm(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "Delete")) ++ others)
+@import helper._
+@defining(componentForm(Component.formKey + "." + Component.idKey).value.getOrElse("0")) { id =>
+	@homeOption(Seq[(Call, String, Option[String])]
+		((routes.Application.deleteByID(id), "Delete", None),
+				(routes.Application.findByID(id), "Graph", Some(routes.Application.graphDisplay(id).url)))++others.map((other)=>(other._1,other._2,None)))
+}

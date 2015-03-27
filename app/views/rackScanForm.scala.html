@@ -82,5 +82,5 @@
 		</tr>
 	</table>
 	<br>
-	@homeOption(Seq[(Call, String)]((routes.RackController.findRackByID(rack), "Return to rack")))
+	@homeOption(Seq[(Call, String, Option[String])]((routes.RackController.findRackByID(rack), "Return to rack", None)))
 }

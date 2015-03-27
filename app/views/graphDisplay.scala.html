@@ -36,12 +36,13 @@
     var renderer = new dagreD3.Renderer();
     renderer.run(g, d3.select("svg g"));
 
-    // Optional - resize the SVG element based on the contents.
+    // Resize the SVG element based on the contents.
     var svg=document.querySelector('#graphContainer');
     var bbox=svg.getBBox();
     svg.style.width=bbox.width + 40.0 + "px";
     svg.style.height=bbox.height + 40.0 + "px";
-    window.resizeTo(bbox.width + 40.0, bbox.height + 80.0)
+    // Resize the window as well
+    window.resizeTo(bbox.width + 40.0, bbox.height + 60.0)
     }
     </script>
     <svg id="graphContainer">
