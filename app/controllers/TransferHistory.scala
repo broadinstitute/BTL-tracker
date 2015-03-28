@@ -13,7 +13,7 @@ import play.modules.reactivemongo.json.BSONFormats._
 
 import scala.concurrent.Future
 import scalax.collection.edge.LkDiEdge
-import scalax.collection.immutable.Graph
+import scalax.collection.Graph
 import scalax.collection.edge.Implicits._
 
 
@@ -263,11 +263,9 @@ object TransferHistory extends Controller with MongoController {
 		source.flatMap((sourceGraph) => target.map((targetGraph) => sourceGraph ++ targetGraph))
 	}
 
-	// Some imports needed for making dot output - note that collection.Graph is needed even though immutable Graph
-	// was already imported - otherwise edgeHandler thinks we're not dealing with a Graph
+	// Some imports needed for making dot output
 	import scalax.collection.io.dot._
 	import scalax.collection.edge.LkDiEdge
-	import scalax.collection.Graph
 
 	/**
 	 * Make a dot format representation of a graph (can be components sources, targets or both)
@@ -279,8 +277,10 @@ object TransferHistory extends Controller with MongoController {
 		makeGraph(componentID).map((graph) => {
 			// Make root of dot graph
 			val root = DotRootGraph(directed = true, id = Some(Id(componentID)))
+
 			// Get Node's Component
 			def getNodeComponent(node: Graph[Component,LkDiEdge]#NodeT) = node.value.asInstanceOf[Component]
+
 			// Get representation for node (Component) in Graph
 			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
 				val component = getNodeComponent(node)
@@ -294,15 +294,7 @@ object TransferHistory extends Controller with MongoController {
 					case _ => component.id
 				}
 			}
-			// Get representation of node by itself (not on edge)
-			// Doesn't pass on color for some reason - so we're not using it
-			def nodeHandler(node: Graph[Component,LkDiEdge]#NodeT): Option[(DotGraph,DotNodeStmt)]= {
-				val component = getNodeComponent(node)
-				if (component.id == componentID) {
-					//					Some(root, DotNodeStmt(NodeId(getNodeId(node)), List(DotAttr(Id("shape"), Id("doubleoctagon")))))
-					Some(root, DotNodeStmt(NodeId(getNodeId(node)), List(DotAttr(Id("label"), Id("\"<<FONT COLOR=\"RED\">" + getNodeId(node) + "</FONT>>\"")))))
-				} else None
-			}
+
 			// Handler to display edge
 			def edgeHandler(innerEdge: Graph[Component,LkDiEdge]#EdgeT) =
 				innerEdge.edge match {
@@ -317,8 +309,13 @@ object TransferHistory extends Controller with MongoController {
 							case _ =>  Some(root, DotEdgeStmt(NodeId(getNodeId(source)), NodeId(getNodeId(target))))
 						}
 				}
+
+			// Get empty Dot graph for component
+			def emptyGraph(id: String) = s"digraph $id {\n$id;\n}"
+
 			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
-			graph.toDot(dotRoot = root, edgeTransformer = edgeHandler)//, cNodeTransformer = Some(nodeHandler))
+			if (graph.isEmpty) emptyGraph(componentID)
+			else graph.toDot(dotRoot = root, edgeTransformer = edgeHandler)
 		})
 	}
 

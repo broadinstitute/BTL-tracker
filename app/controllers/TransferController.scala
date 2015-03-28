@@ -291,8 +291,7 @@ object TransferController extends Controller with MongoController {
 	private def insertTransfer(data: Transfer, whatDone: () => String) = {
 		transferCollection.insert(data).map {
 			(lastError) => {
-				val success = "Inserted " + whatDone()
-				Logger.debug(s"$success with status: $lastError")
+				Logger.debug(s"Successfully inserted ${whatDone()} with status: $lastError")
 				transferCompleteResult(() => "Completed " + whatDone())
 			}
 		}.recover {
@@ -311,8 +310,7 @@ object TransferController extends Controller with MongoController {
 			BSONDocument("to" -> id)))
 		transferCollectionBSON.remove(removeBson).map {
 			(lastError) => {
-				val success = s"Successfully deleted transfers for $id"
-				Logger.debug(s"$success with status: $lastError")
+				Logger.debug(s"Successfully deleted transfers for $id with status: $lastError")
 				None
 			}
 		}.recover {

@@ -187,7 +187,7 @@ object ComponentController extends Controller with MongoController {
 	def trackerCollection: JSONCollection = db.collection[JSONCollection]("tracker")
 
 	/**
-	 * Go delete item from DB
+	 * Go delete item and associated transfers from DB.
 	 * @param id ID for item to be deleted
 	 * @param deleted callback if delete went well
 	 * @param error callback if error during delete
@@ -195,12 +195,15 @@ object ComponentController extends Controller with MongoController {
 	def delete[R](id: String, deleted: () => R, error: (Throwable) => R) = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		val key = Json.obj(Component.idKey -> id)
-		trackerCollection.remove(Json.toJson(key)).flatMap { lastError =>
-			val success = s"Successfully deleted item ${id}"
-			Logger.debug(s"$success with status: $lastError")
-			TransferController.removeTransfers(id).map {
+		// Start up deletes of component as well as associated transfers
+		val componentRemove = trackerCollection.remove(Json.toJson(key))
+		val transferRemove = TransferController.removeTransfers(id)
+		// Wait for completions of deletes
+		componentRemove.flatMap { lastError =>
+			Logger.debug(s"Successfully deleted item $id with status: $lastError")
+			transferRemove.map {
 				case Some(err) => error(err)
-				case None =>deleted()
+				case None => deleted()
 			}
 		}.recover{
 			case err => error(err)
@@ -279,7 +282,7 @@ object ComponentController extends Controller with MongoController {
 				// Validity checker returns a map with fieldName->errorMessages with fieldName left out for global
 				// (non field specific) errors - if data is valid the map is empty
 				data.isRequestValid(request).flatMap {
-					case e: Map[Option[String],String] if !e.isEmpty =>
+					case e: Map[Option[String],String] if e.nonEmpty =>
 						// Return complete future with form set with errors
 						val formWithErrors = Errors.setFailureMsgs(e, form.fill(data))
 						Future.successful(BadRequest(onFailure(formWithErrors)))
