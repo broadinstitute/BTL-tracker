@@ -2,14 +2,14 @@
 @import helper._
 @import models.Component
 
-@main("Add Component") {
+@main("Register Component") {
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
-	@componentIntro("Add Component", addForm)
+	@componentIntro("Register Component", addForm)
 	@form(routes.Application.addFromForm, 'style -> "display:inline;") {
 		@select(field = addForm(Component.typeKey),
 			options = options(Component.componentTypes), '_label -> "Component type")
-		<input type="submit" value="Add" style="display:inline;">
+		<input type="submit" value="Register" style="display:inline;">
 	}
 	@homeOption(Seq.empty)
 }

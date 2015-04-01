@@ -6,8 +6,8 @@
 @import helper._
 
 @* Call main template to create html with form to create a freezer *@
-@mainComponent("Create Freezer"){
-    @componentIntro("Create Freezer", freezerInput)
+@mainComponent("Register Freezer"){
+    @componentIntro("Register Freezer", freezerInput)
     @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
     @form(routes.FreezerController.createFreezerFromForm(), 'style -> "display:inline;") {
         @component(freezerInput, false, Component.ComponentType.Freezer)

@@ -7,8 +7,8 @@
 @import models.Rack
 
 @* Call main template to create html with form to create a rack *@
-@mainComponent("Create Rack"){
-    @componentIntro("Create Rack", rackForm)
+@mainComponent("Register Rack"){
+    @componentIntro("Register Rack", rackForm)
     @* Form with rack values - parameter to form method is "reverse-route" of action used to handle form submission *@
     @form(routes.RackController.createRackFromForm(), 'style -> "display:inline;") {
         @component(rackForm, false, Component.ComponentType.Rack)

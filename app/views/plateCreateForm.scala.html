@@ -7,8 +7,8 @@
 @import models.Plate
 
 @* Call main template to create html with form to create a plate *@
-@mainComponent("Create Plate"){
-	@componentIntro("Create Plate", plateForm)
+@mainComponent("Register Plate"){
+	@componentIntro("Register Plate", plateForm)
 	@* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
 	@form(routes.PlateController.createPlateFromForm(), 'style -> "display:inline;") {
 		@component(plateForm, false, Component.ComponentType.Plate)
