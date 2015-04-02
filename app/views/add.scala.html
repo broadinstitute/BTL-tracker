@@ -9,7 +9,7 @@
 	@form(routes.Application.addFromForm, 'style -> "display:inline;") {
 		@select(field = addForm(Component.typeKey),
 			options = options(Component.componentTypes), '_label -> "Component type")
-		<input type="submit" value="Register" style="display:inline;">
+		<input type="submit" value="Next" style="display:inline;">
 	}
 	@homeOption(Seq.empty)
 }
