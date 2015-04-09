@@ -1,14 +1,33 @@
-@(findForm: Form[Component.ComponentIDClass])
+@(findForm: Form[Find])
 @import helper._
-@import models.Component
-@import controllers.Application
+@import models.{Component, Find}
 
-@main("Find item") {
-    <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
-}{
+@mainComponent("Find item") {
 	@componentIntro("Find item", findForm)
-	@form(routes.Application.findFromForm(), 'style -> "display:inline;") {
+	@form(routes.FindController.findFromForm(), 'style -> "display:inline;") {
 		@inputText(findForm(Component.idKey), '_label -> "ID")
+		@select(field = findForm(Component.typeKey),
+			options = options(Component.optionalComponentTypes), '_label -> "Component type")
+		@textarea(findForm(Component.descriptionKey), '_label -> "Description")
+		@* Put in tags already there - tags can be added or removed via remNew and addNew javascript function
+		Note it's crucial that the div id here (addinput) agree with what's in javascript *@
+		<div id=@Component.inputDiv>
+		@repeat(findForm(Find.tagsKey), min = 0) { tag =>
+			<div>
+				@inputText(tag(ComponentTag.tagKey), '_label -> "Tag")
+				@textarea(tag(ComponentTag.valueKey), '_label -> "Value")
+			<a href="#" class="@Component.remTag">Remove Tag</a>
+			</div>
+		}
+		</div>
+		<div>
+			<p> </p>
+			<a href="#" id="@Component.addTag">Add Tag</a>
+			<p> </p>
+		</div>
+		@inputText(findForm(Component.projectKey), '_label -> "Project ID", 'style -> "display:inline;")
+		@checkbox(findForm(Find.transfersKey),
+			'_label -> "Include transfer components", 'style -> "display:inline;", '_help -> "")
 		<input type="submit" value="Find" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

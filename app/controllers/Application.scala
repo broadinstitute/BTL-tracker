@@ -71,30 +71,6 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Initiate find of component - just put up form to get ID of component
-	 * @return action to get id of wanted component
-	 */
-	def find = Action { request =>
-		Ok(views.html.find(Errors.addStatusFlash(request,Component.idForm)))
-	}
-
-	/**
-	 * Get component wanted based on ID supplied in returned form
-	 * @return action to find and display wanted component
-	 */
-	def findFromForm = Action.async { request =>
-		Component.idForm.bindFromRequest()(request).fold(
-			formWithErrors =>
-				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(Errors.validationError)))),
-			data =>
-				findRequestUsingID(data.id,request)(doUpdateRedirect(data.id,_,_,_))
-		).recover {
-			case err => BadRequest(
-				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
-		}
-	}
-
-	/**
 	 * Go bring up view to confirm if delete is to proceed
 	 * @param id component id to delete
 	 * @return result with
@@ -128,14 +104,15 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Get component for specified id (specified as parameter for GET)
+	 * Get component for specified id (specified as parameter for GET).  First we get the component type and then
+	 * we redirect to the update screen for that component type.
 	 * @param id component ID
 	 * @return action to find and display wanted component
 	 */
 	def findByID(id: String) = Action.async { request =>
 		findRequestUsingID(id,request)(doUpdateRedirect(id,_,_,_)).recover {
 			case err => BadRequest(
-				views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
+				views.html.index(Component.blankForm.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
 
@@ -162,6 +139,6 @@ object Application extends Controller {
 	 * @param request original request to do update
 	 * @return results now ready for update
 	 */
-	private def doUpdateRedirect(id: String, ct: ComponentType.ComponentType, json: JsObject, request: Request[_]) =
+	def doUpdateRedirect(id: String, ct: ComponentType.ComponentType, json: JsObject, request: Request[_]) =
 		Redirect(ComponentController.actions(ct).updateRoute(id))
 }

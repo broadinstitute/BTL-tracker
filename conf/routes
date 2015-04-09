@@ -20,9 +20,9 @@ GET         /deleteConfirm/:id                       controllers.Application.del
 GET         /delete/:id                              controllers.Application.deleteByID(id: String)
 
 # Retrieve item
-GET         /find                                    controllers.Application.find
+GET         /find                                    controllers.FindController.find
 # Find from posted data
-POST        /find                                    controllers.Application.findFromForm
+POST        /find                                    controllers.FindController.findFromForm
 # Find from get parameter
 GET         /find/:id                                controllers.Application.findByID(id: String)
 

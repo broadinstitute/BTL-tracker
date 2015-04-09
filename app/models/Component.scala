@@ -277,15 +277,25 @@ object Component {
 	 */
 	def getHiddenFields(request: Request[AnyContent]) = getHiddenField(request, Some(_))
 
-	/**
-	 * Enumeration for all component types
-	 */
-	object ComponentType extends Enumeration {
+	sealed trait ComponentTypes extends Enumeration {
 		type ComponentType = Value
 		val Tube, Plate, Rack, Freezer = Value
 		// Create Format for ComponentType enum using our custom enum Reader and Writer
 		implicit val componentTypeFormat: Format[ComponentType] =
-			enumFormat(ComponentType)
+			enumFormat(this)
+	}
+
+	/**
+	 * Enumeration for all component types
+	 */
+	object ComponentType extends ComponentTypes
+
+
+	/**
+	 * Enumeration for all component types plus "None"
+	 */
+	object OptionalComponentType extends ComponentTypes {
+		val None = Value
 	}
 
 	/**
@@ -295,6 +305,11 @@ object Component {
 		val listStart = List(ComponentType.Plate.toString, ComponentType.Rack.toString)
 		listStart ++ ComponentType.values.map(_.toString).toList.filterNot(listStart.contains(_))
 	}
+
+	/**
+	 * List of component types as string with None as first choice
+	 */
+	val optionalComponentTypes = List(OptionalComponentType.None.toString) ++ componentTypes
 
 	/**
 	 * Small form that can hold error message (or nothing if to be used to just get global messages with a blank

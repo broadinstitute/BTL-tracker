@@ -106,7 +106,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 			// NotFound - just redirect to not found view
 			notFound = Errors.notFoundRedirect
 		).recover {
-			case err => BadRequest(views.html.find(Component.idForm.withGlobalError(Errors.exceptionMessage(err))))
+			case err => BadRequest(views.html.index(Component.blankForm.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
 
@@ -181,10 +181,14 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 
 object ComponentController extends Controller with MongoController {
 	/**
+	 * Tracker collection name
+	 */
+	val trackerCollectionName = "tracker"
+	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
 	 * @return collection that uses JSON for input/output
 	 */
-	def trackerCollection: JSONCollection = db.collection[JSONCollection]("tracker")
+	def trackerCollection: JSONCollection = db.collection[JSONCollection](trackerCollectionName)
 
 	/**
 	 * Go delete item and associated transfers from DB.

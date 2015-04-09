@@ -22,7 +22,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  *         Date: 2/24/15
  *         Time: 6:27 PM
  */
-// @TODO Need to check for transfers when deleting component and need ability to delete individual transfers
+// @TODO Need ability to delete individual transfers
 object TransferController extends Controller with MongoController {
 	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
@@ -143,8 +143,8 @@ object TransferController extends Controller with MongoController {
 	 * @return redirect to transferWithParams to query for additional information
 	 */
 	private def transferIncompleteResult(data: Transfer, fromQuad: Boolean, toQuad: Boolean) = {
-		val result = Redirect(routes.TransferController.transferWithParams(
-			data.from, data.to, data.project, Some(fromQuad), Some(toQuad)))
+		val result = Redirect(routes.TransferController.
+			transferWithParams(data.from, data.to, data.project, Some(fromQuad), Some(toQuad)))
 		FlashingKeys.setFlashingValue(result, FlashingKeys.Status, "Fill in additional data to complete transfer")
 	}
 
@@ -263,16 +263,17 @@ object TransferController extends Controller with MongoController {
 						case Some(projectWanted) =>
 							// Get projects in graph
 							val projects = TransferHistory.getGraphProjects(graph)
-							// If specified project there then proceed with insert, otherwise complete with error
-							if (projects.exists(_ == projectWanted)) None else {
+							// If specified project there then return with no error, otherwise complete with error
+							if (projects.contains(projectWanted)) None else {
+								// Project not in graph's project list
 								val projectsFound = from.project match {
 									case Some(project) => projects + project
 									case None => projects
 								}
 								val plural = if (projectsFound.size != 1) "s" else ""
 								val projectsFoundStr = if (projectsFound.isEmpty) "" else
-									s"Project${plural} found: ${projectsFound.mkString(",")}"
-								Some(s"${projectWanted} not in ${from.id} or its derivatives. ${projectsFoundStr}")
+									s"Project$plural found: ${projectsFound.mkString(",")}"
+								Some(s"$projectWanted not in ${from.id} or its derivatives. $projectsFoundStr")
 							}
 						// No project on transfer so nothing to check there
 						case _ => None
@@ -300,15 +301,21 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
+	 * Get BSON document query for transfers to and from a component
+	 * @param id component id
+	 * @return query to find transfers directly to/from a component
+	 */
+	private def transferBson(id: String) = BSONDocument("$or" -> BSONArray(
+		BSONDocument("from" -> id),
+		BSONDocument("to" -> id)))
+
+	/**
 	 * Remove transfers involving a component.
 	 * @param id component id
 	 * @return future with optional string containing error
 	 */
 	def removeTransfers(id: String) = {
-		val removeBson = BSONDocument("$or" -> BSONArray(
-			BSONDocument("from" -> id),
-			BSONDocument("to" -> id)))
-		transferCollectionBSON.remove(removeBson).map {
+		transferCollectionBSON.remove(transferBson(id)).map {
 			(lastError) => {
 				Logger.debug(s"Successfully deleted transfers for $id with status: $lastError")
 				None
@@ -319,15 +326,12 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Remove transfers involving a component.
+	 * Get count of transfers involving a component.
 	 * @param id component id
 	 * @return future with optional string containing error
 	 */
 	def countTransfers(id: String) = {
-		val removeBson = BSONDocument("$or" -> BSONArray(
-			BSONDocument("from" -> id),
-			BSONDocument("to" -> id)))
-		val command = Count(transferCollectionName, Some(removeBson))
+		val command = Count(transferCollectionName, Some(transferBson(id)))
 		db.command(command)
 	}
 
