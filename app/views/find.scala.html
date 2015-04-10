@@ -5,7 +5,8 @@
 @mainComponent("Find item") {
 	@componentIntro("Find item", findForm)
 	@form(routes.FindController.findFromForm(), 'style -> "display:inline;") {
-		@inputText(findForm(Component.idKey), '_label -> "ID")
+		@inputText(findForm(Component.idKey),
+			'_label -> "ID(s)", '_help -> "Separate multiple IDs with commas or spaces")
 		@select(field = findForm(Component.typeKey),
 			options = options(Component.optionalComponentTypes), '_label -> "Component type")
 		@textarea(findForm(Component.descriptionKey), '_label -> "Description")
