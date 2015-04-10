@@ -4,7 +4,7 @@ import models.Component.OptionalComponentType
 import models.Find._
 import models.{Component, Find}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import play.api.libs.iteratee.{Enumerator, Enumeratee, Iteratee}
+import play.api.libs.iteratee.{Enumeratee, Iteratee}
 import play.api.mvc.{Action, Controller}
 import play.modules.reactivemongo.MongoController
 import reactivemongo.api.collections.default.BSONCollection
@@ -31,10 +31,30 @@ object FindController extends Controller with MongoController {
 		Ok(views.html.find(Errors.addStatusFlash(request,Find.form)))
 	}
 
+	// Get a Found object from a BSONDocument
+	private def getFoundDoc(doc: BSONDocument) = BSON.readDocument[Found](doc)
+	// Make two enumeratees - one if we want transfers and one if we do not
+	// To get transfers make enumeratee to get transfers into/out of initial components found (note mapM takes a future)
+	private val findWithTransfers = Enumeratee.mapM[BSONDocument]((doc) => {
+		val found = getFoundDoc(doc)
+		// Map future to change components retrieved into found objects
+		TransferHistory.getAssociatedNodes(found.id).map((cIDs) =>
+			cIDs.map((c) => Find.Found(c.id, c.component, c.description, c.project)) + found)
+	})
+	// This enumeratee is when transfers are not wanted - we simply change the document into a found object
+	private val findWithoutTransfers = Enumeratee.map[BSONDocument]((doc) => {
+		scala.collection.Set(getFoundDoc(doc))
+	})
+	// Iteratee to get merge together sets of found components
+	private val findResult : Iteratee[scala.collection.Set[Find.Found], scala.collection.Set[Find.Found]] =
+		Iteratee.fold(Set.empty[Find.Found]) {
+			case (soFar, next) => soFar ++ next
+		}
+
 	/**
 	 * Get components wanted based on criteria in returned form.  If no components found we return the input form with
 	 * an error, if one found then we redirect to display the component found, if more than one then we display a table
-	 * that for contains a summary and display link for each component found.
+	 * that contains a summary and display link for each component found.
 	 * @return action to find and display wanted component(s)
 	 */
 	def findFromForm = Action.async { request =>
@@ -42,43 +62,25 @@ object FindController extends Controller with MongoController {
 			formWithErrors =>
 				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(Errors.validationError)))),
 			data => {
+				// Get find query from what was set in form
 				val findQuery = BSON.writeDocument[Find](data)
-				// Get enumerate to produce results
+				// Get enumerator to produce documents found
 				val getDocs = trackerBSONCollection.find(findQuery).cursor[BSONDocument].enumerate()
-
-
-				def getGraphItems(components: List[Found]) = Enumerator.enumerate(components) &>
-					Enumeratee.mapM((found) => TransferHistory.getAssociatedNodes(found.id).map((cIDs) =>
-						cIDs.map((c) => Find.Found(c.id, c.component, c.description, c.project)) + found))
-				val lookAtGraphs : Iteratee[scala.collection.Set[Find.Found], scala.collection.Set[Find.Found]] =
-					Iteratee.fold(Set.empty[Find.Found]) {
-						case (soFar, next) => soFar ++ next
+				// Get enumeratee we want, depending on whether transfers are to be included
+				val filter = if (data.includeTransfers) findWithTransfers else findWithoutTransfers
+				// Now get results (get documents via enumerator and modify them via enumeratee and finally get
+				// results via an iteratee)
+				val result = getDocs &> filter |>>> findResult
+				// Execute future and map results to appropriate page based on size of results
+				result.map((result) => {
+					result.size match {
+						case 0 =>
+							Ok(views.html.find(Find.form.fill(data).withGlobalError("No matching components found")))
+						case 1 if result.head.component != OptionalComponentType.None =>
+							val found = result.head
+							Redirect(ComponentController.actions(found.component).updateRoute(found.id))
+						case _ => Ok(views.html.findResults("Find Results")(result))
 					}
-				def getAssociatedItems(components: List[Found]) = getGraphItems(components) |>>> lookAtGraphs
-
-
-				// Get Iteratee to consume results
-				// For now simply folds results into a list of retrieved documents
-				val lookAtDocs : Iteratee[BSONDocument, List[Found]] =
-					Iteratee.fold(List.empty[Found]) {
-						case (soFar, next) => BSON.readDocument[Found](next) :: soFar
-					}
-
-				// Go apply the iteratee to the enumerate
-				val docs = getDocs |>>> lookAtDocs
-				// Return results
-				docs.flatMap((result) => {
-					def giveResults(foundList: List[Found]) =
-						foundList.size match {
-							case 0 =>
-								Ok(views.html.find(Find.form.fill(data).withGlobalError("No matching components found")))
-							case 1 if foundList.head.component != OptionalComponentType.None =>
-								val found = result.head
-								Redirect(ComponentController.actions(found.component).updateRoute(found.id))
-							case _ => Ok(views.html.findResults("Find Results")(foundList))
-						}
-					if (data.includeTransfers) getAssociatedItems(result).map((items) => giveResults(items.toList))
-					else Future.successful(giveResults(result))
 				})
 			}
 		).recover {
