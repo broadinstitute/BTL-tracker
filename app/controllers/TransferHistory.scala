@@ -268,6 +268,13 @@ object TransferHistory extends Controller with MongoController {
 	import scalax.collection.edge.LkDiEdge
 
 	/**
+	 * Get the component for a node in the graph - just some ugly casting
+	 * @param node graph node
+	 * @return Component node points to
+	 */
+	private def getNodeComponent(node: Graph[Component,LkDiEdge]#NodeT) = node.value.asInstanceOf[Component]
+
+	/**
 	 * Make a dot format representation of a graph (can be components sources, targets or both)
 	 * @param componentID id of final destination or target of graph
 	 * @param makeGraph callback to make wanted graph for component
@@ -277,9 +284,6 @@ object TransferHistory extends Controller with MongoController {
 		makeGraph(componentID).map((graph) => {
 			// Make root of dot graph
 			val root = DotRootGraph(directed = true, id = Some(Id(componentID)))
-
-			// Get Node's Component
-			def getNodeComponent(node: Graph[Component,LkDiEdge]#NodeT) = node.value.asInstanceOf[Component]
 
 			// Get representation for node (Component) in Graph
 			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
@@ -342,4 +346,12 @@ object TransferHistory extends Controller with MongoController {
 	 * @return dot output for graph
 	 */
 	def makeBidirectionalDot(componentID: String) = makeDot(componentID, makeBidirectionalGraph)
+
+	/**
+	 * Get set of components in graph leading into and out of specified component.
+	 * @param componentID component ID get set around
+	 * @return components that lead, directly or indirectly, into or out of specified component
+	 */
+	def getAssociatedNodes(componentID: String) =
+		makeBidirectionalGraph(componentID).map(_.nodes.map(getNodeComponent))
 }

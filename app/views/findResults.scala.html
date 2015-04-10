@@ -8,17 +8,18 @@
 @main(title) {
 	<style>
 	table {
-	border: 2px solid black;
+	border: 1px solid black;
 	border-collapse: collapse;
 	}
 	th {
 	border: 2px solid black;
 	text-align: center;
-	padding: 2px;
+	padding: 4px;
+	background-color: #D3D3D3;
 	}
 	td {
 	border: 1px solid black;
-	padding: 2px;
+	padding: 4px;
 	text-align: center;
 	}
 	tr {
@@ -26,20 +27,20 @@
 	}
 	</style>
 }{
-	<h2>Components</h2>
+	<h2>@found.size.toString components found</h2>
 	<table>
 		<tr>
-			<th>ID</th><th>Type</th><th>Description</th><th>Project</th><th>View</th>
+			<th>ID</th><th>Type</th><th>Description</th><th>Project</th>
 		</tr>
 		@for(f <- found) {
 			<tr>
-				<td>@f.id</td>
+				<td><a href="@routes.Application.findByID(f.id).url">@f.id</a></td>
 				<td>@f.component.toString()</td>
 				<td>@f.description.getOrElse("")</td>
 				<td>@f.project.getOrElse("")</td>
-				<td><a href="@routes.Application.findByID(f.id).url">@f.id</a></td>
 			</tr>
 		}
 	</table>
-	@homeOption(Seq.empty)
+	<br>
+	@homeOption(Seq[(Call, String, Option[String])]((routes.FindController.find, "Return to find", None)))
 }

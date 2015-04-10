@@ -290,12 +290,23 @@ object Component {
 	 */
 	object ComponentType extends ComponentTypes
 
-
 	/**
 	 * Enumeration for all component types plus "None"
 	 */
 	object OptionalComponentType extends ComponentTypes {
 		val None = Value
+	}
+
+	/**
+	 * Implicits to go between OptionalComponentType and ComponentType - note that if an attempt is made to go from
+	 * OptionalComponentType.None to a ComponentType there will be an exception
+	 */
+	object ComponentTypeImplicits {
+		implicit def componentTypeToOptionalComponentType(ct: ComponentType.ComponentType) =
+			OptionalComponentType.withName(ct.toString)
+
+		implicit def optionalComponentTypeToComponentType(ct: OptionalComponentType.ComponentType) =
+			ComponentType.withName(ct.toString)
 	}
 
 	/**
