@@ -315,7 +315,7 @@ object TransferHistory extends Controller with MongoController {
 				}
 
 			// Get empty Dot graph for component
-			def emptyGraph(id: String) = s"digraph $id {\n$id;\n}"
+			def emptyGraph(id: String) = "digraph \"" + id + "\" {\n\"" + id + "\";\n}"
 
 			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
 			if (graph.isEmpty) emptyGraph(componentID)

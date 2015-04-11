@@ -10,6 +10,7 @@ import play.modules.reactivemongo.MongoController
 import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson._
 import Component.ComponentTypeImplicits._
+import scala.collection.Set
 
 import scala.concurrent.Future
 
@@ -42,11 +43,9 @@ object FindController extends Controller with MongoController {
 			cIDs.map((c) => Find.Found(c.id, c.component, c.description, c.project)) + found)
 	})
 	// This enumeratee is when transfers are not wanted - we simply change the document into a found object
-	private val findWithoutTransfers = Enumeratee.map[BSONDocument]((doc) => {
-		scala.collection.Set(getFoundDoc(doc))
-	})
+	private val findWithoutTransfers = Enumeratee.map[BSONDocument]((doc) => Set(getFoundDoc(doc)))
 	// Iteratee to get merge together sets of found components
-	private val findResult : Iteratee[scala.collection.Set[Find.Found], scala.collection.Set[Find.Found]] =
+	private val findResult : Iteratee[Set[Find.Found], Set[Find.Found]] =
 		Iteratee.fold(Set.empty[Find.Found]) {
 			case (soFar, next) => soFar ++ next
 		}

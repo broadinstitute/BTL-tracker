@@ -135,8 +135,6 @@ object Find {
 							// Type must match exactly
 							case Component.typeKey if find.component != OptionalComponentType.None =>
 								(Component.typeKey -> BSONString(find.component.toString)) :: soFar
-							//@TODO include transfers
-							case Find.transfersKey if find.includeTransfers => soFar
 							case _ => soFar
 						}
 					}
@@ -152,7 +150,25 @@ object Find {
 	 * @param project optional project
 	 */
 	case class Found(id: String, component: Component.OptionalComponentType.ComponentType,
-					 description: Option[String], project: Option[String])
+					 description: Option[String], project: Option[String]) {
+		/**
+		 * Set own equals - ids should be unique so this is more efficient which is important since Found
+		 * is often used in Sets.
+		 * @param o other object we're comparing against
+		 * @return true if objects are equal
+		 */
+		override def equals(o: Any) = o match {
+			case that: Found => that.id == this.id
+			case _ => false
+		}
+
+		/**
+		 * Set own hash code to simply use id - that's more efficient which is important since Found is often
+		 * used in Sets.
+		 * @return hash for class based on id hash
+		 */
+		override def hashCode = id.hashCode
+	}
 
 	/**
 	 * Reader to convert a BSON document to a Found object - used for BSON.readDocument

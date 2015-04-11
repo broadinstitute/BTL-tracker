@@ -40,8 +40,8 @@ object EZPassController extends Controller {
 			},
 			data => {
 				val filePath = Play.application().path().getCanonicalPath + "/conf/data/EZPass.xlsx"
-				//@TODO update processing of Jira BSP files, check what's wanted for sample tube barcode (looks like
-				// input id wanted). Finally make it possible to report errors (can't simply be sendFile).
+				//@TODO update processing to get Squid project.
+				// Make it possible to report errors (can't simply be sendFile).
 				EZPassController.makeEZPass(filePath, id,
 					data.libSize, data.libVol, data.libConcentration).map {
 					case (Some(file), errs) =>

@@ -31,7 +31,7 @@ object Application extends Controller {
 	/**
 	 * Just a test form
 	 */
-	// @TODO Add find, and add for multiple IDs
+	// @TODO Add register for multiple IDs
 	def test(id: String) = Action {
 		Ok("Test!")
 	}
