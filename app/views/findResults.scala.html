@@ -13,25 +13,32 @@
 	}
 	th {
 	border: 2px solid black;
-	text-align: center;
 	padding: 4px;
 	background-color: #D3D3D3;
 	}
 	td {
 	border: 1px solid black;
 	padding: 4px;
-	text-align: center;
 	}
 	tr {
 	height: 12px;
 	}
 	</style>
+	@* Originally from http://github.hubspot.com/sortable/ *@
+	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/sortable-theme-light.css")">
+	<script type='text/javascript' src="@routes.Assets.at("javascripts/sortable.min.js")"></script>
 }{
 	<h2>@found.size.toString components found</h2>
-	<table>
-		<tr>
-			<th>ID</th><th>Type</th><th>Description</th><th>Project</th>
-		</tr>
+	<table class="sortable-theme-light" data-sortable>
+		<thead>
+			<tr>
+				<th>ID</th>
+				<th>Type</th>
+				<th>Description</th>
+				<th>Project</th>
+			</tr>
+		</thead>
+		<tbody>
 		@for(f <- found) {
 			<tr>
 				<td><a href="@routes.Application.findByID(f.id).url">@f.id</a></td>
@@ -40,6 +47,7 @@
 				<td>@f.project.getOrElse("")</td>
 			</tr>
 		}
+		</tbody>
 	</table>
 	<br>
 	@homeOption(Seq[(Call, String, Option[String])]((routes.FindController.find, "Return to find", None)))
