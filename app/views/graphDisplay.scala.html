@@ -42,9 +42,9 @@
     inner = svg.append("g");
     // Run the renderer. This is what draws the final graph.
     render(inner, g);
-    // Center the graph - first, if graph bigger than svg then enlarge svg
-    if (svg.attr("width") <= g.graph().width) {
-    svg.attr("width", g.graph().width + 80)
+    // Center the graph - first, if graph bigger than svg (plus margins) then enlarge svg
+    if (svg.attr("width") <= (g.graph().width + 40)) {
+    svg.attr("width", g.graph().width + 40)
     }
     var xCenterOffset = (svg.attr("width") - g.graph().width) / 2;
     inner.attr("transform", "translate(" + xCenterOffset + ", 20)");
@@ -52,7 +52,7 @@
     // Resize the window based on the contents.
     var svg=document.querySelector('#graphContainer');
     var bbox=svg.getBBox();
-    window.resizeTo(bbox.width + 80.0, bbox.height + 120.0)
+    window.resizeTo(bbox.width + 60.0, bbox.height + 120.0)
     }
     </script>
     <svg id="graphContainer">

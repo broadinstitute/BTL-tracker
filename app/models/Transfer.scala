@@ -49,7 +49,7 @@ object Transfer {
 	/**
 	 * Make a well mapping going between a quadrant of a 384 well plate and a 96 well plate.
 	 * @param qtr which quarter to move to/from
-	 * @param toTuple callback to make a tuple of destination well and original well
+	 * @param toTuple callback to make a tuple of source well -> target well
 	 * @return map going between a quadrant of a 384 well plate and a 96 well plate
 	 */
 	private def qToQ(qtr: Quad, toTuple: (Char, Int, (Int, Int)) => (String, String)) = {
@@ -63,7 +63,7 @@ object Transfer {
 		// Make map
 		(for {x <- 'A' to 'H'
 			  y <- 1 to 12}
-		yield toTuple(x, y, q)).toMap
+			yield toTuple(x, y, q)).toMap
 	}
 
 	/**
@@ -82,7 +82,7 @@ object Transfer {
 	 * @param y column coordinate of well
 	 * @return well description (letter and 2-digit number - e.g., A01)
 	 */
-	private def well96(x: Char, y: Int) = f"${x}${y}%02d"
+	private def well96(x: Char, y: Int) = f"$x$y%02d"
 
 	/**
 	 * Make map of 96-well plate to quadrant of 384-well plate
@@ -100,16 +100,109 @@ object Transfer {
 
 	// Well mappings between 96-well plate and 384-well plate quadrants - can be used to see what well quadrant
 	// transfers come from and are going to
-	val q1to384 = q96to384(Q1)
-	val q2to384 = q96to384(Q2)
-	val q3to384 = q96to384(Q3)
-	val q4to384 = q96to384(Q4)
-	val q1from384 = q384to96(Q1)
-	val q2from384 = q384to96(Q2)
-	val q3from384 = q384to96(Q3)
-	val q4from384 = q384to96(Q4)
-	val qTo384 = Map(Q1 -> q1to384, Q2 -> q2to384, Q3 -> q3to384, Q4 -> q4to384)
-	val qFrom384 = Map(Q1 -> q1from384, Q2 -> q2from384, Q3 -> q3from384, Q4 -> q4from384)
+	val qTo384 = Map(Q1 -> q96to384(Q1), Q2 -> q96to384(Q2), Q3 -> q96to384(Q3), Q4 -> q96to384(Q4))
+	val qFrom384 = Map(Q1 -> q384to96(Q1), Q2 -> q384to96(Q2), Q3 -> q384to96(Q3), Q4 -> q384to96(Q4))
+
+	// Slice enumeration
+	object Slice extends Enumeration {
+		type Slice = Value
+		val S0 = Value("All wells")
+		val S1 = Value("1st slice")
+		val S2 = Value("2nd slice")
+		val S3 = Value("3rd slice")
+		val S4 = Value("4th slice")
+	}
+
+	import Slice._
+
+	/**
+	 * Make a list of wells included in a wanted slice of a 96-well plate.
+	 * @param slice slice wanted
+	 * @return list containing only wells from wanted slice
+	 */
+	private def slice96(slice: Slice) = {
+		def slice24(y: Int) = (y, 'A', 3, 8)
+		val s = slice match {
+			case S0 => (1, 'A', 12, 8)
+			case S1 => slice24(1)
+			case S2 => slice24(4)
+			case S3 => slice24(7)
+			case S4 => slice24(10)
+		}
+		val xRange = s._2 until (s._2 + s._4).toChar
+		val yRange = s._1 until (s._1 + s._3)
+		List.tabulate[String](xRange.size * yRange.size)(i => {
+			well96(xRange(i/yRange.size), yRange(i%yRange.size))
+		})
+	}
+
+	/**
+	 * Make self well map
+	 * @param wellList list of wells to make a map of to point to themselves
+	 */
+	private def makeSelfWellMap(wellList: List[String]) = wellList.map((w) => w -> w).toMap
+
+	/**
+	 * Get a map of wells for a slice of a 96-well plate going into a 96-well plate
+	 * @param slice slice of plate wanted
+	 * @return map of wells to well including only wells from slice
+	 */
+	private def slice96to96(slice: Slice) = {
+		makeSelfWellMap(slice96(slice))
+	}
+
+	/**
+	 * Get a map of wells for a slice of a 96-well plate going into a 384-well plate
+	 * @param quad quadrant of plate to take slice to
+	 * @param slice slice of quadrant wanted
+	 * @return map of source 96-plate wells to 384-plate wells
+	 */
+	private def slice96to384(quad: Quad, slice: Slice) = {
+		// Get wells of quadrant wanted (slice of 96 well quadrant)
+		val slice = slice96(slice)
+		// Get map of wells from slice in quadrant
+		qTo384(quad).filter {
+			case (w, _) => slice.contains(w)
+		}
+	}
+
+	/**
+	 * Get a map of wells for a slice of a 384-well plate going into a 96-well plate
+	 * @param quad quadrant of plate to take slice from
+	 * @param slice slice of quadrant wanted
+	 * @return map of source 384-plate wells to 96-plate wells
+	 */
+	private def slice384to96(quad: Quad, slice: Slice) = {
+		// Get wells of quadrant wanted (slice of 96 well quadrant)
+		val slice = slice96(slice)
+		// Get map of wells from slice in quadrant
+		qFrom384(quad).filter{
+			case (_, w) => slice.contains(w)
+		}
+	}
+
+	/**
+	 * Get a list of wells for a slice of a 384-well plate.
+	 * @param quad quadrant of plate to take slice from
+	 * @param slice slice of quadrant wanted
+	 * @return list of wells that are in wanted slice
+	 */
+	private def slice384(quad: Quad, slice: Slice) = {
+		// Get wells from slice of quadrant (gets map of source wells to 96-plate destination wells)
+		val sliceMap = slice384to96(quad, slice)
+		// Make map into a list of source wells
+		sliceMap.keys.toList
+	}
+
+	/**
+	 * Get a map of wells for a slice of a 384-well plate going into a 384-well plate
+	 * @param quad quadrant of plate to take slice from
+	 * @param slice slice of quadrantwanted
+	 * @return map of wells to wells including only wells from slice
+	 */
+	private def slice384to384(quad: Quad, slice: Slice) = {
+		makeSelfWellMap(slice384(quad, slice))
+	}
 
 	// Form to create/read Transfer objects
 	val form = Form(

@@ -1,6 +1,7 @@
 package models.initialContents
 
 import models.Transfer
+import Transfer.Quad._
 import models.initialContents.InitialContents.ContentsMap
 
 /**
@@ -601,11 +602,11 @@ object MolecularBarcodes {
 
 	// Get 96-well TruGrade barcodes (quadrants of the 384-well plate)
 	// TruGrade 96-well Set1
-	val mbTG96S1 = MolBarcodeContents(getTruGradeQuadriant(Transfer.q1from384))
+	val mbTG96S1 = MolBarcodeContents(getTruGradeQuadriant(Transfer.qFrom384(Q1)))
 	// TruGrade 96-well Set2
-	val mbTG96S2 = MolBarcodeContents(getTruGradeQuadriant(Transfer.q2from384))
+	val mbTG96S2 = MolBarcodeContents(getTruGradeQuadriant(Transfer.qFrom384(Q2)))
 	// TruGrade 96-well Set3
-	val mbTG96S3 = MolBarcodeContents(getTruGradeQuadriant(Transfer.q3from384))
+	val mbTG96S3 = MolBarcodeContents(getTruGradeQuadriant(Transfer.qFrom384(Q3)))
 	// TruGrade 96-well Set4
-	val mbTG96S4 = MolBarcodeContents(getTruGradeQuadriant(Transfer.q4from384))
+	val mbTG96S4 = MolBarcodeContents(getTruGradeQuadriant(Transfer.qFrom384(Q4)))
 }
