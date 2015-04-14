@@ -20,18 +20,28 @@ import play.api.libs.json._
  * @param fromQuad optional quadrant transfer is coming from
  * @param toQuad optional quadrant transfer is going to
  * @param project optional project transfer is associated with
+ * @param slice optional slice to transfer
  */
 case class Transfer(from: String, to: String,
-					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String])
+					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String],
+					slice: Option[Transfer.Slice.Slice])
+
+case class TransferStart(from: String, to: String, project: Option[String], isSlicing: Boolean)
 
 // Companion object
 object Transfer {
+	// Coerce transfer start into transfer when needed
+	implicit def transferStartToTransfer(ts: TransferStart):Transfer =
+		Transfer(ts.from, ts.to, None, None, ts.project, None)
+
 	// Keys for form
 	val fromKey = "from"
 	val toKey = "to"
 	val fromQuadKey = "fromQuad"
 	val toQuadKey = "toQuad"
 	val projectKey = "project"
+	val isSlicingKey = "isSlicing"
+	val sliceKey = "slice"
 
 	// Quadrant enumeration
 	object Quad extends Enumeration {
@@ -43,7 +53,16 @@ object Transfer {
 	}
 
 	// String values for dropdown lists etc.
-	val quadVals = Quad.values.map(_.toString).toList
+	val quadVals = enumSortedList(Quad)
+
+	/**
+	 * Get a list of enum string values sorted by the order of enum Values
+	 * @param enums enumeration to be sorted
+	 * @tparam E enumeration type
+	 * @return list of enum string values, sorted by enumeration value, of all enum values
+	 */
+	private def enumSortedList[E <: Enumeration](enums: E) =
+		enums.values.map(_.toString).toList.sortWith(enums.withName(_) < enums.withName(_))
 
 	import Quad._
 	/**
@@ -106,12 +125,17 @@ object Transfer {
 	// Slice enumeration
 	object Slice extends Enumeration {
 		type Slice = Value
-		val S0 = Value("All wells")
-		val S1 = Value("1st slice")
-		val S2 = Value("2nd slice")
-		val S3 = Value("3rd slice")
-		val S4 = Value("4th slice")
+		val S1 = Value("1-3 x A-H")
+		val S2 = Value("4-6 x A-H")
+		val S3 = Value("7-9 x A-H")
+		val S4 = Value("10-12 x A-H")
+		val S5 = Value("1-6 x A-H")
+		val S6 = Value("7-12 x A-H")
+		val S7 = Value("1-12 x A-H")
 	}
+
+	// String values for dropdown lists etc.
+	val sliceVals = enumSortedList(Slice)
 
 	import Slice._
 
@@ -122,12 +146,15 @@ object Transfer {
 	 */
 	private def slice96(slice: Slice) = {
 		def slice24(y: Int) = (y, 'A', 3, 8)
+		def slice48(y: Int) = (y, 'A', 6, 8)
 		val s = slice match {
-			case S0 => (1, 'A', 12, 8)
 			case S1 => slice24(1)
 			case S2 => slice24(4)
 			case S3 => slice24(7)
 			case S4 => slice24(10)
+			case S5 => slice48(1)
+			case S6 => slice48(7)
+			case S7 => (1, 'A', 12, 8)
 		}
 		val xRange = s._2 until (s._2 + s._4).toChar
 		val yRange = s._1 until (s._1 + s._3)
@@ -159,10 +186,10 @@ object Transfer {
 	 */
 	private def slice96to384(quad: Quad, slice: Slice) = {
 		// Get wells of quadrant wanted (slice of 96 well quadrant)
-		val slice = slice96(slice)
+		val sliceWells = slice96(slice)
 		// Get map of wells from slice in quadrant
 		qTo384(quad).filter {
-			case (w, _) => slice.contains(w)
+			case (w, _) => sliceWells.contains(w)
 		}
 	}
 
@@ -174,10 +201,10 @@ object Transfer {
 	 */
 	private def slice384to96(quad: Quad, slice: Slice) = {
 		// Get wells of quadrant wanted (slice of 96 well quadrant)
-		val slice = slice96(slice)
+		val sliceWells = slice96(slice)
 		// Get map of wells from slice in quadrant
 		qFrom384(quad).filter{
-			case (_, w) => slice.contains(w)
+			case (_, w) => sliceWells.contains(w)
 		}
 	}
 
@@ -204,6 +231,17 @@ object Transfer {
 		makeSelfWellMap(slice384(quad, slice))
 	}
 
+	// Form to create TransferStart objects
+	val startForm = Form(
+		mapping(
+			fromKey -> nonEmptyText,
+			toKey -> nonEmptyText,
+			projectKey -> optional(text),
+			isSlicingKey -> boolean
+		)(TransferStart.apply)(TransferStart.unapply))
+	// Formatter for going to/from and validating Json
+	implicit val transferStartFormat = Json.format[TransferStart]
+
 	// Form to create/read Transfer objects
 	val form = Form(
 		mapping(
@@ -211,12 +249,13 @@ object Transfer {
 			toKey -> nonEmptyText,
 			fromQuadKey -> optional(enum(Quad)),
 			toQuadKey -> optional(enum(Quad)),
-			projectKey -> optional(text)
+			projectKey -> optional(text),
+			sliceKey -> optional(enum(Slice))
 		)(Transfer.apply)(Transfer.unapply))
-
 	// Formatter for going to/from and validating Json
 	// Supply our custom enum Reader and Writer for content type enum
 	implicit val quadFormat: Format[Quad.Quad] = enumFormat(Quad)
+	implicit val sliceFormat: Format[Slice.Slice] = enumFormat(Slice)
 	implicit val transferFormat = Json.format[Transfer]
 }
 
@@ -226,13 +265,15 @@ object Transfer {
  * @param to ID we're transferring to
  * @param fromQuad optional quadrant transfer is coming from
  * @param toQuad optional quadrant transfer is going to
+ * @param slice optional slice to transfer
  * @param time time transfer was created
  */
 class TransferWithTime(override val from: String, override val to: String,
 					   override val fromQuad: Option[Transfer.Quad.Quad],
 					   override val toQuad: Option[Transfer.Quad.Quad],
-					   override val project: Option[String], val time: Long)
-	extends Transfer(from, to, fromQuad, toQuad, project)
+					   override val project: Option[String], override val slice: Option[Transfer.Slice.Slice],
+					   val time: Long)
+	extends Transfer(from, to, fromQuad, toQuad, project, slice)
 
 /**
  * Companion object
@@ -245,5 +286,6 @@ object TransferWithTime {
 	 * @return object with transfer data and time of transfer
 	 */
 	def apply(transfer: Transfer, time: Long) : TransferWithTime =
-		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad, transfer.project, time)
+		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad,
+			transfer.project, transfer.slice, time)
 }

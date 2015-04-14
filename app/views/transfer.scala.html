@@ -1,4 +1,4 @@
-@(transferForm: Form[Transfer], fromID: String, toID: String, project: Option[String], fromQuad: Boolean = false, toQuad: Boolean = false)
+@(transferForm: Form[Transfer], fromID: String, toID: String, project: Option[String], fromQuad: Boolean = false, toQuad: Boolean = false, slice: Boolean = false)
 @import helper._
 @import models.Transfer
 
@@ -17,6 +17,10 @@
 		@if(toQuad) {
 			@select(field = transferForm(Transfer.toQuadKey),
 				options = options(Transfer.quadVals), '_label -> (toID + " quadrant to transfer to"))
+		}
+		@if(slice) {
+			@select(field = transferForm(Transfer.sliceKey),
+				options = options(Transfer.sliceVals), '_label -> "Transfer slice")
 		}
 		<input type="submit" value="Transfer" style="display:inline;">
 	}

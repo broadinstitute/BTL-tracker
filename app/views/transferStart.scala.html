@@ -1,4 +1,4 @@
-@(transferForm: Form[Transfer], fromID: String)
+@(transferForm: Form[TransferStart], fromID: String)
 @import helper._
 @import models.Transfer
 
@@ -10,6 +10,8 @@
 		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
 		@inputText(transferForm(Transfer.toKey), '_label -> "To ID")
         @inputText(transferForm(Transfer.projectKey), '_label -> "Project")
+		@checkbox(transferForm(Transfer.isSlicingKey),
+			'_label -> "Transferring 24 or 48-well slice?", 'style -> "display:inline;", '_help -> "")
 		<input type="submit" value="Transfer" style="display:inline;">
 	}
 	@homeOption(Seq.empty)
