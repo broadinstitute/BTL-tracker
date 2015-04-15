@@ -68,7 +68,7 @@ object Find {
 		/**
 		 * Regular expression to use to split around white space or commas
 		 */
-		private val splitRegExp = """[\s,]""".r
+		private val splitRegExp = """[\s,\n]""".r
 
 		/**
 		 * Get list of IDs.  IDs can be separated by white space (space, tab, carriage return) or commas.

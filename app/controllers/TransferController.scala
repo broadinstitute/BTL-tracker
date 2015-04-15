@@ -66,7 +66,7 @@ object TransferController extends Controller with MongoController {
 	 * @tparam T type to return as transfer objects if they are found
 	 * @return objects found and form with errors - one and only one will be set to None
 	 */
-	private def getTransferInfo[T: Reads](data: Transfer) = {
+	private def getTransferInfo[T: Reads](data: TransferStart) = {
 		// Go retrieve both objects via futures
 		for {
 			to <- ComponentController.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
@@ -75,7 +75,7 @@ object TransferController extends Controller with MongoController {
 			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
 				val notFoundErrs: Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
-				Errors.fillAndSetFailureMsgs(notFoundErrs, Transfer.form, data)
+				Errors.fillAndSetFailureMsgs(notFoundErrs, Transfer.startForm, data)
 			}
 			// Check out results from DB queries
 			(from, to) match {
@@ -105,7 +105,7 @@ object TransferController extends Controller with MongoController {
 	 * @param to json from find of to component
 	 * @return if transfer valid then from and to object
 	 */
-	private def isTransferValid(data: Transfer, from: JsObject, to: JsObject) = {
+	private def isTransferValid(data: TransferStart, from: JsObject, to: JsObject) = {
 		// Get to component
 		val toC = getComponent(to)
 		// Get from component and see if transfer from it is valid
@@ -144,7 +144,7 @@ object TransferController extends Controller with MongoController {
 	 * @param slice true if need query for slice to transfer
 	 * @return redirect to transferWithParams to query for additional information
 	 */
-	private def transferIncompleteResult(data: Transfer, fromQuad: Boolean, toQuad: Boolean, slice: Boolean) = {
+	private def transferIncompleteResult(data: TransferStart, fromQuad: Boolean, toQuad: Boolean, slice: Boolean) = {
 		val result = Redirect(routes.TransferController.
 			transferWithParams(data.from, data.to, data.project, fromQuad, toQuad, slice))
 		FlashingKeys.setFlashingValue(result, FlashingKeys.Status, "Fill in additional data to complete transfer")
@@ -237,7 +237,7 @@ object TransferController extends Controller with MongoController {
 							}
 						}
 					// Couldn't find one or both data - form returned contains errors - return it now
-					case (None, Some(form)) => now(transferStartFormErrorResult(Transfer.startForm, fromID))
+					case (None, Some(form)) => now(transferStartFormErrorResult(form, fromID))
 					// Should never have both or neither as None but...
 					case _ => now(FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
 						FlashingKeys.Status, "Internal error: Failure during transferIDs"))
@@ -260,7 +260,7 @@ object TransferController extends Controller with MongoController {
 	 * @param to where transfer is taking place to
 	 * @return Future with error message if check fails, otherwise None
 	 */
-	private def checkGraph(data: Transfer, from: Component, to: Component) = {
+	private def checkGraph(data: TransferStart, from: Component, to: Component) = {
 		// Make graph of what leads into source of this transfer
 		TransferHistory.makeSourceGraph(data.from).map((graph) => {
 			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
@@ -377,8 +377,9 @@ object TransferController extends Controller with MongoController {
 	 * @return description of transfer, including quadrant information
 	 */
 	private def quadDesc(data: Transfer) = {
-		def qDesc(id: String, quad: Option[Quad]) = (if (quad.isDefined) quad.get.toString + " of " else "") + id
-		"transfer from " + qDesc(data.from, data.fromQuad) + " to " + qDesc(data.to, data.toQuad)
+		def qDesc(id: String, quad: Option[Quad]) = quad.map((q) => s"$q of $id").getOrElse(id)
+		val slice = data.slice.map((s) => s"slice $s of ").getOrElse("")
+		"transfer from " + slice + qDesc(data.from, data.fromQuad) + " to " + qDesc(data.to, data.toQuad)
 	}
 
 	/**

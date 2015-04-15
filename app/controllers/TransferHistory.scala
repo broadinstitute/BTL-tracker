@@ -1,5 +1,6 @@
 package controllers
 
+import models.Transfer.Slice.Slice
 import models._
 import models.Transfer.Quad._
 import models.initialContents.InitialContents.ContentType
@@ -180,7 +181,7 @@ object TransferHistory extends Controller with MongoController {
 	 * @param toQuad optional destination quad of component transfer is going to
 	 * @param time when transfer was done
 	 */
-	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad], time: Long)
+	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad], slice: Option[Slice], time: Long)
 
 	/**
 	 * Would the addition of this transfer lead to a cyclic graph?  Get what leads into the "from" part of the transfer
@@ -231,7 +232,7 @@ object TransferHistory extends Controller with MongoController {
 				}
 				// Map all the transfers into graph edges
 				history.transfers.map((t) =>
-					(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad, t.time)))
+					(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad, t.slice, t.time)))
 			}
 		)
 		// When future with list of edges returns make it into a graph
@@ -306,11 +307,18 @@ object TransferHistory extends Controller with MongoController {
 						// Make the edge format
 						def makeEdgeStmt(label: String) = DotEdgeStmt(NodeId(getNodeId(source)),
 							NodeId(getNodeId(target)), List(DotAttr(Id("label"), Id(label))))
+						def makeQuadSliceStmt(slice: Option[Slice]) =
+							slice.map((s) => s" (${s.toString})").getOrElse("")
 						// Make edge label: If a quad transfer then quad we're going to or from, otherwise nothing
 						edgeLabel match {
-							case TransferEdge(Some(fromQ), _, _) => Some(root, makeEdgeStmt(s"from ${fromQ.toString}"))
-							case TransferEdge(_, Some(toQ), _) => Some(root, makeEdgeStmt(s"to ${toQ.toString}"))
-							case _ =>  Some(root, DotEdgeStmt(NodeId(getNodeId(source)), NodeId(getNodeId(target))))
+							case TransferEdge(Some(fromQ), _, qSlice, _) =>
+								Some(root, makeEdgeStmt(s"from ${fromQ.toString}${makeQuadSliceStmt(qSlice)}"))
+							case TransferEdge(_, Some(toQ), qSlice, _) =>
+								Some(root, makeEdgeStmt(s"to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
+							case TransferEdge(_, _, Some(slice), _) =>
+								Some(root, makeEdgeStmt(slice.toString))
+							case _ =>
+								Some(root, DotEdgeStmt(NodeId(getNodeId(source)), NodeId(getNodeId(target))))
 						}
 				}
 

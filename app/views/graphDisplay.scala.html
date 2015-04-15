@@ -25,7 +25,8 @@
     fill: none;
     }
     </style>
-    <script type='text/javascript' src="http://d3js.org/d3.v3.js"></script>
+    @* Originally from http://d3js.org/d3.v3.js *@
+    <script type='text/javascript' src="@routes.Assets.at("javascripts/d3.min.js")"></script>
     @* Originally from http://cpettitt.github.io/project/dagre-d3 *@
     <script type='text/javascript' src="@routes.Assets.at("javascripts/dagre-d3.min.js")"></script>
     @* Originally from http://cpettitt.github.io/project/graphlib-dot *@
@@ -50,9 +51,9 @@
     inner.attr("transform", "translate(" + xCenterOffset + ", 20)");
     svg.attr("height", g.graph().height + 40);    // Resize the window height as well
     // Resize the window based on the contents.
-    var svg=document.querySelector('#graphContainer');
-    var bbox=svg.getBBox();
-    window.resizeTo(bbox.width + 60.0, bbox.height + 120.0)
+    var svgDoc=document.querySelector('#graphContainer');
+    var bbox=svgDoc.getBBox();
+    window.resizeTo(bbox.width + 60, bbox.height + 120)
     }
     </script>
     <svg id="graphContainer">

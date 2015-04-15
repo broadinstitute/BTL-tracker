@@ -16,6 +16,18 @@
         <input type="submit" value="Register Component" style="display:inline;">
     }
 	@form(controllers.routes.FindController.find(), 'style -> "display:inline;") {
-		<input type="submit" value="Find/Update Component" style="display:inline;">
+		<input type="submit" value="Find Components" style="display:inline;">
 	}
+	<label for="qFind" style="font-size:13px;">&nbsp&nbspFind ID:</label>
+	<input type="text" id="qFind" name="qFind" size=20 placeholder="Component ID" style="display:inline;"/>
+	<script>
+	$('#qFind').keypress(function (e) {
+	var key = e.which;
+	if(key == 13)  // the enter key code
+	{
+	window.location.replace("/find/" + $("#qFind").val());
+	return false;
+	}
+	});
+	</script>
 }

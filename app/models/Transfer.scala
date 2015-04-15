@@ -26,6 +26,13 @@ case class Transfer(from: String, to: String,
 					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String],
 					slice: Option[Transfer.Slice.Slice])
 
+/**
+ * Junior class to Transfer to get initial data for transfer.  This is just used in forms.
+ * @param from ID we're transferring from
+ * @param to ID we're transferring to
+ * @param project optional project transfer is associated with
+ * @param isSlicing true if we're going to be transferring a slice
+ */
 case class TransferStart(from: String, to: String, project: Option[String], isSlicing: Boolean)
 
 // Companion object
@@ -34,14 +41,14 @@ object Transfer {
 	implicit def transferStartToTransfer(ts: TransferStart):Transfer =
 		Transfer(ts.from, ts.to, None, None, ts.project, None)
 
-	// Keys for form
-	val fromKey = "from"
-	val toKey = "to"
-	val fromQuadKey = "fromQuad"
-	val toQuadKey = "toQuad"
-	val projectKey = "project"
-	val isSlicingKey = "isSlicing"
-	val sliceKey = "slice"
+	/**
+	 * Get a list of enum string values sorted by the order of enum values
+	 * @param enums enumeration to be sorted
+	 * @tparam E enumeration type
+	 * @return list of enum string values, sorted by enumeration value, of all enum values
+	 */
+	private def enumSortedList[E <: Enumeration](enums: E) =
+		enums.values.toList.sortWith(_ < _).map(_.toString)
 
 	// Quadrant enumeration
 	object Quad extends Enumeration {
@@ -54,15 +61,6 @@ object Transfer {
 
 	// String values for dropdown lists etc.
 	val quadVals = enumSortedList(Quad)
-
-	/**
-	 * Get a list of enum string values sorted by the order of enum Values
-	 * @param enums enumeration to be sorted
-	 * @tparam E enumeration type
-	 * @return list of enum string values, sorted by enumeration value, of all enum values
-	 */
-	private def enumSortedList[E <: Enumeration](enums: E) =
-		enums.values.map(_.toString).toList.sortWith(enums.withName(_) < enums.withName(_))
 
 	import Quad._
 	/**
@@ -230,6 +228,35 @@ object Transfer {
 	private def slice384to384(quad: Quad, slice: Slice) = {
 		makeSelfWellMap(slice384(quad, slice))
 	}
+
+	/**
+	 * For quadrant slices, creates a map of (quadrant,slice) -> (originalWell -> targetWell)
+	 * @param slicer callback to get a mapping of original wells to target wells
+	 * @return map, keyed by quadrant and slice, to values that are maps of slice's original wells to target wells
+	 */
+	private def getQuadSliceMap(slicer: (Quad.Quad, Slice.Slice) => Map[String, String]) =
+		(for {
+			s <- Slice.values.toIterable
+			q <- Quad.values.toIterable
+		} yield {
+				(q, s) -> slicer(q, s)
+		}).toMap
+
+	// Make map of maps: (quadrant,slice) -> (originalWells -> destinationWells)
+	val slice96to384map = getQuadSliceMap(slice96to384)
+	val slice384to96map = getQuadSliceMap(slice384to96)
+	val slice384to384map = getQuadSliceMap(slice384to384)
+	// Make map of maps: slice -> (originalWells -> destinationWells) - for 96 well plates where no quadrants are needed
+	val slice96to96map = Slice.values.toIterable.map((value) => value -> slice96to96(value))
+
+	// Keys for form
+	val fromKey = "from"
+	val toKey = "to"
+	val fromQuadKey = "fromQuad"
+	val toQuadKey = "toQuad"
+	val projectKey = "project"
+	val isSlicingKey = "isSlicing"
+	val sliceKey = "slice"
 
 	// Form to create TransferStart objects
 	val startForm = Form(
