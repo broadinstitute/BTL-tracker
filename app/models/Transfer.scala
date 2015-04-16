@@ -231,6 +231,7 @@ object Transfer {
 		} yield {
 			val from = slice384to96map(qFrom, s)
 			val to = slice96to384map(qTo, s)
+			// Going from original source well to final destination well - 96 in middle to calculate quadrant/slice
 			(qFrom, qTo, s) -> from.map {
 				case (k, v) => k -> to(v)
 			}

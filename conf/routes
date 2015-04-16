@@ -65,13 +65,13 @@ POST        /freezer/update/:id                      controllers.FreezerControll
 # Do BSP report for specified rack
 GET         /rack/BSPreport/:id                      controllers.RackController.doBSPReport(id: String)
 
-# Initial transfer requests - first one with just from id, other with all parameters
-GET         /transfer/:fromID                        controllers.TransferController.transfer(fromID)
+# Initial transfer requests - first one with just ids, other with all parameters
+GET         /transfer                                controllers.TransferController.transfer(fromID: Option[String], toID: Option[String])
 GET         /transferWithParams/:fromID/:toID        controllers.TransferController.transferWithParams(fromID: String, toID: String, project: Option[String], fromQuad: Boolean, toQuad: Boolean, slice: Boolean)
 # Transfer using input from form that includes just IDs - may be enough to do transfer or we may need to get quadrants
-POST        /transferIDs/:fromID                     controllers.TransferController.transferIDs(fromID: String)
+POST        /transferIDs                             controllers.TransferController.transferIDs
 # Transfer using input from form that includes IDs and quadrants
-POST        /transfer/:fromID                        controllers.TransferController.transferFromForm(fromID: String)
+POST        /transfer                                controllers.TransferController.transferFromForm
 
 # Initial EZPASS request
 GET         /EZPASS/:id                              controllers.EZPassController.ezpass(id: String)

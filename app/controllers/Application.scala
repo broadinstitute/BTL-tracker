@@ -33,7 +33,7 @@ object Application extends Controller {
 	 */
 	// @TODO Add register for multiple IDs
 	def test(id: String) = Action {
-		Ok("Test!")
+		Ok(s"Test of $id")
 	}
 
 	/**

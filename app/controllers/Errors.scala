@@ -19,14 +19,14 @@ object Errors {
 	/**
 	 * Regular expression to find duplicate key in database exception
 	 */
-	private val dbExc = """DatabaseException.*duplicate key.*dup key.*\{.*"(.*)".*\}.*""".r
+	private val dbExc = """DatabaseException.*duplicate key.*dup key.*\{(.*)\}.*""".r
 
 	// One to find no primary node is available
 	private val dbNotFound = """.*No primary node.*""".r
 
 	// Start and end of error message indicating attempt to enter component a second time
 	private val dataEntryErr =
-		"Attempt to enter duplicate data failed because the operation was previously done for component "
+		"Attempt to enter duplicate data failed because the operation was previously done for"
 
 	/**
 	 * Parse exception to get nicer error message

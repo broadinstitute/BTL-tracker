@@ -171,10 +171,12 @@ object TransferContents {
 			}
 
 			/**
-			 * If a quadrant transfer then map input wells to output wells.  If quadrant of 384-well plate being mapped
-			 * to a 96-well plate then get contents of quadrant being used in 384-well plate and set it to wells that
-			 * it will occupy on the 96-well plate.  If a 96-well plate is headed to a quadrant of a 384-well plate then
-			 * set the wells of the 96-well plate input to be the wells they will be in the 384-well plate quadrant.
+			 * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
+			 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice is a subset
+			 * of a quadrant (for components that have quadrants) or an entire component (for non-quadrant components,
+			 * such as 96-well components, in which case the entire component can be thought of as a single quadrant).
+			 * This method, taking in account the quadrants/slices wanted determines were the selected input well
+			 * will wind up in the output component.
 			 * @param in contents for input to transfer
 			 * @param transfer transfer to be done from input
 			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
@@ -204,14 +206,21 @@ object TransferContents {
 
 				// Go do mapping based on type of transfer
 				(transfer.fromQuad, transfer.toQuad, transfer.slice) match {
+					// From a quadrant to an entire component - should be 384-well component to non-quadrant component
 					case (Some(from), None, None) => mapQuadrantWells(in, DIM16x24, Transfer.qFrom384(from))
+					// To a quadrant from an entire component - should be 96-well component to 384-well component
 					case (None, Some(to), None) => mapQuadrantWells(in, DIM8x12, Transfer.qTo384(to))
+					// Slice of quadrant to an entire component - should be 384-well component to non-quadrant component
 					case (Some(from), None, Some(slice)) =>
 						mapQuadrantWells(in, DIM16x24, Transfer.slice384to96map(from, slice))
+					// Slice of quadrant to slice of quadrant - must be 384-well component to 384-well component
 					case (Some(from), Some(to), Some(slice)) =>
 						mapQuadrantWells(in, DIM16x24, Transfer.slice384to384map(from, to, slice))
+					// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
 					case (None, Some(to), Some(slice)) =>
 						mapQuadrantWells(in, DIM8x12, Transfer.slice96to384map(to, slice))
+					// Slice of non-quadrant component to non-quadrant component
+					// must be 96-well component to 96-well component
 					case (None, None, Some(slice)) =>
 						mapQuadrantWells(in, DIM8x12, Transfer.slice96to96map(slice))
 					case _ => in

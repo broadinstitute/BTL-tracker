@@ -36,8 +36,8 @@ object TransferController extends Controller with MongoController {
 	 * Initiate transfer - go bring up form to do transfer
 	 * @return action to go get transfer information
 	 */
-	def transfer(fromID: String) = Action { request =>
-		Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.startForm), fromID))
+	def transfer(fromID: Option[String], toID: Option[String]) = Action { request =>
+		Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.startForm), fromID, toID, true))
 	}
 
 	/**
@@ -156,8 +156,8 @@ object TransferController extends Controller with MongoController {
 	 * @param fromID ID of component we're transferrring from
 	 * @return BadRequest to transferStart with input form
 	 */
-	private def transferStartFormErrorResult(form: Form[TransferStart], fromID: String) =
-		BadRequest(views.html.transferStart(form, fromID))
+	private def transferStartFormErrorResult(form: Form[TransferStart], fromID: Option[String], toID: Option[String]) =
+		BadRequest(views.html.transferStart(form, fromID, toID, false))
 
 	/**
 	 * Result when transfer start had errors
@@ -166,7 +166,7 @@ object TransferController extends Controller with MongoController {
 	 * @return BadRequest to transferStart with form set with errors
 	 */
 	private def transferStartErrorResult(data: TransferStart, errs: Map[Option[String], String]) =
-		transferStartFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.startForm, data), data.from)
+		transferStartFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.startForm, data), Some(data.from), Some(data.to))
 
 	/**
 	 * Complete a future with a result
@@ -180,11 +180,11 @@ object TransferController extends Controller with MongoController {
 	 * different additional information may be needed.
 	 * @return action to see what step is next to complete transfer
 	 */
-	def transferIDs(fromID: String) = Action.async { request =>
+	def transferIDs = Action.async { request =>
 		Transfer.startForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(transferStartFormErrorResult(formWithErrors.withGlobalError(Errors.validationError),
-					fromID)),
+					None, None)),
 			data => {
 				// Got data from form - get from and to data (as json) - flatMap is mapping future from retrieving DB
 				// data - flatMap continuation is either a future that completes immediately because transfer can not
@@ -237,7 +237,7 @@ object TransferController extends Controller with MongoController {
 							}
 						}
 					// Couldn't find one or both data - form returned contains errors - return it now
-					case (None, Some(form)) => now(transferStartFormErrorResult(form, fromID))
+					case (None, Some(form)) => now(transferStartFormErrorResult(form, Some(data.from), Some(data.to)))
 					// Should never have both or neither as None but...
 					case _ => now(FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
 						FlashingKeys.Status, "Internal error: Failure during transferIDs"))
@@ -247,7 +247,7 @@ object TransferController extends Controller with MongoController {
 			}
 		).recover {
 			case err => transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)),
-				fromID)
+				None, None)
 		}
 	}
 
@@ -386,15 +386,14 @@ object TransferController extends Controller with MongoController {
 	 * Do transfer based on form with quadrant inputs
  	 * @return action to do transfer
 	 */
-	def transferFromForm(fromID: String) = Action.async { request =>
+	def transferFromForm = Action.async { request =>
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors => Future.successful(
-				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.validationError), fromID)),
+				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.validationError), None, None)),
 			data => insertTransfer(data, () => quadDesc(data))
 		).recover {
 			case err =>
-				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)), fromID)
+				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)), None, None)
 		}
 	}
-
 }

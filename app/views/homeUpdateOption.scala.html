@@ -1,8 +1,11 @@
 @(componentForm: Form[_ <: Component], others: Seq[(Call, String)])
 @import helper._
 @defining(componentForm(Component.formKey + "." + Component.idKey).value.getOrElse("0")) { id =>
+	@form(routes.TransferController.transfer(None, None), 'style -> "display:inline;") {
+		<input type="hidden" name="fromID", value="@id">
+		<input type="submit" value="Transfer" style="display:inline;">
+	}
 	@homeOption(Seq[(Call, String, Option[String])]
-		((routes.TransferController.transfer(id), "Transfer", None),
-				(routes.Application.findByID(id), "Graph", Some(routes.Application.graphDisplay(id).url)),
+		((routes.Application.findByID(id), "Graph", Some(routes.Application.graphDisplay(id).url)),
 				(routes.Application.deleteCheck(id), "Delete", None))++others.map((other)=>(other._1,other._2,None)))
 }

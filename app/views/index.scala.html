@@ -18,14 +18,51 @@
 	@form(controllers.routes.FindController.find(), 'style -> "display:inline;") {
 		<input type="submit" value="Find Components" style="display:inline;">
 	}
+	<br>
 	<label for="qFind" style="font-size:13px;">&nbsp&nbspFind ID:</label>
 	<input type="text" id="qFind" name="qFind" size=20 placeholder="Component ID" style="display:inline;"/>
+	<label for="fromTran" style="font-size:13px;">&nbsp&nbspTransfer:</label>
+	<input type="text" id="fromTran" name="fromTran" size=20 placeholder="from" style="display:inline;"/>
+	<label for="toTran">&nbsp</label>
+	<input type="text" id="toTran" name="toTran" size=20 placeholder="to" style="display:inline;"/>
 	<script>
 	$('#qFind').keypress(function (e) {
 	var key = e.which;
-	if(key == 13)  // the enter key code
+	if(key == 13 && $("#qFind").val().trim() != "")  // the enter key code
 	{
 	window.location.replace("/find/" + $("#qFind").val());
+	return false;
+	}
+	});
+	function doTran(e, from, to) {
+	var params;
+	var key = e.which;
+	if(key == 13 && (from != "" || to != ""))  // the enter key code
+	{
+	if(from != "") {
+	params = "?fromID=" + from;
+	}
+	if(to != "") {
+	if(params) {
+	params = params + "&toID=" + to;
+	} else {
+	params = "?toID=" + to;
+	}
+	}
+	}
+	return params;
+	};
+	$('#fromTran').keypress(function (e) {
+	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim());
+	if (p) {
+	window.location.replace("/transfer" + p);
+	return false;
+	}
+	});
+	$('#toTran').keypress(function (e) {
+	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim());
+	if (p) {
+	window.location.replace("/transfer" + p);
 	return false;
 	}
 	});

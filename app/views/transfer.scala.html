@@ -6,7 +6,7 @@
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
 	@componentIntro("Transfer Component", transferForm)
-	@form(routes.TransferController.transferFromForm(fromID), 'style -> "display:inline;") {
+	@form(routes.TransferController.transferFromForm(), 'style -> "display:inline;") {
 		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
 		@inputText(transferForm(Transfer.toKey).copy(value=Some(toID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
         @inputText(transferForm(Transfer.projectKey).copy(value=project), 'readonly -> "readonly", '_label -> "Project")
