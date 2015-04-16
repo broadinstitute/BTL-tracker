@@ -5,7 +5,7 @@ import models.initialContents.InitialContents
 import models.Transfer
 import models.{Rack, Component, Container, ContainerDivisions}
 import InitialContents.ContentType.NoContents
-import controllers.TransferHistory.{TransferEdge}
+import controllers.TransferHistory.TransferEdge
 
 import scalax.collection.edge.LkDiEdge
 
@@ -209,7 +209,7 @@ object TransferContents {
 					case (Some(from), None, Some(slice)) =>
 						mapQuadrantWells(in, DIM16x24, Transfer.slice384to96map(from, slice))
 					case (Some(from), Some(to), Some(slice)) =>
-						mapQuadrantWells(in, DIM16x24, Transfer.slice384to384map(from, slice))
+						mapQuadrantWells(in, DIM16x24, Transfer.slice384to384map(from, to, slice))
 					case (None, Some(to), Some(slice)) =>
 						mapQuadrantWells(in, DIM8x12, Transfer.slice96to384map(to, slice))
 					case (None, None, Some(slice)) =>

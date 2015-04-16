@@ -311,6 +311,8 @@ object TransferHistory extends Controller with MongoController {
 							slice.map((s) => s" (${s.toString})").getOrElse("")
 						// Make edge label: If a quad/slice transfer then quad/slice we're going to or from
 						edgeLabel match {
+							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _) if (fromQ != toQ) =>
+								Some(root, makeEdgeStmt(s"from ${fromQ.toString} to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
 							case TransferEdge(Some(fromQ), _, qSlice, _) =>
 								Some(root, makeEdgeStmt(s"from ${fromQ.toString}${makeQuadSliceStmt(qSlice)}"))
 							case TransferEdge(_, Some(toQ), qSlice, _) =>

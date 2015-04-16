@@ -207,29 +207,6 @@ object Transfer {
 	}
 
 	/**
-	 * Get a list of wells for a slice of a 384-well plate.
-	 * @param quad quadrant of plate to take slice from
-	 * @param slice slice of quadrant wanted
-	 * @return list of wells that are in wanted slice
-	 */
-	private def slice384(quad: Quad, slice: Slice) = {
-		// Get wells from slice of quadrant (gets map of source wells to 96-plate destination wells)
-		val sliceMap = slice384to96(quad, slice)
-		// Make map into a list of source wells
-		sliceMap.keys.toList
-	}
-
-	/**
-	 * Get a map of wells for a slice of a 384-well plate going into a 384-well plate
-	 * @param quad quadrant of plate to take slice from
-	 * @param slice slice of quadrantwanted
-	 * @return map of wells to wells including only wells from slice
-	 */
-	private def slice384to384(quad: Quad, slice: Slice) = {
-		makeSelfWellMap(slice384(quad, slice))
-	}
-
-	/**
 	 * For quadrant slices, creates a map of (quadrant,slice) -> (originalWell -> targetWell)
 	 * @param slicer callback to get a mapping of original wells to target wells
 	 * @return map, keyed by quadrant and slice, to values that are maps of slice's original wells to target wells
@@ -245,8 +222,20 @@ object Transfer {
 	// Make map of maps: (quadrant,slice) -> (originalWells -> destinationWells)
 	val slice96to384map = getQuadSliceMap(slice96to384)
 	val slice384to96map = getQuadSliceMap(slice384to96)
-	val slice384to384map = getQuadSliceMap(slice384to384)
-	// Make map of maps: slice -> (originalWells -> destinationWells) - for 96 well plates where no quadrants are needed
+	// Make 384 to 384 map of maps: (fromQ, toQ, slice) -> (originalWells -> destinationWells)
+	val slice384to384map =
+		(for {
+			s <- Slice.values.toIterable
+			qFrom <- Quad.values.toIterable
+			qTo <- Quad.values.toIterable
+		} yield {
+			val from = slice384to96map(qFrom, s)
+			val to = slice96to384map(qTo, s)
+			(qFrom, qTo, s) -> from.map {
+				case (k, v) => k -> to(v)
+			}
+		}).toMap
+	// Make 96 to 96 map of maps: slice -> (originalWells -> destinationWells) - no quadrants are needed for 96-wells
 	val slice96to96map = Slice.values.toIterable.map((value) => value -> slice96to96(value)).toMap
 
 	// Keys for form
