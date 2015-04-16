@@ -203,10 +203,17 @@ object TransferContents {
 				}
 
 				// Go do mapping based on type of transfer
-				(transfer.fromQuad, transfer.toQuad) match {
-					case (Some(from), None) => mapQuadrantWells(in, DIM16x24, Transfer.qFrom384(from))
-					case (None, Some(to)) => mapQuadrantWells(in, DIM8x12, Transfer.qTo384(to))
-					case (Some(from), Some(to))  => in
+				(transfer.fromQuad, transfer.toQuad, transfer.slice) match {
+					case (Some(from), None, None) => mapQuadrantWells(in, DIM16x24, Transfer.qFrom384(from))
+					case (None, Some(to), None) => mapQuadrantWells(in, DIM8x12, Transfer.qTo384(to))
+					case (Some(from), None, Some(slice)) =>
+						mapQuadrantWells(in, DIM16x24, Transfer.slice384to96map(from, slice))
+					case (Some(from), Some(to), Some(slice)) =>
+						mapQuadrantWells(in, DIM16x24, Transfer.slice384to384map(from, slice))
+					case (None, Some(to), Some(slice)) =>
+						mapQuadrantWells(in, DIM8x12, Transfer.slice96to384map(to, slice))
+					case (None, None, Some(slice)) =>
+						mapQuadrantWells(in, DIM8x12, Transfer.slice96to96map(slice))
 					case _ => in
 				}
 			}

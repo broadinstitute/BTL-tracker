@@ -218,7 +218,7 @@ object TransferController extends Controller with MongoController {
 												// if doing slices between 384-well plates then need to pick quadrant
 												case (DIM16x24, DIM16x24) =>
 													now(transferIncompleteResult(data,
-														fromQuad = true, toQuad = false, slice = true))
+														fromQuad = true, toQuad = true, slice = true))
 												// Go ask for quadrant/slice to set in larger destination plate
 												case (DIM8x12, DIM16x24) =>
 													now(transferIncompleteResult(data,
@@ -377,9 +377,9 @@ object TransferController extends Controller with MongoController {
 	 * @return description of transfer, including quadrant information
 	 */
 	private def quadDesc(data: Transfer) = {
-		def qDesc(id: String, quad: Option[Quad]) = quad.map((q) => s"$q of $id").getOrElse(id)
+		def qDesc(id: String, quad: Option[Quad], slice: String) = quad.map((q) => s"$slice$q of $id").getOrElse(id)
 		val slice = data.slice.map((s) => s"slice $s of ").getOrElse("")
-		"transfer from " + slice + qDesc(data.from, data.fromQuad) + " to " + qDesc(data.to, data.toQuad)
+		"transfer from " + qDesc(data.from, data.fromQuad, slice) + " to " + qDesc(data.to, data.toQuad, slice)
 	}
 
 	/**

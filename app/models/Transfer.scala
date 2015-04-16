@@ -247,7 +247,7 @@ object Transfer {
 	val slice384to96map = getQuadSliceMap(slice384to96)
 	val slice384to384map = getQuadSliceMap(slice384to384)
 	// Make map of maps: slice -> (originalWells -> destinationWells) - for 96 well plates where no quadrants are needed
-	val slice96to96map = Slice.values.toIterable.map((value) => value -> slice96to96(value))
+	val slice96to96map = Slice.values.toIterable.map((value) => value -> slice96to96(value)).toMap
 
 	// Keys for form
 	val fromKey = "from"
