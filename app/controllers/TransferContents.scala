@@ -175,7 +175,7 @@ object TransferContents {
 			 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice is a subset
 			 * of a quadrant (for components that have quadrants) or an entire component (for non-quadrant components,
 			 * such as 96-well components, in which case the entire component can be thought of as a single quadrant).
-			 * This method, taking in account the quadrants/slices wanted determines were the selected input well
+			 * This method, taking in account the quadrants/slices wanted determines where the selected input wells
 			 * will wind up in the output component.
 			 * @param in contents for input to transfer
 			 * @param transfer transfer to be done from input
