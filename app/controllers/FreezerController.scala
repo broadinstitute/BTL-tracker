@@ -18,7 +18,7 @@ object FreezerController extends ComponentController[Freezer] {
 	implicit val formatter = Freezer.formatter
 
 	// Play html view to create freezer
-	def htmlForCreate = views.html.freezerCreateForm(_: Form[Freezer])
+	def htmlForCreate(id: String) = views.html.freezerCreateForm(_: Form[Freezer], id)
 
 	// Play html view to update freezer
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
@@ -34,7 +34,7 @@ object FreezerController extends ComponentController[Freezer] {
 	 * Request to add a freezer - we simply put up the form to get the parameters to create the freezer.
 	 * @return responds to request with html form to get freezer input
 	 */
-	def addFreezer() = Action { add }
+	def addFreezer(id: String) = Action { add(id) }
 
 	/**
 	 * Request to find a freezer, identified by an ID.  We find the freezer (or return an error if it can’t be found) and
@@ -47,14 +47,15 @@ object FreezerController extends ComponentController[Freezer] {
 	/**
 	 * Go create a freezer.  If all goes well the freezer is created in the DB and the user is redirected to
 	 * to view/update the newly created freezer.
+	 * @param id freezer ID
 	 * @return responds to request with html form to view/update added freezer
 	 */
-	def createFreezerFromForm() = Action.async { request => create(request)}
+	def createFreezerFromForm(id: String) = Action.async { request => create(id, request)}
 
 	/**
 	 * Go update a freezer.  If all goes well the freezer is updated in the DB and the user is redirected to
 	 * to view/update the newly updated freezer.
 	 * @return responds to request with updated form to view/update freezer
 	 */
-	def updateFreezerFromForm(id: String) = Action.async { request => update(request, id)}
+	def updateFreezerFromForm(id: String) = Action.async { request => update(id, request)}
 }

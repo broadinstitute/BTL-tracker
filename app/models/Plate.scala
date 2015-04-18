@@ -4,8 +4,6 @@ package models
  * @author Nathaniel Novod
  *         on 11/21/14
  */
-
-import formats.CustomFormats._
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.initialContents.InitialContents
@@ -77,17 +75,15 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 			ContentType.TruGrade384Set1,ContentType.TruGrade96Set1,ContentType.TruGrade96Set2,
 			ContentType.TruGrade96Set3,ContentType.TruGrade96Set4)
 
-	val layoutKey = "layout"
-	// Supply our custom enum Reader and Writer for enums
-	implicit val layoutTypeFormat: Format[ContainerDivisions.Division.Division] = enumFormat(ContainerDivisions.Division)
-	implicit val contentTypeFormat: Format[ContentType.ContentType] = enumFormat(ContentType)
-
+	/**
+	 * Form to use in view of plate
+	 */
 	override val form = Form(
 		mapping(
 			Component.formKey -> Component.componentMap,
 			Location.locationKey -> optional(text),
 			Container.contentKey -> optional(enum(ContentType)),
-			layoutKey -> enum(Division)
+			ContainerDivisions.divisionKey -> enum(Division)
 		)(applyWithComponent)(unapplyWithComponent))
 
 	/**

@@ -18,7 +18,7 @@ object PlateController extends ComponentController[Plate] {
 	implicit val formatter = Plate.formatter
 
 	// Play html view to create plate
-	def htmlForCreate = views.html.plateCreateForm(_: Form[Plate])
+	def htmlForCreate(id: String) = views.html.plateCreateForm(_: Form[Plate], id)
 
 	// Play html view to update plate
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
@@ -34,7 +34,7 @@ object PlateController extends ComponentController[Plate] {
 	 * Request to add a plate - we simply put up the form to get the parameters to create the plate.
 	 * @return responds to request with html form to get plate input
 	 */
-	def addPlate() = Action { add }
+	def addPlate(id: String) = Action { add(id) }
 
 	/**
 	 * Request to find a plate, identified by an ID.  We find the plate (or return an error if it can’t be found) and
@@ -42,19 +42,20 @@ object PlateController extends ComponentController[Plate] {
 	 * @param id plate ID
 	 * @return responds to request with html form to view/update plate
 	 */
-	def findPlateByID(id: String) = Action.async { request => find(id,request)}
+	def findPlateByID(id: String) = Action.async { request => find(id, request)}
 
 	/**
 	 * Go create a plate.  If all goes well the plate is created in the DB and the user is redirected to
 	 * to view/update the newly created plate.
+	 * @param id plate ID
 	 * @return responds to request with html form to view/update added plate
 	 */
-	def createPlateFromForm() = Action.async { request => create(request)}
+	def createPlateFromForm(id: String) = Action.async { request => create(id, request)}
 
 	/**
 	 * Go update a plate.  If all goes well the plate is updated in the DB and the user is redirected to
 	 * to view/update the newly updated plate.
 	 * @return responds to request with updated form to view/update plate
 	 */
-	def updatePlateFromForm(id: String) = Action.async { request => update(request, id)}
+	def updatePlateFromForm(id: String) = Action.async { request => update(id, request)}
 }

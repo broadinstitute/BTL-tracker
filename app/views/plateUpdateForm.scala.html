@@ -11,10 +11,10 @@
     @componentIntro("Plate", plateInput)
     @* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
     @form(routes.PlateController.updatePlateFromForm(id), 'style -> "display:inline;") {
-        @component(plateInput, true, Component.ComponentType.Plate, hiddenFields)
+        @component(plateInput, Some(id), Component.ComponentType.Plate, hiddenFields)
 @*        @inputText(plateInput(Location.locationKey), '_label -> "Location") *@
 	    @initialContents(Plate.validContents, plateInput)
-	    @select(field = plateInput(Plate.layoutKey),
+	    @select(field = plateInput(ContainerDivisions.divisionKey),
 		    options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
 	    @updateButtons()
     }

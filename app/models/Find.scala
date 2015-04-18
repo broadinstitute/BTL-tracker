@@ -1,6 +1,8 @@
 package models
 
-import models.Component.OptionalComponentType
+import models.Component.ComponentType
+import models.initialContents.InitialContents.ContentType
+import models.ContainerDivisions.Division
 import play.api.libs.json.Json
 import play.api.data.{ObjectMapping2, FieldMapping, Form}
 import play.api.data.Forms._
@@ -16,7 +18,9 @@ import reactivemongo.bson._
  * @param tags name/value pairs
  */
 case class Find(id: Option[String], description: Option[String], project: Option[String],
-				tags: List[ComponentTag], component: OptionalComponentType.Value, includeTransfers: Boolean)
+				tags: List[ComponentTag], component: Option[ComponentType.ComponentType],
+				content: Option[ContentType.ContentType], layout: Option[Division.Division],
+				includeTransfers: Boolean)
 
 /**
  * Model for doing Find command
@@ -36,7 +40,9 @@ object Find {
 		Component.descriptionKey -> optional(text),
 		Component.projectKey -> optional(text),
 		tagsKey -> list(ComponentTag.tagsForm.mapping),
-		Component.typeKey -> enum(OptionalComponentType),
+		Component.typeKey -> optional(enum(ComponentType)),
+		Container.contentKey -> optional(enum(ContentType)),
+		ContainerDivisions.divisionKey -> optional(enum(Division)),
 		transfersKey -> boolean
 	)(Find.apply)(Find.unapply)
 
@@ -133,8 +139,12 @@ object Find {
 								})
 								"$or" -> BSONArray(tagCriteria) :: soFar
 							// Type must match exactly
-							case Component.typeKey if find.component != OptionalComponentType.None =>
-								(Component.typeKey -> BSONString(find.component.toString)) :: soFar
+							case Component.typeKey if find.component.isDefined =>
+								(Component.typeKey -> BSONString(find.component.get.toString)) :: soFar
+							case Container.contentKey if find.content.isDefined =>
+								(Container.contentKey -> BSONString(find.content.get.toString)) :: soFar
+							case ContainerDivisions.divisionKey if find.layout.isDefined =>
+								(ContainerDivisions.divisionKey -> BSONString(find.layout.get.toString)) :: soFar
 							case _ => soFar
 						}
 					}
@@ -149,8 +159,10 @@ object Find {
 	 * @param description optional description
 	 * @param project optional project
 	 */
-	case class Found(id: String, component: Component.OptionalComponentType.ComponentType,
-					 description: Option[String], project: Option[String]) {
+	case class Found(id: String, component: Option[ComponentType.ComponentType],
+					 description: Option[String], project: Option[String],
+					 content: Option[ContentType.ContentType], layout: Option[Division.Division]) {
+
 		/**
 		 * Set own equals - ids should be unique so this is more efficient which is important since Found
 		 * is often used in Sets.
@@ -182,22 +194,17 @@ object Find {
 		 * @param doc BSON retrieved from DB
 		 * @return Found object created from BSON
 		 */
-		def read(doc: BSONDocument) : Found = {
+		def read(doc: BSONDocument) = {
 			Found (
 				id = doc.getAs[String](Component.idKey) match {
 					case Some(id) => id
 					case _ => unknown
 				},
-				component = doc.getAs[String](Component.typeKey) match {
-					case Some(key) => try {
-						OptionalComponentType.withName(key)
-					} catch {
-						case e : Throwable => OptionalComponentType.None
-					}
-					case None => OptionalComponentType.None
-				},
+				component = ComponentType.getComponentTypeFromStr(doc.getAs[String](Component.typeKey)),
 				description = doc.getAs[String](Component.descriptionKey),
-				project = doc.getAs[String](Component.projectKey)
+				project = doc.getAs[String](Component.projectKey),
+				content = ContentType.getContentFromStr(doc.getAs[String](Container.contentKey)),
+				layout = Division.getDivisionFromStr(doc.getAs[String](ContainerDivisions.divisionKey))
 			)
 		}
 	}

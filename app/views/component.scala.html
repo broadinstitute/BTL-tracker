@@ -1,19 +1,19 @@
 @***************************************************************
 * Base contents of items                                       *
 * @param itemForm form with item's fields                      *
-* @param display true if displaying existing item (not create) *
+* @param id optional preset id for component                   *
 * @param componentType type of component (e.g., plate)         *
 * @param hiddenFields optional hidden fields to set in form    *
 ***************************************************************@
-@(componentForm: Form[_ <: Component], display: Boolean, componentType: Component.ComponentType.ComponentType,
+@(componentForm: Form[_ <: Component], id: Option[String], componentType: Component.ComponentType.ComponentType,
 		hiddenFields: Option[Component.HiddenFields] = None)
 @import helper._
 @import models.Component
 @import models.ComponentTag
 
 @* defining variables to be used within scope  - in this case a list of input text options for id *@
-@defining(if (display) List('readonly -> "readonly", '_showConstraints -> false) else List()) { ro =>
-    @inputText(componentForm(Component.formKey + "." + Component.idKey), List('_label -> "ID") ++ ro: _*)
+@defining(if (id.isDefined) List('readonly -> "readonly", '_showConstraints -> false) else List()) { ro =>
+    @inputText(componentForm(Component.formKey + "." + Component.idKey).copy(value = id), List('_label -> "ID") ++ ro: _*)
     @* Supply component type needed - it's a mandatory field we already know but don't need to display *@
     <input type="hidden" id="@{Component.formKey + "_" + Component.typeKey}" name="@{Component.formKey + "." + Component.typeKey}" value="@componentType" />
     @textarea(componentForm(Component.formKey + "." + Component.descriptionKey), '_label -> "Description")

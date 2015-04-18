@@ -291,7 +291,7 @@ object TransferHistory extends Controller with MongoController {
 				val component = getNodeComponent(node)
 				component match {
 					// If there's initial content include it in identifier
-					case c: Container if c.initialContent.isDefined && c.initialContent.get != ContentType.NoContents =>
+					case c: Container if c.initialContent.isDefined =>
 						component.id + s" (${c.initialContent.get.toString})"
 					// Otherwise, if no initial contents but a project, include project
 					case _ if component.project.isDefined => component.id + s" (${component.project.get.toString})"

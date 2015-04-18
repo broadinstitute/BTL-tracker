@@ -10,7 +10,7 @@
 	@componentIntro("Tube", tubeInput)
     @* Form with tube values - parameter to form method is "reverse-route" of action used to handle form submission *@
     @form(routes.TubeController.updateTubeFromForm(id), 'style -> "display:inline;") {
-        @component(tubeInput, true, Component.ComponentType.Tube, hiddenFields)
+        @component(tubeInput, Some(id), Component.ComponentType.Tube, hiddenFields)
         @inputText(tubeInput(Location.locationKey), '_label -> "Location")
 	    @initialContents(Tube.validContents, tubeInput)
 	    @updateButtons()

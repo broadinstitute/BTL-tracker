@@ -4,7 +4,6 @@ package models
  * Created on 1/28/15.
  * This the MVC model for a rack.
  */
-import formats.CustomFormats._
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.project.JiraProject
@@ -66,11 +65,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 	/**
 	 * Keys to be used in forms (in views and elsewhere) for rack specific fields
  	 */
-	val layoutKey = "layout"
 	val rackScanKey = "rackScan"
-	// Supply our custom enum Reader and Writer for enums
-	implicit val layoutTypeFormat: Format[ContainerDivisions.Division.Division] = enumFormat(ContainerDivisions.Division)
-	implicit val contentTypeFormat: Format[ContentType.ContentType] = enumFormat(ContentType)
 
 	/**
 	 * Form to use in views for rack
@@ -80,7 +75,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 			Component.formKey -> Component.componentMap,
 			Location.locationKey -> optional(text),
 			Container.contentKey -> optional(enum(ContentType)),
-			layoutKey -> enum(Division)
+			ContainerDivisions.divisionKey -> enum(Division)
 		)(applyWithComponent)(unapplyWithComponent))
 
 	/**

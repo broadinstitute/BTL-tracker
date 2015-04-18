@@ -47,7 +47,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 * by component type inheriting trait.
 	 * @return method that converts a form to html to display (typically a Play template view)
 	 */
-	def htmlForCreate: (Form[C]) => Html
+	def htmlForCreate(id: String): (Form[C]) => Html
 
 	/**
 	 * Component type, supplied by component inheriting trait (maybe someday make a macro to get this based on C type?)
@@ -65,7 +65,9 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 * Add - just say ok and display form for creating component
 	 * @return Ok status with create html
 	 */
-	def add = Ok(htmlForCreate(form))
+	def add(id: String) = {
+		Ok(htmlForCreate(id)(form))
+	}
 
 	/**
 	 * Return result with message(s):
@@ -111,12 +113,12 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	}
 
 	/**
-	 * Create using data returned in the request form - if all goes well insert component into db and display newly
-	 * entered data.
+	 * Create using data returned in the request form - if all goes well insert component into db and go home.
+	 * @param id Component ID
 	 * @param request http request
-	 * @return future to get resulting html to display created component (on error displays form with errors)
+	 * @return future to create component (on error displays form with errors)
 	 */
-	def create(request: Request[AnyContent]) = {
+	def create(id: String, request: Request[AnyContent]) = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		doRequestFromForm(form,
 			// Note that afterbind returns a future
@@ -124,26 +126,25 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 				trackerCollection.insert(data).map { lastError =>
 					val success = s"Successfully inserted item ${data.id}"
 					Logger.debug(s"$success with status: $lastError")
-					// Return view of data just created
-					viewData(Ok, data, request,
-						htmlForUpdate(data.id, Some(data.hiddenFields)), Map(None -> success), Errors.setMessages)
+					// Go home and tell everyone what we've done
+					Errors.homeRedirect(success)
 				}
 			},
 			// if trouble then show form that should be updated with error messages
-			onFailure = (f: Form[C]) => htmlForCreate(f)
+			onFailure = (f: Form[C]) => htmlForCreate(id)(f)
 		)(request).recover {
-			case err => BadRequest(htmlForCreate(form.withGlobalError(Errors.exceptionMessage(err))))
+			case err => BadRequest(htmlForCreate(id)(form.withGlobalError(Errors.exceptionMessage(err))))
 		}
 	}
 
 	/**
-	 * Update - if all goes well update component in db and redirect to display newly entered data.
-	 * @param request http request
+	 * Update - if all goes well update component in db and and gh home.
 	 * @param id component id
+	 * @param request http request
 	 * @param preUpdate callback to allow pre-update checking - returns non-empty map of error(s) to abort update
-	 * @return future to get resulting html to display updated component (on error displays form with errors)
+	 * @return future update component (on error displays form with errors)
 	 */
-	def update(request: Request[AnyContent], id: String,
+	def update(id: String, request: Request[AnyContent],
 	           preUpdate: (C) => Map[Option[String], String] = (_) => Map.empty) = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		doRequestFromForm(form,
@@ -157,9 +158,8 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 					trackerCollection.update(selector,data).map { lastError =>
 						val success = s"Successfully updated ${data.id}"
 						Logger.debug(s"$success with status: $lastError")
-						// Return view of data just updated
-						viewData(Ok, data, request,
-							htmlForUpdate(id, Some(data.hiddenFields)), Map(None -> success), Errors.setMessages)
+						// Go home and tell everyone what we've done
+						Errors.homeRedirect(success)
 					}
 				} else {
 					// If pre-update returned errors then return form with those errors - remember original
@@ -257,7 +257,7 @@ object ComponentController extends Controller with MongoController {
 				found = (_) => None,
 				notFound = (_,_) =>
 					Some(Errors.notFoundComponentMessage(id,validComponents) +
-						" - change " + idType + " set or add " + idType + " " + id))
+						" - change " + idType + " set or register " + idType + " " + id))
 			case None => Future.successful(None)
 		}
 
@@ -305,7 +305,7 @@ object ComponentController extends Controller with MongoController {
 	 * @param addRoute Method to get call to redirect adds to
 	 * @param jsonToComponent Method to create component object from json
 	 */
-	case class ControllerActions(updateRoute: (String) => Call, addRoute: () => Call,
+	case class ControllerActions(updateRoute: (String) => Call, addRoute: (String) => Call,
 	                             jsonToComponent: (JsObject) => Component)
 
 	/**
@@ -315,16 +315,16 @@ object ComponentController extends Controller with MongoController {
 		Map(
 			ComponentType.Freezer ->
 				ControllerActions(routes.FreezerController.findFreezerByID(_: String),
-					routes.FreezerController.addFreezer, FreezerController.componentFromJson(_: JsObject)),
+					routes.FreezerController.addFreezer(_: String), FreezerController.componentFromJson(_: JsObject)),
 			ComponentType.Plate ->
 				ControllerActions(routes.PlateController.findPlateByID(_: String),
-					routes.PlateController.addPlate, PlateController.componentFromJson(_: JsObject)),
+					routes.PlateController.addPlate(_: String), PlateController.componentFromJson(_: JsObject)),
 			ComponentType.Rack ->
-				ControllerActions(routes.RackController.findRackByID(_:String),
-					routes.RackController.addRack, RackController.componentFromJson(_: JsObject)),
+				ControllerActions(routes.RackController.findRackByID(_: String),
+					routes.RackController.addRack(_: String), RackController.componentFromJson(_: JsObject)),
 			ComponentType.Tube ->
 				ControllerActions(routes.TubeController.findTubeByID(_: String),
-					routes.TubeController.addTube, TubeController.componentFromJson(_: JsObject))
+					routes.TubeController.addTube(_: String), TubeController.componentFromJson(_: JsObject))
 		)
 
 	/**

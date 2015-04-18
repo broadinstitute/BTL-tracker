@@ -10,7 +10,7 @@
     @componentIntro("Freezer", freezerInput)
     @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
     @form(routes.FreezerController.updateFreezerFromForm(id), 'style -> "display:inline;") {
-        @component(freezerInput, true, Component.ComponentType.Freezer, hiddenFields)
+        @component(freezerInput, Some(id), Component.ComponentType.Freezer, hiddenFields)
 	    @inputText(freezerInput(Freezer.addressKey), '_label -> "Address")
 	    @inputText(freezerInput(Freezer.temperatureKey), '_label -> "Temperature (Celsius)")
 	    @updateButtons()

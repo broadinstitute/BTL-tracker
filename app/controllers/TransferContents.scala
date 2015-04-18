@@ -4,7 +4,6 @@ import models.ContainerDivisions.Division._
 import models.initialContents.InitialContents
 import models.Transfer
 import models.{Rack, Component, Container, ContainerDivisions}
-import InitialContents.ContentType.NoContents
 import controllers.TransferHistory.TransferEdge
 
 import scalax.collection.edge.LkDiEdge
@@ -131,7 +130,7 @@ object TransferContents {
 				c match {
 					case container: Container =>
 						container.initialContent match {
-							case Some(ic) if ic != NoContents => {
+							case Some(ic) => {
 								val mids = InitialContents.contents(ic).contents.map{
 									case (well, mbw) =>
 										well -> MergeResult(None, Set(MergeMid(mbw.getSeq, mbw.getName, mbw.isNextera)))

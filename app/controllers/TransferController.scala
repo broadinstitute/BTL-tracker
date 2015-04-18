@@ -3,7 +3,6 @@ package controllers
 import controllers.Errors.FlashingKeys
 import models.Transfer.Quad.Quad
 import models._
-import ContainerDivisions.Division._
 import play.api.Logger
 import play.api.data.Form
 import play.api.mvc.{Result, Action, Controller}
@@ -205,6 +204,7 @@ object TransferController extends Controller with MongoController {
 								// All is well - now just check if transfer should be done now or we need additional
 								// information about what quadrants/slices to transfer from/to
 								case None =>
+									import ContainerDivisions.Division._
 									(fromData, toData) match {
 										case (f: ContainerDivisions, t: ContainerDivisions) =>
 											(f.layout,t.layout) match {

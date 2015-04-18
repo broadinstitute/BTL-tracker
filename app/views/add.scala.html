@@ -1,4 +1,4 @@
-@(addForm: Form[Component.ComponentTypeClass])
+@(addForm: Form[Component.ComponentIDandTypeClass], id: String)
 @import helper._
 @import models.Component
 
@@ -7,6 +7,7 @@
 }{
 	@componentIntro("Register Component", addForm)
 	@form(routes.Application.addFromForm, 'style -> "display:inline;") {
+		@inputText(addForm(Component.idKey).copy(value=Some(id)), '_label -> "ID", 'readonly -> "readonly", '_showConstraints -> false)
 		@select(field = addForm(Component.typeKey),
 			options = options(Component.componentTypes), '_label -> "Component type")
 		<input type="submit" value="Continue" style="display:inline;">

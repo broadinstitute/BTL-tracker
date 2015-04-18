@@ -1,8 +1,9 @@
 @**********************************************************
 * Screen to create a new plate                            *
 * @param plateForm form to use to gather values for plate *
+* @param id component id                                  *
 **********************************************************@
-@(plateForm: Form[Plate])
+@(plateForm: Form[Plate], id: String)
 @import helper._
 @import models.Plate
 
@@ -10,11 +11,11 @@
 @mainComponent("Register Plate"){
 	@componentIntro("Register Plate", plateForm)
 	@* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
-	@form(routes.PlateController.createPlateFromForm(), 'style -> "display:inline;") {
-		@component(plateForm, false, Component.ComponentType.Plate)
+	@form(routes.PlateController.createPlateFromForm(id), 'style -> "display:inline;") {
+		@component(plateForm, Some(id), Component.ComponentType.Plate)
 		@*      @inputText(plateForm(Location.locationKey), '_label -> "Location") *@
 		@initialContents(Plate.validContents, plateForm)
-		@select(field = plateForm(Plate.layoutKey),
+		@select(field = plateForm(ContainerDivisions.divisionKey),
 			options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
 		@createButtons()
 	}

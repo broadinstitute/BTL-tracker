@@ -1,15 +1,13 @@
 package controllers
 
-import models.Component.OptionalComponentType
 import models.Find._
-import models.{Component, Find}
+import models.{ContainerDivisions, Container, Find}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.iteratee.{Enumeratee, Iteratee}
 import play.api.mvc.{Action, Controller}
 import play.modules.reactivemongo.MongoController
 import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson._
-import Component.ComponentTypeImplicits._
 import scala.collection.Set
 
 import scala.concurrent.Future
@@ -25,7 +23,7 @@ object FindController extends Controller with MongoController {
 	def trackerBSONCollection: BSONCollection = db.collection[BSONCollection](ComponentController.trackerCollectionName)
 
 	/**
-	 * Initiate find of component - just put up form to get ID of component
+	 * Initiate search of components - just put up form to get search criteria
 	 * @return action to get id of wanted component
 	 */
 	def find = Action { request =>
@@ -40,7 +38,18 @@ object FindController extends Controller with MongoController {
 		val found = getFoundDoc(doc)
 		// Map future to change components retrieved into found objects
 		TransferHistory.getAssociatedNodes(found.id).map((cIDs) =>
-			cIDs.map((c) => Find.Found(c.id, c.component, c.description, c.project)) + found)
+			cIDs.map((c) => {
+				Find.Found(c.id, Some(c.component), c.description, c.project,
+					c match {
+						case ctr: Container => ctr.initialContent
+						case _ => None
+					},
+					c match {
+						case div: ContainerDivisions => Some(div.layout)
+						case _ => None
+					}
+				)
+			}) + found)
 	})
 	// This enumeratee is when transfers are not wanted - we simply change the document into a found object
 	private val findWithoutTransfers = Enumeratee.map[BSONDocument]((doc) => Set(getFoundDoc(doc)))
@@ -75,9 +84,9 @@ object FindController extends Controller with MongoController {
 					result.size match {
 						case 0 =>
 							Ok(views.html.find(Find.form.fill(data).withGlobalError("No matching components found")))
-						case 1 if result.head.component != OptionalComponentType.None =>
+						case 1 if result.head.component.isDefined =>
 							val found = result.head
-							Redirect(ComponentController.actions(found.component).updateRoute(found.id))
+							Redirect(ComponentController.actions(found.component.get).updateRoute(found.id))
 						case _ => Ok(views.html.findResults("Find Results")(result))
 					}
 				})

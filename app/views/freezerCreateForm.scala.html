@@ -1,16 +1,17 @@
 @************************************************
 * Screen to create a component                  *
 * @param freezerForm form used to gather values *
+* @param id component id                        *
 ************************************************@
-@(freezerInput: Form[Freezer])
+@(freezerInput: Form[Freezer], id: String)
 @import helper._
 
 @* Call main template to create html with form to create a freezer *@
 @mainComponent("Register Freezer"){
     @componentIntro("Register Freezer", freezerInput)
     @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
-    @form(routes.FreezerController.createFreezerFromForm(), 'style -> "display:inline;") {
-        @component(freezerInput, false, Component.ComponentType.Freezer)
+    @form(routes.FreezerController.createFreezerFromForm(id), 'style -> "display:inline;") {
+        @component(freezerInput, Some(id), Component.ComponentType.Freezer)
 	    @inputText(freezerInput(Freezer.addressKey), '_label -> "Address")
 	    @inputText(freezerInput(Freezer.temperatureKey), '_label -> "Temperature (Celsius)")
 	    @createButtons()

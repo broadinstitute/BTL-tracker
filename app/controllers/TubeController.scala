@@ -18,7 +18,7 @@ object TubeController extends ComponentController[Tube] {
 	implicit val formatter = Tube.formatter
 
 	// Play html view to create tube
-	def htmlForCreate = views.html.tubeCreateForm(_: Form[Tube])
+	def htmlForCreate(id: String) = views.html.tubeCreateForm(_: Form[Tube], id)
 
 	// Play html view to update tube
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
@@ -34,7 +34,7 @@ object TubeController extends ComponentController[Tube] {
 	 * Request to add a tube - we simply put up the form to get the parameters to create the tube.
 	 * @return responds to request with html form to get tube input
 	 */
-	def addTube() = Action { add }
+	def addTube(id: String) = Action { add(id) }
 
 	/**
 	 * Request to find a tube, identified by an ID.  We find the tube (or return an error if it can’t be found) and
@@ -47,14 +47,15 @@ object TubeController extends ComponentController[Tube] {
 	/**
 	 * Go create a tube.  If all goes well the tube is created in the DB and the user is redirected to
 	 * to view/update the newly created tube.
+	 * @param id tube ID
 	 * @return responds to request with html form to view/update added tube
 	 */
-	def createTubeFromForm() = Action.async { request => create(request)}
+	def createTubeFromForm(id: String) = Action.async { request => create(id, request)}
 
 	/**
 	 * Go update a tube.  If all goes well the tube is updated in the DB and the user is redirected to
 	 * to view/update the newly updated tube.
 	 * @return responds to request with updated form to view/update tube
 	 */
-	def updateTubeFromForm(id: String) = Action.async { request => update(request, id)}
+	def updateTubeFromForm(id: String) = Action.async { request => update(id, request)}
 }

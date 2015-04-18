@@ -12,27 +12,34 @@
 	@errForm.globalErrors.map {error => <span class="error">@error.message</span><br><br>}
 	<img src="@routes.Assets.at("images/lab.jpg")" width="600" height="396" />
 	<br>
-    @form(controllers.routes.Application.add(), 'style -> "display:inline;") {
-        <input type="submit" value="Register Component" style="display:inline;">
-    }
 	@form(controllers.routes.FindController.find(), 'style -> "display:inline;") {
-		<input type="submit" value="Find Components" style="display:inline;">
+
+		<input type="submit" value="Search" style="display:inline;">
 	}
 	<br><br>
 	<div id="footer">
-		<label for="qFind" style="font-size:13px;">&nbsp&nbspFind ID:</label>
+		<label for="qRegister" style="font-size:13px;">&nbspRegister ID:</label>
+		<input type="text" id="qRegister" name="qRegister" size=20 placeholder="Component ID" style="display:inline;"/>
+		<br>
+		<label for="qFind" style="font-size:13px;">&nbspFind ID:</label>
 		<input type="text" id="qFind" name="qFind" size=20 placeholder="Component ID" style="display:inline;"/>
 		<br>
-		<label for="fromTran" style="font-size:13px;">&nbsp&nbspTransfer:</label>
+		<label for="fromTran" style="font-size:13px;">&nbspTransfer:</label>
 		<input type="text" id="fromTran" name="fromTran" size=20 placeholder="from" style="display:inline;"/>
 		<label for="toTran">&nbsp</label>
 		<input type="text" id="toTran" name="toTran" size=20 placeholder="to" style="display:inline;"/>
 	</div>
 	<script>
+	$('#qRegister').keypress(function (e) {
+	var key = e.which;
+	if(key == 13 && $("#qRegister").val().trim() != "") {
+	window.location.assign("/add/" + $("#qRegister").val());
+	return false;
+	}});
 	$('#qFind').keypress(function (e) {
 	var key = e.which;
 	if(key == 13 && $("#qFind").val().trim() != "") {
-	window.location.replace("/find/" + $("#qFind").val());
+	window.location.assign("/find/" + $("#qFind").val());
 	return false;
 	}});
 	function doTran(e, from, to) {
@@ -40,18 +47,16 @@
 	var key = e.which;
 	if(key == 13 && (from != "" || to != ""))  {
 	if(from != "") { params = "?fromID=" + from; }
-	if(to != "") {
-	if(params) { params = params + "&toID=" + to; } else { params = "?toID=" + to; }}
-	}
+	if(to != "") { if(params) { params = params + "&toID=" + to; } else { params = "?toID=" + to; } } }
 	return params;
 	};
 	$('#fromTran').keypress(function (e) {
 	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim());
-	if (p) { window.location.replace("/transfer" + p); return false; }
+	if (p) { window.location.assign("/transfer" + p); return false; }
 	});
 	$('#toTran').keypress(function (e) {
 	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim());
-	if (p) { window.location.replace("/transfer" + p); return false; }
+	if (p) { window.location.assign("/transfer" + p); return false; }
 	});
 	</script>
 }

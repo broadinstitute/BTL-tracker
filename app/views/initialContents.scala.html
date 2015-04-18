@@ -10,5 +10,5 @@
 
 @if(!validContents.isEmpty) {
 	@select(field = componentForm(Container.contentKey),
-		options = options(InitialContents.getContentDisplayValues(validContents)), '_label -> "Initial Content")
+		options = options("" +: InitialContents.getContentDisplayValues(validContents)), '_label -> "Initial Content")
 }

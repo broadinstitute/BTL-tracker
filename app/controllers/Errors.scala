@@ -100,9 +100,20 @@ object Errors {
 	 * @return redirect to add page
 	 */
 	def notFoundRedirect(id: String,componentType: List[ComponentType.ComponentType]) = {
-		val r = Redirect(routes.Application.add)
+		val r = Redirect(routes.Application.add(id))
 		FlashingKeys.setFlashingValue(r,FlashingKeys.Status,
-			notFoundComponentMessage(id,componentType) + " - you can add the component now")
+			notFoundComponentMessage(id,componentType) +
+				" - specify component type and continue to register component now")
+	}
+
+	/**
+	 * Default not found redirection - we redirect to add page flashing what we didn't find.
+	 * @param flashMsg Message to display upon redirect
+	 * @return redirect to home page
+	 */
+	def homeRedirect(flashMsg: String) = {
+		val r = Redirect(routes.Application.index())
+		FlashingKeys.setFlashingValue(r,FlashingKeys.Status,flashMsg)
 	}
 
 	/**

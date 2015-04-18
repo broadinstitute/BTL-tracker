@@ -1,8 +1,9 @@
 @**********************************************************
 * Screen to create a new rack                             *
 * @param rackForm form to use to gather values for rack   *
+* @param id component id                                  *
 **********************************************************@
-@(rackForm: Form[Rack])
+@(rackForm: Form[Rack], id: String)
 @import helper._
 @import models.Rack
 
@@ -10,11 +11,11 @@
 @mainComponent("Register Rack"){
     @componentIntro("Register Rack", rackForm)
     @* Form with rack values - parameter to form method is "reverse-route" of action used to handle form submission *@
-    @form(routes.RackController.createRackFromForm(), 'style -> "display:inline;") {
-        @component(rackForm, false, Component.ComponentType.Rack)
+    @form(routes.RackController.createRackFromForm(id), 'style -> "display:inline;") {
+        @component(rackForm, Some(id), Component.ComponentType.Rack)
 @*        @inputText(rackForm(Location.locationKey), '_label -> "Location") *@
 	    @initialContents(Rack.validContents, rackForm)
-        @select(field = rackForm(Rack.layoutKey),
+        @select(field = rackForm(ContainerDivisions.divisionKey),
             options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
         @createButtons()
     }

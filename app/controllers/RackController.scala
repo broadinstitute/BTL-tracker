@@ -22,7 +22,7 @@ object RackController extends ComponentController[Rack] {
 	implicit val formatter = Rack.formatter
 
 	// Play html view to create rack
-	def htmlForCreate = views.html.rackCreateForm(_: Form[Rack])
+	def htmlForCreate(id: String) = views.html.rackCreateForm(_: Form[Rack], id)
 
 	// Play html view to update rack
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
@@ -38,7 +38,7 @@ object RackController extends ComponentController[Rack] {
 	 * Request to add a rack - we simply put up the form to get the parameters to create the rack.
 	 * @return responds to request with html form to get plate input
 	 */
-	def addRack() = Action { implicit request => add }
+	def addRack(id: String) = Action { request => add(id) }
 
 	/**
 	 * Request to find a rack, identified by an ID.  We find the rack (or return an error if it can’t be found) and
@@ -46,14 +46,15 @@ object RackController extends ComponentController[Rack] {
 	 * @param id rack ID
 	 * @return responds to request with html form to view/update rack
 	 */
-	def findRackByID(id: String) = Action.async { implicit request => find(id,request) }
+	def findRackByID(id: String) = Action.async { request => find(id,request) }
 
 	/**
 	 * Go create a rack.  If all goes well the plate is created in the DB and the user is redirected to
 	 * to view/update the newly created rack.
+	 * @param id rack ID
 	 * @return responds to request with html form to view/update added rack
 	 */
-	def createRackFromForm() = Action.async { implicit request => create(request)}
+	def createRackFromForm(id: String) = Action.async { implicit request => create(id, request)}
 
 	/**
 	 * Make an error message for when we can't find something in the DB
@@ -83,7 +84,7 @@ object RackController extends ComponentController[Rack] {
 			getBSPmatch(id,
 				(matches, foundRack) => {
 					// Get layout type and corresponding data to now dimensions of rack
-					val layout = (json \ Rack.layoutKey).as[String]
+					val layout = (json \ ContainerDivisions.divisionKey).as[String]
 					val layoutType = ContainerDivisions.Division.withName(layout)
 					val layoutData = ContainerDivisions.divisionDimensions(layoutType)
 					// Show the results
@@ -105,7 +106,7 @@ object RackController extends ComponentController[Rack] {
 	 * @return responds to request with updated form to view/update rack
 	 */
 	def updateRackFromForm(id: String) = Action.async { implicit request =>
-		update(request, id,
+		update(id, request,
 			// Before the update to the DB occurs process any rack scan file that's there
 			// If there are problems we return an error string
 			preUpdate = (data) => {

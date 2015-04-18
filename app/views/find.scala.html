@@ -1,14 +1,15 @@
 @(findForm: Form[Find])
 @import helper._
 @import models.{Component, Find}
+@import models.initialContents.InitialContents
 
-@mainComponent("Find item") {
-	@componentIntro("Find item", findForm)
+@mainComponent("Search") {
+	@componentIntro("Search", findForm)
 	@form(routes.FindController.findFromForm(), 'style -> "display:inline;") {
 		@inputText(findForm(Component.idKey),
 			'_label -> "ID(s)", '_help -> "Separate multiple IDs with commas or spaces")
 		@select(field = findForm(Component.typeKey),
-			options = options(Component.optionalComponentTypes), '_label -> "Component type")
+			options = options("" +: Component.componentTypes), '_label -> "Component type")
 		@textarea(findForm(Component.descriptionKey), '_label -> "Description")
 		@* Put in tags already there - tags can be added or removed via remNew and addNew javascript function
 		Note it's crucial that the div id here (addinput) agree with what's in javascript *@
@@ -27,9 +28,14 @@
 			<p> </p>
 		</div>
 		@inputText(findForm(Component.projectKey), '_label -> "Project ID", 'style -> "display:inline;")
+		@* Blank in front of options allows None to be returned for these optional enum values *@
+		@select(field = findForm(Container.contentKey),
+			options = options("" +: InitialContents.getAllContentDisplayValues()), '_label -> "Initial content")
+		@select(field = findForm(ContainerDivisions.divisionKey),
+			options = options("" +: ContainerDivisions.divisionTypes), '_label -> "Layout")
 		@checkbox(findForm(Find.transfersKey),
 			'_label -> "Include transfer components?", 'style -> "display:inline;", '_help -> "")
-		<input type="submit" value="Find" style="display:inline;">
+		<input type="submit" value="Search" style="display:inline;">
 	}
 	@homeOption(Seq.empty)
 }

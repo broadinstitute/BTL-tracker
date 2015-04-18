@@ -277,36 +277,27 @@ object Component {
 	 */
 	def getHiddenFields(request: Request[AnyContent]) = getHiddenField(request, Some(_))
 
-	sealed trait ComponentTypes extends Enumeration {
+	object ComponentType extends Enumeration {
 		type ComponentType = Value
 		val Tube, Plate, Rack, Freezer = Value
 		// Create Format for ComponentType enum using our custom enum Reader and Writer
 		implicit val componentTypeFormat: Format[ComponentType] =
 			enumFormat(this)
-	}
 
-	/**
-	 * Enumeration for all component types
-	 */
-	object ComponentType extends ComponentTypes
-
-	/**
-	 * Enumeration for all component types plus "None"
-	 */
-	object OptionalComponentType extends ComponentTypes {
-		val None = Value
-	}
-
-	/**
-	 * Implicits to go between OptionalComponentType and ComponentType - note that if an attempt is made to go from
-	 * OptionalComponentType.None to a ComponentType there will be an exception
-	 */
-	object ComponentTypeImplicits {
-		implicit def componentTypeToOptionalComponentType(ct: ComponentType.ComponentType) =
-			OptionalComponentType.withName(ct.toString)
-
-		implicit def optionalComponentTypeToComponentType(ct: OptionalComponentType.ComponentType) =
-			ComponentType.withName(ct.toString)
+		/**
+		 * Get optional content type from string.  Set as optional if content type is NoContents or invalid.
+		 * @param content content type as string
+		 * @return optional content type found
+		 */
+		def getComponentTypeFromStr(content: Option[String]) =
+			content match {
+				case Some(key) => try {
+					Some(ComponentType.withName(key))
+				} catch {
+					case e: Throwable => None
+				}
+				case _ => None
+			}
 	}
 
 	/**
@@ -316,11 +307,6 @@ object Component {
 		val listStart = List(ComponentType.Plate.toString, ComponentType.Rack.toString)
 		listStart ++ ComponentType.values.map(_.toString).toList.filterNot(listStart.contains(_))
 	}
-
-	/**
-	 * List of component types as string with None as first choice
-	 */
-	val optionalComponentTypes = List(OptionalComponentType.None.toString) ++ componentTypes
 
 	/**
 	 * Small form that can hold error message (or nothing if to be used to just get global messages with a blank
@@ -340,23 +326,12 @@ object Component {
 	 * Little form for just getting a component type
 	 * @param t component type
 	 */
-	case class ComponentTypeClass(t: ComponentType.ComponentType)
+	case class ComponentIDandTypeClass(id: String, t: ComponentType.ComponentType)
 
-	val typeForm =
+	val idAndTypeForm =
 		Form(
 			mapping(
+				idKey -> nonEmptyText,
 				typeKey -> enum(ComponentType)
-			)(ComponentTypeClass.apply)(ComponentTypeClass.unapply))
-
-	/**
-	 * Little form for just getting an ID
-	 * @param id id for component
-	 */
-	case class ComponentIDClass(id: String)
-
-	val idForm =
-		Form(
-			mapping(
-				idKey -> nonEmptyText
-			)(ComponentIDClass.apply)(ComponentIDClass.unapply))
+			)(ComponentIDandTypeClass.apply)(ComponentIDandTypeClass.unapply))
 }

@@ -4,7 +4,6 @@ import models.Component.ComponentType
 import play.api.libs.json._
 import play.api.mvc._
 import models._
-import Errors.FlashingKeys
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.concurrent.Future
@@ -53,8 +52,8 @@ object Application extends Controller {
 	 * Initial request to add - we just put up the form to get initial data for the form
 	 * @return action to execute to initiate add of component
 	 */
-	def add = Action { request =>
-		Ok(views.html.add(Errors.addStatusFlash(request,Component.typeForm)))
+	def add(id: String) = Action { request =>
+		Ok(views.html.add(Errors.addStatusFlash(request,Component.idAndTypeForm), id))
 	}
 
 	/**
@@ -62,11 +61,11 @@ object Application extends Controller {
 	 * @return action to execute to put up form to get component data
 	 */
 	def addFromForm = Action { request =>
-		Component.typeForm.bindFromRequest()(request).fold(
+		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
-				BadRequest(views.html.add(formWithErrors.withGlobalError(Errors.validationError))),
+				BadRequest(views.html.add(formWithErrors.withGlobalError(Errors.validationError), formWithErrors.get.id)),
 			data =>
-				Redirect(ComponentController.actions(data.t).addRoute())
+				Redirect(ComponentController.actions(data.t).addRoute(data.id))
 		)
 	}
 
@@ -93,8 +92,7 @@ object Application extends Controller {
 		// Make result - redirect to home page and set flashing value (to be set as global error) to be picked up
 		// on home page
 		def getResult(msg: String) = {
-			val result = Redirect(routes.Application.index())
-			FlashingKeys.setFlashingValue(result, FlashingKeys.Status, msg)
+			Errors.homeRedirect(msg)
 		}
 		// Do delete
 		ComponentController.delete(id,

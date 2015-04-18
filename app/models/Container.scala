@@ -26,5 +26,5 @@ trait Container {
 
 object Container {
 	// Label to use for content
-	val contentKey = "content"
+	val contentKey = "initialContent"
 }
