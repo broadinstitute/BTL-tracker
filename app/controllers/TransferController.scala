@@ -18,6 +18,17 @@ import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
+ * The flow of a transfer is a bit convoluted in order to make the UI as simple as possible.  First there is the option
+ * on the home screen to set a to and from ID along with a project.  If the to and from IDs point to components that
+ * do not have quadrants and can not be sliced then we go immediately to do the transfer.  However if more information
+ * is needed we then go to the transfer form to get the quadrant/slice information.  To preserve what has been learned
+ * about the transfer a bunch of parameters are sent with the request to dictate exactly what fields (e.g.,
+ * quadrants) are to be queried for.
+ *
+ * An alternative flow is when a transfer is requested from an individual component already found.  This goes to the
+ * transfer start screen which, similar to the home screen, prompts for the to component and optional project.  In
+ * this case the from component is already set on the transfer start page.
+ *
  * @author Nathaniel Novod
  *         Date: 2/24/15
  *         Time: 6:27 PM
@@ -65,11 +76,11 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Take data from transfer form and check it out.  If one or both IDs are not found we return a form with the
+	 * Take data from transfer start form and check it out.  If one or both IDs are not found we return a form with the
 	 * errors set, otherwise we return the objects found.
 	 * @param data data retrieved from transfer form
 	 * @tparam T type to return as transfer objects if they are found
-	 * @return objects found and form with errors - one and only one will be set to None
+	 * @return objects found and form with errors - one and only one of these will be set to None
 	 */
 	private def getTransferInfo[T: Reads](data: TransferStart) = {
 		// Go retrieve both objects via futures
@@ -104,7 +115,7 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Is the transfer valid.  Check from component can be transferred to to component.
+	 * Is the transfer valid?  Check from component can be transferred to to component.
 	 * @param data transfer data
 	 * @param from json from find of from component
 	 * @param to json from find of to component
@@ -125,13 +136,14 @@ object TransferController extends Controller with MongoController {
 	/**
 	 * Result when transfer completes
 	 * @param getMsg callback to get messages to set in response form
-	 * @return redirect to index with wanted message
+	 * @return redirect to home page with wanted message
 	 */
 	private def transferCompleteResult(getMsg: () => String) =
 		FlashingKeys.setFlashingValue(Redirect(routes.Application.index()), FlashingKeys.Status, getMsg())
 
 	/**
-	 * Result when transfer needs more information
+	 * Result when transfer needs more information.  Based on the quadrant information wanted we set parameters for
+	 * the transfer screen
 	 * @param data transfer info known so far
 	 * @param fromQuad true if need query for quadrant to transfer from
 	 * @param toQuad true if need query for quadrant to transfer to
@@ -175,15 +187,16 @@ object TransferController extends Controller with MongoController {
 			Some(data.from), Some(data.to), data.project)
 
 	/**
-	 * Complete a future with a result
-	 * @param res result to set as future
+	 * Complete a future immediately with a result
+	 * @param res result to set for future completion
 	 * @return future completed successfully with result
 	 */
 	private def now(res: Result) = Future.successful(res)
 
 	/**
 	 * Start of transfer - we look over IDs and see what's possible.  Depending on type of components being transferred
-	 * different additional information may be needed.
+	 * the transfer is done now (e.g., if between tubes) or different additional information is requested (e.g., if
+	 * between components with quadrants and/or slices).
 	 * @return action to see what step is next to complete transfer
 	 */
 	def transferIDs = Action.async { request =>
@@ -198,6 +211,11 @@ object TransferController extends Controller with MongoController {
 		}
 	}
 
+	/**
+	 * Complete the transfer or request additional information needed.
+	 * @param data transfer information gathered so far
+	 * @return future completed if more information needed, otherwise future waits for transfer insertion completion
+	 */
 	def doTransfer(data: TransferStart) = {
 		// Got data from form - get from and to data (as json) - flatMap is mapping future from retrieving DB
 		// data - flatMap continuation is either a future that completes immediately because transfer can not
