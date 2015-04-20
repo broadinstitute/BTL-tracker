@@ -9,6 +9,8 @@ import controllers.TransferHistory.TransferEdge
 import scalax.collection.edge.LkDiEdge
 
 /**
+ * TransferContent combines all the contents of components leading into a specified component.  First a graph is made
+ * to know what inputs there are and then the graph is traversed to combine that contents.
  * Created by nnovod on 3/18/15.
  */
 object TransferContents {
@@ -92,7 +94,7 @@ object TransferContents {
 		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		TransferHistory.makeSourceGraph(componentID).map((graph) => {
-			/**
+			/*
 			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
 			 * @param c Component to find bsp sample information for
 			 * @return optional match, by well, of bsp sample information found
@@ -121,7 +123,7 @@ object TransferContents {
 					case _ => (Map.empty[String, MergeResult], List.empty[String])
 				}
 
-			/**
+			/*
 			 * Get initial contents of container.
 			 * @param c Component to get initial contents
 			 * @return optional initial contents found
@@ -130,19 +132,18 @@ object TransferContents {
 				c match {
 					case container: Container =>
 						container.initialContent match {
-							case Some(ic) => {
+							case Some(ic) =>
 								val mids = InitialContents.contents(ic).contents.map{
 									case (well, mbw) =>
 										well -> MergeResult(None, Set(MergeMid(mbw.getSeq, mbw.getName, mbw.isNextera)))
 								}
 								(mids, List.empty[String])
-							}
 							case _ => (Map.empty[String, MergeResult], List.empty[String])
 						}
 					case _ => (Map.empty[String, MergeResult], List.empty[String])
 				}
 
-			/**
+			/*
 			 * Get initial contents for a component - contents can include bsp input (for a rack) or MIDs (for a plate)
 			 * @param component component
 			 * @return results with contents found
@@ -169,7 +170,7 @@ object TransferContents {
 				}
 			}
 
-			/**
+			/*
 			 * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
 			 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice is a subset
 			 * of a quadrant (for components that have quadrants) or an entire component (for non-quadrant components,
@@ -181,7 +182,7 @@ object TransferContents {
 			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
 			 */
 			def takeQuadrant(in: MergeTotalContents, transfer: TransferEdge) = {
-				/**
+				/*
 				 * Do the mapping of a quadrant between original input wells to wells it will go to in the destination.
 				 * @param in input component contents
 				 * @param layout layout we should be going to or from
@@ -212,6 +213,9 @@ object TransferContents {
 					// Slice of quadrant to an entire component - should be 384-well component to non-quadrant component
 					case (Some(from), None, Some(slice)) =>
 						mapQuadrantWells(in, DIM16x24, Transfer.slice384to96map(from, slice))
+					// Quadrant to quadrant - must be 384-well component to 384-well component
+					case (Some(from), Some(to), None) =>
+						mapQuadrantWells(in, DIM16x24, Transfer.q384to384map(from, to))
 					// Slice of quadrant to slice of quadrant - must be 384-well component to 384-well component
 					case (Some(from), Some(to), Some(slice)) =>
 						mapQuadrantWells(in, DIM16x24, Transfer.slice384to384map(from, to, slice))
@@ -226,7 +230,7 @@ object TransferContents {
 				}
 			}
 
-			/**
+			/*
 			 * Merge input into output.  When merging/folding for each well if there are MIDs that are not attached
 			 * yet (MergeResult with bsp set to None) then attach them to all the samples (and get rid of MergeResult
 			 * with bsp set to None).
@@ -259,11 +263,8 @@ object TransferContents {
 							// Merge together lists attaching MIDs not yet associated with samples
 							val mergedResults =
 								if (mids.size == 0 || samples.size == 0) allResults
-								else {
-									samples.map((sample) =>
-										MergeResult(sample.bsp, sample.mid ++ (mids.flatMap(_.mid)))
-									)
-								}
+								else samples.map((sample) =>
+									MergeResult(sample.bsp, sample.mid ++ mids.flatMap(_.mid)))
 							well -> mergedResults
 						case _ => well -> results
 					}
@@ -272,7 +273,7 @@ object TransferContents {
 				MergeTotalContents(output.component, newResults, input.errs ++ output.errs)
 			}
 
-			/**
+			/*
 			 * Find the contents for a component that is a node in a graph recording the transfers that lead
 			 * into the component.
 			 * @param output component node for which we want, taking into account transfers, the contents

@@ -2,6 +2,7 @@ package controllers
 
 import controllers.Errors.FlashingKeys
 import models.Transfer.Quad.Quad
+import models.Transfer.Slice.Slice
 import models._
 import play.api.Logger
 import play.api.data.Form
@@ -32,11 +33,15 @@ object TransferController extends Controller with MongoController {
 	def transferCollectionBSON: BSONCollection = db.collection[BSONCollection](transferCollectionName)
 
 	/**
-	 * Initiate transfer - go bring up form to do transfer
+	 * Initiate transfer - if additional info needed bring up form otherwise try to do transfer now
 	 * @return action to go get transfer information
 	 */
-	def transfer(fromID: Option[String], toID: Option[String]) = Action { request =>
-		Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.startForm), fromID, toID, true))
+	def transfer(fromID: Option[String], toID: Option[String], project: Option[String]) = Action.async { request =>
+		if (fromID.isDefined && toID.isDefined)
+			doTransfer(TransferStart(fromID.get, toID.get, project))
+		else
+			Future.successful(Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.startForm),
+				fromID, toID, project, true)))
 	}
 
 	/**
@@ -47,14 +52,15 @@ object TransferController extends Controller with MongoController {
 	 * @param project optional project associated with transfer
 	 * @param fromQuad true if we need to get the quadrant we're transferring from
 	 * @param toQuad true if we need to get the quadrant we're transferring to
-	 * @param slice true if we need to get slice we're transferring
+	 * @param dataMandatory true if requested quadrant information must be specified
+	 * @param isQuadToQuad true if quadrant transfers must have from and to quadrant
 	 * @return action to get additional transfer information wanted
 	 */
 	def transferWithParams(fromID: String, toID: String, project: Option[String],
-	                       fromQuad: Boolean, toQuad: Boolean, slice: Boolean) = {
+	                       fromQuad: Boolean, toQuad: Boolean, dataMandatory: Boolean, isQuadToQuad: Boolean) = {
 		Action { request =>
 			Ok(views.html.transfer(Errors.addStatusFlash(request, Transfer.form), fromID, toID, project,
-				fromQuad, toQuad, slice))
+				fromQuad, toQuad, dataMandatory, isQuadToQuad))
 		}
 	}
 
@@ -117,17 +123,6 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Make message describing component transfer
-	 * @param from component we're transferring from
-	 * @param to component we're transferring to
-	 * @return componentType ID to ComponentType ID
-	 */
-	private def fromToMsg(from: Component, to: Component) = {
-		def componentStr(c: Component) = c.component.toString + " " + c.id
-		"transfer of " + componentStr(from) + " to " + componentStr(to)
-	}
-
-	/**
 	 * Result when transfer completes
 	 * @param getMsg callback to get messages to set in response form
 	 * @return redirect to index with wanted message
@@ -140,23 +135,34 @@ object TransferController extends Controller with MongoController {
 	 * @param data transfer info known so far
 	 * @param fromQuad true if need query for quadrant to transfer from
 	 * @param toQuad true if need query for quadrant to transfer to
-	 * @param slice true if need query for slice to transfer
 	 * @return redirect to transferWithParams to query for additional information
 	 */
-	private def transferIncompleteResult(data: TransferStart, fromQuad: Boolean, toQuad: Boolean, slice: Boolean) = {
+	private def transferIncompleteResult(data: TransferStart,
+										 fromQuad: Boolean, toQuad: Boolean) = {
+		// dataMandatory set via xor of quad settings (if only one quad wanted then it's transfer between different
+		// size components)
+		val dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad)
 		val result = Redirect(routes.TransferController.
-			transferWithParams(data.from, data.to, data.project, fromQuad, toQuad, slice))
-		FlashingKeys.setFlashingValue(result, FlashingKeys.Status, "Fill in additional data to complete transfer")
+			transferWithParams(data.from, data.to, data.project, fromQuad, toQuad, dataMandatory, fromQuad && toQuad))
+		val quadPlural = if (fromQuad && toQuad) "s" else ""
+		val quadsThere = if (fromQuad || toQuad) " and quadrant" else ""
+		val infoType = if (dataMandatory) s"Specify quadrant$quadPlural and optionally slice"
+		else s"If transferring a slice specify slice$quadsThere$quadPlural"
+		FlashingKeys.setFlashingValue(result, FlashingKeys.Status,
+			s"$infoType before completing transfer")
 	}
 
 	/**
 	 * Result when transfer start form had errors
 	 * @param form form filled with error data
 	 * @param fromID ID of component we're transferrring from
+	 * @param toID ID of component we're transferring to
+	 * @param project project associated with transfer
 	 * @return BadRequest to transferStart with input form
 	 */
-	private def transferStartFormErrorResult(form: Form[TransferStart], fromID: Option[String], toID: Option[String]) =
-		BadRequest(views.html.transferStart(form, fromID, toID, false))
+	private def transferStartFormErrorResult(form: Form[TransferStart],
+											 fromID: Option[String], toID: Option[String], project: Option[String]) =
+		BadRequest(views.html.transferStart(form, fromID, toID, project, false))
 
 	/**
 	 * Result when transfer start had errors
@@ -165,7 +171,8 @@ object TransferController extends Controller with MongoController {
 	 * @return BadRequest to transferStart with form set with errors
 	 */
 	private def transferStartErrorResult(data: TransferStart, errs: Map[Option[String], String]) =
-		transferStartFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.startForm, data), Some(data.from), Some(data.to))
+		transferStartFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.startForm, data),
+			Some(data.from), Some(data.to), data.project)
 
 	/**
 	 * Complete a future with a result
@@ -183,78 +190,74 @@ object TransferController extends Controller with MongoController {
 		Transfer.startForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(transferStartFormErrorResult(formWithErrors.withGlobalError(Errors.validationError),
-					None, None)),
-			data => {
-				// Got data from form - get from and to data (as json) - flatMap is mapping future from retrieving DB
-				// data - flatMap continuation is either a future that completes immediately because transfer can not
-				// be done now or a future that will complete when the DB insertion is done
-				getTransferInfo[JsObject](data).flatMap {
-					// Found both objects - now check if we can transfer between them
-					case (Some((from, to)), None) =>
-						isTransferValid(data, from, to) match {
-							// Report attempt to transfer to itself
-							case (fromData, toData, None) if fromData.id == toData.id =>
-								now(transferStartErrorResult(data, Map(None -> "Can not transfer component to itself")))
-							// Report problem transferring between requested components
-							case (fromData, toData, Some(err)) => now(transferStartErrorResult(data, Map(None -> err)))
-							// OK so far - now we need to check if it's ok to add this transfer to the graph leading in
-							case (fromData, toData, None) => checkGraph(data, fromData, toData).flatMap {
-								// Problem found
-								case Some(err) => now(transferStartErrorResult(data, Map(None -> err)))
-								// All is well - now just check if transfer should be done now or we need additional
-								// information about what quadrants/slices to transfer from/to
-								case None =>
-									import ContainerDivisions.Division._
-									(fromData, toData) match {
-										case (f: ContainerDivisions, t: ContainerDivisions) =>
-											(f.layout,t.layout) match {
-												// Go insert transfer between containers that are the same shape
-												case (DIM8x12, DIM8x12) | (DIM16x24, DIM16x24) if !data.isSlicing =>
-													insertTransfer(data, () => fromToMsg(fromData, toData))
-												// If slicing 96-well containers then check how to do slice
-												case (DIM8x12, DIM8x12) =>
-													now(transferIncompleteResult(data,
-														fromQuad = false, toQuad = false, slice = true))
-												// if doing slices between 384-well plates then need to pick quadrant
-												case (DIM16x24, DIM16x24) =>
-													now(transferIncompleteResult(data,
-														fromQuad = true, toQuad = true, slice = true))
-												// Go ask for quadrant/slice to set in larger destination plate
-												case (DIM8x12, DIM16x24) =>
-													now(transferIncompleteResult(data,
-														fromQuad = false, toQuad = true, slice = data.isSlicing))
-												// Go ask for quadrant/slice to get in larger source plate
-												case (DIM16x24, DIM8x12) =>
-													now(transferIncompleteResult(data,
-														fromQuad = true, toQuad = false, slice = data.isSlicing))
-											}
-										case (_: ContainerDivisions, _) if data.isSlicing =>
-											now(transferIncompleteResult(data,
-												fromQuad = false, toQuad = false, slice = true))
-										case _ =>
-											insertTransfer(data, () => fromToMsg(fromData, toData))
-									}
-							}
-						}
-					// Couldn't find one or both data - form returned contains errors - return it now
-					case (None, Some(form)) => now(transferStartFormErrorResult(form, Some(data.from), Some(data.to)))
-					// Should never have both or neither as None but...
-					case _ => now(FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
-						FlashingKeys.Status, "Internal error: Failure during transferIDs"))
-				}
-			}.recover {
-				case err => transferStartErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
-			}
+					None, None, None)),
+			data => doTransfer(data)
 		).recover {
 			case err => transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)),
-				None, None)
+				None, None, None)
 		}
+	}
+
+	def doTransfer(data: TransferStart) = {
+		// Got data from form - get from and to data (as json) - flatMap is mapping future from retrieving DB
+		// data - flatMap continuation is either a future that completes immediately because transfer can not
+		// be done now or a future that will complete when the DB insertion is done
+		getTransferInfo[JsObject](data).flatMap {
+			// Found both objects - now check if we can transfer between them
+			case (Some((from, to)), None) =>
+				isTransferValid(data, from, to) match {
+					// Report attempt to transfer to itself
+					case (fromData, toData, None) if fromData.id == toData.id =>
+						now(transferStartErrorResult(data, Map(None -> "Can not transfer component to itself")))
+					// Report problem transferring between requested components
+					case (fromData, toData, Some(err)) => now(transferStartErrorResult(data, Map(None -> err)))
+					// OK so far - now we need to check if it's ok to add this transfer to the graph leading in
+					case (fromData, toData, None) => checkGraph(data, fromData, toData).flatMap {
+						// Problem found
+						case Some(err) => now(transferStartErrorResult(data, Map(None -> err)))
+						// All is well - now just check if transfer should be done now or we need additional
+						// information about what quadrants/slices to transfer from/to
+						case None =>
+							import ContainerDivisions.Division._
+							(fromData, toData) match {
+								case (f: ContainerDivisions, t: ContainerDivisions) =>
+									(f.layout,t.layout) match {
+										// Check if slicing wanted
+										case (DIM8x12, DIM8x12) =>
+											now(transferIncompleteResult(data, fromQuad = false, toQuad = false))
+										// if doing slices between 384-well plates then need to pick quadrant
+										case (DIM16x24, DIM16x24) =>
+											now(transferIncompleteResult(data, fromQuad = true, toQuad = true))
+										// Go ask for quadrant/slice to set in larger destination plate
+										case (DIM8x12, DIM16x24) =>
+											now(transferIncompleteResult(data, fromQuad = false, toQuad = true))
+										// Go ask for quadrant/slice to get in larger source plate
+										case (DIM16x24, DIM8x12) =>
+											now(transferIncompleteResult(data, fromQuad = true, toQuad = false))
+									}
+								case (_: ContainerDivisions, _) =>
+									now(transferIncompleteResult(data, fromQuad = false, toQuad = false))
+								case _ =>
+									val tForm = data.toTransferForm
+									insertTransfer(tForm, () => quadDesc(tForm.transfer))
+							}
+					}
+				}
+			// Couldn't find one or both data - form returned contains errors - return it now
+			case (None, Some(form)) => now(transferStartFormErrorResult(form,
+				Some(data.from), Some(data.to), data.project))
+			// Should never have both or neither as None but...
+			case _ => now(FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
+				FlashingKeys.Status, "Internal error: Failure during transferIDs"))
+		}
+	}.recover {
+		case err => transferStartErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
 	}
 
 	/**
 	 * Check if what will lead into this transfer is legit.  First we create a graph of what leads into the from
 	 * component of this transfer.  Then we check that adding the new transfer will not make the graph cyclic and
-	 * then we insure that any project specified with the transfer exists in the graph.
+	 * insure that any project specified with the transfer exists in the graph.
 	 * @param data transfer data
 	 * @param from where transfer is taking place from
 	 * @param to where transfer is taking place to
@@ -302,22 +305,24 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Result when transfer form had errors
+	 * Result when transfer form had errors.
 	 * @param form form filled with error data
 	 * @param data data found in transfer form
-	 * @return BadRequest to transferStart with input form
+	 * @return BadRequest to transfer with input form
 	 */
-	private def transferFormErrorResult(form: Form[Transfer], data: Transfer) =
-		BadRequest(views.html.transfer(form, data.from, data.to, data.project,
-			data.fromQuad.isDefined, data.toQuad.isDefined, data.slice.isDefined))
+	private def transferFormErrorResult(form: Form[TransferForm], data: TransferForm) = {
+		BadRequest(views.html.transfer(form, data.transfer.from, data.transfer.to, data.transfer.project,
+			data.isQuadToQuad || data.transfer.fromQuad.isDefined,
+			data.isQuadToQuad || data.transfer.toQuad.isDefined, data.dataMandatory, data.isQuadToQuad))
+	}
 
 	/**
 	 * Result when transfer had errors
 	 * @param data data found in transfer form
 	 * @param errs errors to set in form
-	 * @return BadRequest to transferStart with form set with errors
+	 * @return BadRequest to transfer with form set with errors
 	 */
-	private def transferErrorResult(data: Transfer, errs: Map[Option[String], String]) =
+	private def transferErrorResult(data: TransferForm, errs: Map[Option[String], String]) =
 		transferFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.form, data), data)
 
 	/**
@@ -325,8 +330,8 @@ object TransferController extends Controller with MongoController {
 	 * @param data transfer to record in DB
 	 * @return result to return with completion status
 	 */
-	private def insertTransfer(data: Transfer, whatDone: () => String) = {
-		transferCollection.insert(data).map {
+	private def insertTransfer(data: TransferForm, whatDone: () => String) = {
+		transferCollection.insert(data.transfer).map {
 			(lastError) => {
 				Logger.debug(s"Successfully inserted ${whatDone()} with status: $lastError")
 				transferCompleteResult(() => "Completed " + whatDone())
@@ -377,23 +382,29 @@ object TransferController extends Controller with MongoController {
 	 * @return description of transfer, including quadrant information
 	 */
 	private def quadDesc(data: Transfer) = {
-		def qDesc(id: String, quad: Option[Quad], slice: String) = quad.map((q) => s"$slice$q of $id").getOrElse(id)
-		val slice = data.slice.map((s) => s"slice $s of ").getOrElse("")
-		"transfer from " + qDesc(data.from, data.fromQuad, slice) + " to " + qDesc(data.to, data.toQuad, slice)
+		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) =
+			slice.map((s) => s"slice $s of ").getOrElse("") + quad.map((q) => s"$q of $id").getOrElse(id)
+		"transfer from " + qDesc(data.from, data.fromQuad, data.slice) + " to " + qDesc(data.to, data.toQuad, data.slice)
 	}
 
 	/**
-	 * Do transfer based on form with quadrant inputs
+	 * Do transfer based on form with quadrant inputs.  If form fails with errors then it is most likely because of
+	 * extra verification so we try bind again, without verification, to pick up data in form to report error.
  	 * @return action to do transfer
 	 */
 	def transferFromForm = Action.async { request =>
 		Transfer.form.bindFromRequest()(request).fold(
-			formWithErrors => Future.successful(
-				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.validationError), None, None)),
-			data => insertTransfer(data, () => quadDesc(data))
+			formWithErrors => Transfer.formWithoutVerify.bindFromRequest()(request).fold(
+				errors => Future.successful(// If still error then must go back to start
+					transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.validationError),
+						None, None, None)),
+				formData => Future.successful(
+					transferFormErrorResult(formWithErrors.withGlobalError(Errors.validationError), formData))),
+			data =>	insertTransfer(data, () => quadDesc(data.transfer))
 		).recover {
 			case err =>
-				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)), None, None)
+				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)),
+					None, None, None)
 		}
 	}
 }

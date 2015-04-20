@@ -31,16 +31,21 @@ case class Transfer(from: String, to: String,
  * @param from ID we're transferring from
  * @param to ID we're transferring to
  * @param project optional project transfer is associated with
- * @param isSlicing true if we're going to be transferring a slice
  */
-case class TransferStart(from: String, to: String, project: Option[String], isSlicing: Boolean)
+case class TransferStart(from: String, to: String, project: Option[String]) {
+	def toTransferForm = TransferForm(toTransfer, dataMandatory = false, isQuadToQuad = false)
+	def toTransfer = Transfer(from, to, None, None, project, None)
+}
+
+/**
+ * Transfer with UI parameters
+ * @param dataMandatory true if quadrant information must be specified (non-quadrant component to/from quadrant component)
+ * @param isQuadToQuad true if quadrant transfers must be quad to quad (both source and destination have quadrants)
+ */
+case class TransferForm(transfer: Transfer, dataMandatory: Boolean, isQuadToQuad: Boolean)
 
 // Companion object
 object Transfer {
-	// Coerce transfer start into transfer when needed
-	implicit def transferStartToTransfer(ts: TransferStart):Transfer =
-		Transfer(ts.from, ts.to, None, None, ts.project, None)
-
 	/**
 	 * Get a list of enum string values sorted by the order of enum values
 	 * @param enums enumeration to be sorted
@@ -119,6 +124,19 @@ object Transfer {
 	// transfers come from and are going to
 	val qTo384 = Map(Q1 -> q96to384(Q1), Q2 -> q96to384(Q2), Q3 -> q96to384(Q3), Q4 -> q96to384(Q4))
 	val qFrom384 = Map(Q1 -> q384to96(Q1), Q2 -> q384to96(Q2), Q3 -> q384to96(Q3), Q4 -> q384to96(Q4))
+	// Make 384 to 384 map of maps: (fromQ, toQ) -> (originalWells -> destinationWells)
+	val q384to384map =
+		(for {
+			qFrom <- Quad.values.toIterable
+			qTo <- Quad.values.toIterable
+		} yield {
+				val from = qFrom384(qFrom)
+				val to = qTo384(qTo)
+				// Going from original source well to final destination well - 96 in middle to calculate quadrant well
+				(qFrom, qTo) -> from.map {
+					case (k, v) => k -> to(v)
+				}
+			}).toMap
 
 	// Slice enumeration
 	object Slice extends Enumeration {
@@ -201,7 +219,7 @@ object Transfer {
 		// Get wells of quadrant wanted (slice of 96 well quadrant)
 		val sliceWells = slice96(slice)
 		// Get map of wells from slice in quadrant
-		qFrom384(quad).filter{
+		qFrom384(quad).filter {
 			case (_, w) => sliceWells.contains(w)
 		}
 	}
@@ -242,38 +260,65 @@ object Transfer {
 	// Keys for form
 	val fromKey = "from"
 	val toKey = "to"
-	val fromQuadKey = "fromQuad"
-	val toQuadKey = "toQuad"
 	val projectKey = "project"
-	val isSlicingKey = "isSlicing"
-	val sliceKey = "slice"
 
 	// Form to create TransferStart objects
 	val startForm = Form(
 		mapping(
 			fromKey -> nonEmptyText,
 			toKey -> nonEmptyText,
-			projectKey -> optional(text),
-			isSlicingKey -> boolean
+			projectKey -> optional(text)
 		)(TransferStart.apply)(TransferStart.unapply))
 	// Formatter for going to/from and validating Json
 	implicit val transferStartFormat = Json.format[TransferStart]
 
-	// Form to create/read Transfer objects
-	val form = Form(
-		mapping(
-			fromKey -> nonEmptyText,
-			toKey -> nonEmptyText,
-			fromQuadKey -> optional(enum(Quad)),
-			toQuadKey -> optional(enum(Quad)),
-			projectKey -> optional(text),
-			sliceKey -> optional(enum(Slice))
-		)(Transfer.apply)(Transfer.unapply))
+	// Keys for form
+	val fromQuadKey = "fromQuad"
+	val toQuadKey = "toQuad"
+	val sliceKey = "slice"
+
+	// Mapping to create/read Transfer objects
+	val transferMapping = mapping(
+		fromKey -> nonEmptyText,
+		toKey -> nonEmptyText,
+		fromQuadKey -> optional(enum(Quad)),
+		toQuadKey -> optional(enum(Quad)),
+		projectKey -> optional(text),
+		sliceKey -> optional(enum(Slice))
+	)(Transfer.apply)(Transfer.unapply)
+
+	// Keys for form
+	val transferKey = "transfer"
+	val mandatoryKey = "dataMandatory"
+	val isQuadToQuadKey = "isQuadToQuad"
+
+	// Mapping to create/read Transfer form
+	val transferFormMapping = mapping(
+		transferKey -> transferMapping,
+		mandatoryKey -> boolean,
+		isQuadToQuadKey -> boolean
+	)(TransferForm.apply)(TransferForm.unapply)
+
+	// Form used for transferring - it includes verification to see if proper set of quadrants are set.  If a
+	// transfer is being done between two components with quadrants (i.e., 384-well component to 384-well component)
+	// then isQuadToQuad will be set and then if the entire component is not being transferred both quadrants must be
+	// specified
+	val form = Form((transferFormMapping)
+		verifying ("Both quadrants must be specified", f => !f.isQuadToQuad ||
+		(f.transfer.slice.isEmpty && f.transfer.toQuad.isEmpty && f.transfer.fromQuad.isEmpty) ||
+		(f.transfer.toQuad.isDefined && f.transfer.fromQuad.isDefined)
+	))
+
+	// Same form but without verification - this is ued to get data from form in case verification failed with
+	// for with verification
+	val formWithoutVerify = Form(transferFormMapping)
+
 	// Formatter for going to/from and validating Json
 	// Supply our custom enum Reader and Writer for content type enum
 	implicit val quadFormat: Format[Quad.Quad] = enumFormat(Quad)
 	implicit val sliceFormat: Format[Slice.Slice] = enumFormat(Slice)
 	implicit val transferFormat = Json.format[Transfer]
+	implicit val transferFormFormat = Json.format[TransferForm]
 }
 
 /**

@@ -3,7 +3,6 @@ package controllers
 import models.Transfer.Slice.Slice
 import models._
 import models.Transfer.Quad._
-import models.initialContents.InitialContents.ContentType
 import play.api.libs.json.JsObject
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
@@ -311,7 +310,7 @@ object TransferHistory extends Controller with MongoController {
 							slice.map((s) => s" (${s.toString})").getOrElse("")
 						// Make edge label: If a quad/slice transfer then quad/slice we're going to or from
 						edgeLabel match {
-							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _) if (fromQ != toQ) =>
+							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _) if fromQ != toQ =>
 								Some(root,
 									makeEdgeStmt(s"from ${fromQ.toString} to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
 							case TransferEdge(Some(fromQ), _, qSlice, _) =>

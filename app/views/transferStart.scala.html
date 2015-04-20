@@ -1,4 +1,4 @@
-@(transferForm: Form[TransferStart], fromID: Option[String], toID: Option[String], readOnly: Boolean)
+@(transferForm: Form[TransferStart], fromID: Option[String], toID: Option[String], project: Option[String], readOnly: Boolean)
 @import helper._
 @import models.Transfer
 
@@ -25,9 +25,15 @@
 				@inputText(transferForm(Transfer.toKey), '_label -> "To ID")
 			}
 		}
-        @inputText(transferForm(Transfer.projectKey), '_label -> "Project")
-		@checkbox(transferForm(Transfer.isSlicingKey),
-			'_label -> "Slice (e.g., 24 or 48-well) transfer?", 'style -> "display:inline;", '_help -> "")
+		@if(project.isDefined && readOnly) {
+			@inputText(transferForm(Transfer.projectKey).copy(value=project), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "Project")
+		} else {
+			@if(project.isDefined) {
+				@inputText(transferForm(Transfer.projectKey).copy(value=project), '_label -> "Project")
+			} else {
+				@inputText(transferForm(Transfer.projectKey), '_label -> "Project")
+			}
+		}
 		<input type="submit" value="Transfer" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

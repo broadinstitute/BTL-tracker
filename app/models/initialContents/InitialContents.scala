@@ -65,7 +65,7 @@ object InitialContents {
 	 * @param div division type of container
 	 * @return true if container with division can hold content
 	 */
-	def isContentValidForDivision(content: ContentType, div: Division) = validDivisions(content).exists(_ == div)
+	def isContentValidForDivision(content: ContentType, div: Division) = validDivisions(content).contains(div)
 
 	// Get contents for each type
 	val contents = Map[ContentType, ContentsMap[MolBarcodeWell]] (
@@ -85,7 +85,7 @@ object InitialContents {
 		validContents.map(_.toString).sorted
 
 	// Get list of display value for all types
-	def getAllContentDisplayValues() = getContentDisplayValues(ContentType.values.toList)
+	def getAllContentDisplayValues = getContentDisplayValues(ContentType.values.toList)
 
 	/**
 	 * Initial contents

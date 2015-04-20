@@ -75,7 +75,7 @@ object EZPassController extends Controller {
 		val sheet = headerPositions.getSheet.get
 		val workBook = sheet.getWorkbook
 
-		/**
+		/*
 		 * Set values in spreadsheet cells
 		 * @param fields fields to set (header name -> value to set)
 		 * @param index sample number
@@ -99,7 +99,7 @@ object EZPassController extends Controller {
 				}
 			}
 
-		/**
+		/*
 		 * Process the results of looking at transfers into wanted component.
  		 * @param index sample number
 		 * @param results results from transfers

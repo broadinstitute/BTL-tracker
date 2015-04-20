@@ -23,11 +23,11 @@
 		<br>
 		<label for="qFind" style="font-size:13px;">&nbspFind ID:</label>
 		<input type="text" id="qFind" name="qFind" size=20 placeholder="Component ID" style="display:inline;"/>
-		<br>
+		<br><br>
 		<label for="fromTran" style="font-size:13px;">&nbspTransfer:</label>
 		<input type="text" id="fromTran" name="fromTran" size=20 placeholder="from" style="display:inline;"/>
-		<label for="toTran">&nbsp</label>
 		<input type="text" id="toTran" name="toTran" size=20 placeholder="to" style="display:inline;"/>
+		<input type="text" id="projTran" name="projTran" size=20 placeholder="optional project" style="display:inline;"/>
 	</div>
 	<script>
 	$('#qRegister').keypress(function (e) {
@@ -42,20 +42,25 @@
 	window.location.assign("/find/" + $("#qFind").val());
 	return false;
 	}});
-	function doTran(e, from, to) {
+	function doTran(e, from, to, proj) {
 	var params;
 	var key = e.which;
-	if(key == 13 && (from != "" || to != ""))  {
+	if(key == 13 && (from != "" || to != "" || proj != ""))  {
 	if(from != "") { params = "?fromID=" + from; }
-	if(to != "") { if(params) { params = params + "&toID=" + to; } else { params = "?toID=" + to; } } }
+	if(to != "") { if(params) { params = params + "&toID=" + to; } else { params = "?toID=" + to; } }
+	if(proj != "") { if(params) { params = params + "&project=" + proj; } else { params = "?project=" + proj; } } }
 	return params;
 	};
 	$('#fromTran').keypress(function (e) {
-	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim());
+	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim(),$("#projTran").val().trim());
 	if (p) { window.location.assign("/transfer" + p); return false; }
 	});
 	$('#toTran').keypress(function (e) {
-	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim());
+	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim(),$("#projTran").val().trim());
+	if (p) { window.location.assign("/transfer" + p); return false; }
+	});
+	$('#projTran').keypress(function (e) {
+	var p = doTran(e,$("#fromTran").val().trim(),$("#toTran").val().trim(),$("#projTran").val().trim());
 	if (p) { window.location.assign("/transfer" + p); return false; }
 	});
 	</script>

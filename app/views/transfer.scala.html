@@ -1,4 +1,5 @@
-@(transferForm: Form[Transfer], fromID: String, toID: String, project: Option[String], fromQuad: Boolean = false, toQuad: Boolean = false, slice: Boolean = false)
+@(transferForm: Form[TransferForm], fromID: String, toID: String, project: Option[String],
+	fromQuad: Boolean = false, toQuad: Boolean = false, dataMandatory: Boolean = false, isQuadToQuad: Boolean = false)
 @import helper._
 @import models.Transfer
 
@@ -7,21 +8,35 @@
 }{
 	@componentIntro("Transfer Component", transferForm)
 	@form(routes.TransferController.transferFromForm(), 'style -> "display:inline;") {
-		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
-		@inputText(transferForm(Transfer.toKey).copy(value=Some(toID)), 'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
-        @inputText(transferForm(Transfer.projectKey).copy(value=project), 'readonly -> "readonly", '_label -> "Project")
+		@inputText(transferForm(Transfer.transferKey + "." + Transfer.fromKey).copy(value=Some(fromID)),
+			'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
+		@inputText(transferForm(Transfer.transferKey + "." + Transfer.toKey).copy(value=Some(toID)),
+			'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
+        @inputText(transferForm(Transfer.transferKey + "." + Transfer.projectKey).copy(value=project),
+			'readonly -> "readonly", '_showConstraints -> false, '_label -> "Project")
 		@if(fromQuad) {
-			@select(field = transferForm(Transfer.fromQuadKey),
-				options = options(Transfer.quadVals), '_label -> (fromID + " quadrant to transfer from"))
+			@if(dataMandatory) {
+				@select(field = transferForm(Transfer.transferKey + "." + Transfer.fromQuadKey),
+					options = options(Transfer.quadVals), '_label -> (fromID + " quadrant to transfer from"))
+			} else {
+				@select(field = transferForm(Transfer.transferKey + "." + Transfer.fromQuadKey),
+					options = options("" +: Transfer.quadVals), '_label -> (fromID + " quadrant to transfer from"))
+			}
 		}
 		@if(toQuad) {
-			@select(field = transferForm(Transfer.toQuadKey),
-				options = options(Transfer.quadVals), '_label -> (toID + " quadrant to transfer to"))
+			@if(dataMandatory) {
+				@select(field = transferForm(Transfer.transferKey + "." + Transfer.toQuadKey),
+					options = options(Transfer.quadVals), '_label -> (toID + " quadrant to transfer to"))
+			} else {
+				@select(field = transferForm(Transfer.transferKey + "." + Transfer.toQuadKey),
+					options = options("" +: Transfer.quadVals), '_label -> (toID + " quadrant to transfer to"))
+			}
 		}
-		@if(slice) {
-			@select(field = transferForm(Transfer.sliceKey),
-				options = options(Transfer.sliceVals), '_label -> "Transfer slice")
-		}
+		@select(field = transferForm(Transfer.transferKey + "." + Transfer.sliceKey),
+			options = options("" +: Transfer.sliceVals), '_label -> "Slice")
+		@* Remember if quad to quad transfer needed *@
+		<input type="hidden" id="@{Transfer.mandatoryKey}" name="@{Transfer.mandatoryKey}" value="@dataMandatory" />
+		<input type="hidden" id="@{Transfer.isQuadToQuadKey}" name="@{Transfer.isQuadToQuadKey}" value="@isQuadToQuad" />
 		<input type="submit" value="Transfer" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

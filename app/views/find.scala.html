@@ -30,7 +30,7 @@
 		@inputText(findForm(Component.projectKey), '_label -> "Project ID", 'style -> "display:inline;")
 		@* Blank in front of options allows None to be returned for these optional enum values *@
 		@select(field = findForm(Container.contentKey),
-			options = options("" +: InitialContents.getAllContentDisplayValues()), '_label -> "Initial content")
+			options = options("" +: InitialContents.getAllContentDisplayValues), '_label -> "Initial content")
 		@select(field = findForm(ContainerDivisions.divisionKey),
 			options = options("" +: ContainerDivisions.divisionTypes), '_label -> "Layout")
 		@checkbox(findForm(Find.transfersKey),

@@ -6,6 +6,7 @@ import play.api.libs.json.{Format, Json}
 import play.api.data.format.Formats._
 
 /**
+ * Module to use for form to create an EZPass.
  * Created by nnovod on 3/20/15.
  */
 
