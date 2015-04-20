@@ -33,7 +33,7 @@ case class Transfer(from: String, to: String,
  * @param project optional project transfer is associated with
  */
 case class TransferStart(from: String, to: String, project: Option[String]) {
-	def toTransferForm = TransferForm(toTransfer, dataMandatory = false, isQuadToQuad = false)
+	def toTransferForm = TransferForm(toTransfer, dataMandatory = false, isQuadToQuad = false, isQuadToTube = false)
 	def toTransfer = Transfer(from, to, None, None, project, None)
 }
 
@@ -41,8 +41,9 @@ case class TransferStart(from: String, to: String, project: Option[String]) {
  * Transfer with UI parameters
  * @param dataMandatory true if quadrant information must be specified (non-quadrant component to/from quadrant component)
  * @param isQuadToQuad true if quadrant transfers must be quad to quad (both source and destination have quadrants)
+ * @param isQuadToTube true if transfer from a source with quadrants to a non-divided component
  */
-case class TransferForm(transfer: Transfer, dataMandatory: Boolean, isQuadToQuad: Boolean)
+case class TransferForm(transfer: Transfer, dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean)
 
 // Companion object
 object Transfer {
@@ -291,22 +292,27 @@ object Transfer {
 	val transferKey = "transfer"
 	val mandatoryKey = "dataMandatory"
 	val isQuadToQuadKey = "isQuadToQuad"
+	val isQuadToTubeKey = "isQuadToTube"
 
 	// Mapping to create/read Transfer form
 	val transferFormMapping = mapping(
 		transferKey -> transferMapping,
 		mandatoryKey -> boolean,
-		isQuadToQuadKey -> boolean
+		isQuadToQuadKey -> boolean,
+		isQuadToTubeKey -> boolean
 	)(TransferForm.apply)(TransferForm.unapply)
 
 	// Form used for transferring - it includes verification to see if proper set of quadrants are set.  If a
 	// transfer is being done between two components with quadrants (i.e., 384-well component to 384-well component)
-	// then isQuadToQuad will be set and then if the entire component is not being transferred both quadrants must be
-	// specified
-	val form = Form((transferFormMapping)
-		verifying ("Both quadrants must be specified", f => !f.isQuadToQuad ||
-		(f.transfer.slice.isEmpty && f.transfer.toQuad.isEmpty && f.transfer.fromQuad.isEmpty) ||
-		(f.transfer.toQuad.isDefined && f.transfer.fromQuad.isDefined)
+	// isQuadToQuad is true and then if the entire component is not being transferred both quadrants must be
+	// specified.  If a transfer between a source with quadrants and a non-divided target then isQuadToTube is true
+	// and a source quadrant must be set if slicing.
+	val form = Form(transferFormMapping
+		verifying ("Quadrants must be specified when slicing", f =>
+		(!f.isQuadToQuad && !f.isQuadToTube) ||
+			(f.transfer.slice.isEmpty && f.transfer.fromQuad.isEmpty && f.transfer.toQuad.isEmpty) ||
+			(f.isQuadToQuad && f.transfer.fromQuad.isDefined && f.transfer.toQuad.isDefined) ||
+			(f.isQuadToTube && f.transfer.fromQuad.isDefined)
 	))
 
 	// Same form but without verification - this is ued to get data from form in case verification failed with

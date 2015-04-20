@@ -1,5 +1,6 @@
 @(transferForm: Form[TransferForm], fromID: String, toID: String, project: Option[String],
-	fromQuad: Boolean = false, toQuad: Boolean = false, dataMandatory: Boolean = false, isQuadToQuad: Boolean = false)
+	fromQuad: Boolean = false, toQuad: Boolean = false,
+	dataMandatory: Boolean = false, isQuadToQuad: Boolean = false, isQuadToTube: Boolean = false)
 @import helper._
 @import models.Transfer
 
@@ -37,6 +38,7 @@
 		@* Remember if quad to quad transfer needed *@
 		<input type="hidden" id="@{Transfer.mandatoryKey}" name="@{Transfer.mandatoryKey}" value="@dataMandatory" />
 		<input type="hidden" id="@{Transfer.isQuadToQuadKey}" name="@{Transfer.isQuadToQuadKey}" value="@isQuadToQuad" />
+		<input type="hidden" id="@{Transfer.isQuadToTubeKey}" name="@{Transfer.isQuadToTubeKey}" value="@isQuadToTube" />
 		<input type="submit" value="Transfer" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

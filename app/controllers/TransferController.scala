@@ -64,14 +64,16 @@ object TransferController extends Controller with MongoController {
 	 * @param fromQuad true if we need to get the quadrant we're transferring from
 	 * @param toQuad true if we need to get the quadrant we're transferring to
 	 * @param dataMandatory true if requested quadrant information must be specified
-	 * @param isQuadToQuad true if quadrant transfers must have from and to quadrant
+	 * @param isQuadToQuad true if slice transfers must have from and to quadrant
+	 * @param isQuadToTube true if slice transfer must have from quadrant
 	 * @return action to get additional transfer information wanted
 	 */
 	def transferWithParams(fromID: String, toID: String, project: Option[String],
-	                       fromQuad: Boolean, toQuad: Boolean, dataMandatory: Boolean, isQuadToQuad: Boolean) = {
+	                       fromQuad: Boolean, toQuad: Boolean,
+						   dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean) = {
 		Action { request =>
 			Ok(views.html.transfer(Errors.addStatusFlash(request, Transfer.form), fromID, toID, project,
-				fromQuad, toQuad, dataMandatory, isQuadToQuad))
+				fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube))
 		}
 	}
 
@@ -138,7 +140,7 @@ object TransferController extends Controller with MongoController {
 	 * @param getMsg callback to get messages to set in response form
 	 * @return redirect to home page with wanted message
 	 */
-	private def transferCompleteResult(getMsg: () => String) =
+	private def transferComplete(getMsg: () => String) =
 		FlashingKeys.setFlashingValue(Redirect(routes.Application.index()), FlashingKeys.Status, getMsg())
 
 	/**
@@ -147,15 +149,15 @@ object TransferController extends Controller with MongoController {
 	 * @param data transfer info known so far
 	 * @param fromQuad true if need query for quadrant to transfer from
 	 * @param toQuad true if need query for quadrant to transfer to
+	 * @param dataMandatory true if quadrant information requested must be filled in
+	 * @param isQuadToQuad true if sliced transfer must be between quadrants
+	 * @param isQuadToTube true if sliced transfer is from quadrant to non-divided component
 	 * @return redirect to transferWithParams to query for additional information
 	 */
-	private def transferIncompleteResult(data: TransferStart,
-										 fromQuad: Boolean, toQuad: Boolean) = {
-		// dataMandatory set via xor of quad settings (if only one quad wanted then it's transfer between different
-		// size components)
-		val dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad)
-		val result = Redirect(routes.TransferController.
-			transferWithParams(data.from, data.to, data.project, fromQuad, toQuad, dataMandatory, fromQuad && toQuad))
+	private def transferIncomplete(data: TransferStart, fromQuad: Boolean, toQuad: Boolean,
+								   dataMandatory: Boolean, isQuadToQuad : Boolean, isQuadToTube: Boolean) = {
+		val result = Redirect(routes.TransferController.transferWithParams(data.from, data.to, data.project,
+			fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube))
 		val quadPlural = if (fromQuad && toQuad) "s" else ""
 		val quadsThere = if (fromQuad || toQuad) " and quadrant" else ""
 		val infoType = if (dataMandatory) s"Specify quadrant$quadPlural and optionally slice"
@@ -163,6 +165,34 @@ object TransferController extends Controller with MongoController {
 		FlashingKeys.setFlashingValue(result, FlashingKeys.Status,
 			s"$infoType before completing transfer")
 	}
+
+	/**
+	 * Result when transfer needs more information for transfer between divided containers.Based on the quadrant
+	 * information wanted we set parameters for the transfer screen
+	 * @param data transfer info known so far
+	 * @param fromQuad true if need query for quadrant to transfer from
+	 * @param toQuad true if need query for quadrant to transfer to
+	 * @return redirect to transferWithParams to query for additional information
+	 */
+	private def containerTransferIncomplete(data: TransferStart,
+											fromQuad: Boolean, toQuad: Boolean) = {
+		// dataMandatory set via xor of quad settings (if only one quad wanted then it's transfer between different
+		// size containers)
+		val dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad)
+		transferIncomplete(data, fromQuad = fromQuad, toQuad = toQuad,
+			dataMandatory = dataMandatory, isQuadToQuad = toQuad && fromQuad, isQuadToTube = false)
+	}
+
+	/**
+	 * Result when transfer needs more information for transfer from divided container into non-divided container.
+	 * Based on the quadrant information wanted we set parameters for the transfer screen
+	 * @param data transfer info known so far
+	 * @param fromQuad true if need query for quadrant to transfer from
+	 * @return redirect to transferWithParams to query for additional information
+	 */
+	private def toTubeTransferIncomplete(data: TransferStart, fromQuad: Boolean) =
+		transferIncomplete(data, fromQuad  = fromQuad,
+			toQuad = false, dataMandatory = false, isQuadToQuad = false, isQuadToTube = fromQuad)
 
 	/**
 	 * Result when transfer start form had errors
@@ -238,23 +268,33 @@ object TransferController extends Controller with MongoController {
 						case None =>
 							import ContainerDivisions.Division._
 							(fromData, toData) match {
+								// Transferring between divided containers
 								case (f: ContainerDivisions, t: ContainerDivisions) =>
 									(f.layout,t.layout) match {
 										// Check if slicing wanted
 										case (DIM8x12, DIM8x12) =>
-											now(transferIncompleteResult(data, fromQuad = false, toQuad = false))
+											now(containerTransferIncomplete(data, fromQuad = false, toQuad = false))
 										// if doing slices between 384-well plates then need to pick quadrant
 										case (DIM16x24, DIM16x24) =>
-											now(transferIncompleteResult(data, fromQuad = true, toQuad = true))
+											now(containerTransferIncomplete(data, fromQuad = true, toQuad = true))
 										// Go ask for quadrant/slice to set in larger destination plate
 										case (DIM8x12, DIM16x24) =>
-											now(transferIncompleteResult(data, fromQuad = false, toQuad = true))
+											now(containerTransferIncomplete(data, fromQuad = false, toQuad = true))
 										// Go ask for quadrant/slice to get in larger source plate
 										case (DIM16x24, DIM8x12) =>
-											now(transferIncompleteResult(data, fromQuad = true, toQuad = false))
+											now(containerTransferIncomplete(data, fromQuad = true, toQuad = false))
 									}
-								case (_: ContainerDivisions, _) =>
-									now(transferIncompleteResult(data, fromQuad = false, toQuad = false))
+								// Transferring from a divided container to an undivided component
+								case (f: ContainerDivisions, _) =>
+									f.layout match {
+										// See if slicing wanted
+										case DIM8x12 =>
+											now(toTubeTransferIncomplete(data, fromQuad = false))
+										// See if slicing or quadrant wanted
+										case DIM16x24 =>
+											now(toTubeTransferIncomplete(data, fromQuad = true))
+									}
+								// Source isn't divided - go complete transfer of its contents
 								case _ =>
 									val tForm = data.toTransferForm
 									insertTransfer(tForm, () => quadDesc(tForm.transfer))
@@ -330,8 +370,9 @@ object TransferController extends Controller with MongoController {
 	 */
 	private def transferFormErrorResult(form: Form[TransferForm], data: TransferForm) = {
 		BadRequest(views.html.transfer(form, data.transfer.from, data.transfer.to, data.transfer.project,
-			data.isQuadToQuad || data.transfer.fromQuad.isDefined,
-			data.isQuadToQuad || data.transfer.toQuad.isDefined, data.dataMandatory, data.isQuadToQuad))
+			data.isQuadToQuad || data.isQuadToTube || data.transfer.fromQuad.isDefined,
+			data.isQuadToQuad || data.transfer.toQuad.isDefined,
+			data.dataMandatory, data.isQuadToQuad, data.isQuadToTube))
 	}
 
 	/**
@@ -352,7 +393,7 @@ object TransferController extends Controller with MongoController {
 		transferCollection.insert(data.transfer).map {
 			(lastError) => {
 				Logger.debug(s"Successfully inserted ${whatDone()} with status: $lastError")
-				transferCompleteResult(() => "Completed " + whatDone())
+				transferComplete(() => "Completed " + whatDone())
 			}
 		}.recover {
 			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
@@ -402,7 +443,7 @@ object TransferController extends Controller with MongoController {
 	private def quadDesc(data: Transfer) = {
 		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) =
 			slice.map((s) => s"slice $s of ").getOrElse("") + quad.map((q) => s"$q of $id").getOrElse(id)
-		"transfer from " + qDesc(data.from, data.fromQuad, data.slice) + " to " + qDesc(data.to, data.toQuad, data.slice)
+		"transfer from " + qDesc(data.from, data.fromQuad, data.slice) + " to " + qDesc(data.to, data.toQuad, None)
 	}
 
 	/**
