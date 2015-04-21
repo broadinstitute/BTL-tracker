@@ -35,7 +35,7 @@
 		}
 		@select(field = transferForm(Transfer.transferKey + "." + Transfer.sliceKey),
 			options = options("" +: Transfer.sliceVals), '_label -> "Slice")
-		@* Remember if quad to quad transfer needed *@
+		@* Remember alll the hidden goodies that say what we're up to *@
 		<input type="hidden" id="@{Transfer.mandatoryKey}" name="@{Transfer.mandatoryKey}" value="@dataMandatory" />
 		<input type="hidden" id="@{Transfer.isQuadToQuadKey}" name="@{Transfer.isQuadToQuadKey}" value="@isQuadToQuad" />
 		<input type="hidden" id="@{Transfer.isQuadToTubeKey}" name="@{Transfer.isQuadToTubeKey}" value="@isQuadToTube" />

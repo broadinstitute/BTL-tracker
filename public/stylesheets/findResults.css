@@ -1,0 +1,16 @@
+table {
+    border: 1px solid black;
+    border-collapse: collapse;
+}
+th {
+    border: 2px solid black;
+    padding: 4px;
+    background-color: #D3D3D3;
+}
+td {
+    border: 1px solid black;
+    padding: 4px;
+}
+tr {
+    height: 12px;
+}

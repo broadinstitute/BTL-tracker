@@ -3,27 +3,9 @@
 * @param list of found components                         *
 **********************************************************@
 @(title: String)(found: scala.collection.Set[models.Find.Found])
-@import helper._
 
 @main(title) {
-	<style>
-	table {
-	border: 1px solid black;
-	border-collapse: collapse;
-	}
-	th {
-	border: 2px solid black;
-	padding: 4px;
-	background-color: #D3D3D3;
-	}
-	td {
-	border: 1px solid black;
-	padding: 4px;
-	}
-	tr {
-	height: 12px;
-	}
-	</style>
+	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/findResults.css")">
 	@* Originally from http://github.hubspot.com/sortable/ *@
 	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/sortable-theme-light.css")">
 	<script type='text/javascript' src="@routes.Assets.at("javascripts/sortable.min.js")"></script>
@@ -54,5 +36,5 @@
 		</tbody>
 	</table>
 	<br>
-	@homeOption(Seq[(Call, String, Option[String])]((routes.FindController.find, "Return to search", None)))
+	@homeOption(Seq[(Call, String, Option[String])]((routes.FindController.find(), "Return to search", None)))
 }

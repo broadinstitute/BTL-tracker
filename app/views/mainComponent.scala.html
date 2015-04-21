@@ -4,37 +4,12 @@
 
 @main(title) {
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
-    <script type="text/javascript">
-        $(function() {
-            var inpDiv = "@{Component.inputDiv}";
-            var addDiv = $('#' + inpDiv);
-            var i = $('#' + inpDiv + ' div').size();
-            var componentTags = "@{Component.formKey + "." + Component.tagsKey}";
-            $('#' + '@Component.addTag').click(function () {
-                $('<div><dl id="tags_' + i + '_tag_field">' +
-                  '<dt><label for="tags_' + i + '_tag">Tag</label></dt>' +
-                  '<dd><input type="text" id="tags_' + i + '_tag" name="' + componentTags + '[' + i + '].@ComponentTag.tagKey" value=""/></dd>' +
-                  '<dd class="info">Required</dd>' +
-                  '</dl>' +
-                  '<dl id="tags_' + i + '_value_field">' +
-                  '<dt><label for="tags_' + i + '_value">Value</label></dt>' +
-                  '<dd><textarea id="tags_' + i + '_value" name="' + componentTags + '[' + i + '].@ComponentTag.valueKey"></textarea></dd>' +
-                  '</dl><a href="#" class="@Component.remTag">Remove Tag</a></div>').appendTo(addDiv);
-                i++;
-                return false;
-             });
-            $(document).on('click', '.' + '@Component.remTag', function () {
-                $(this).parent('div').remove();
-                return false;
-            });
-        })
+    <script type='text/javascript' src="@routes.Assets.at("javascripts/tags.js")"></script>
+    <script type='text/javascript'>makeTags("@Component.inputDiv",
+    "@{Component.formKey + "." + Component.tagsKey}",
+    "@Component.addTag", "@ComponentTag.tagKey", "@ComponentTag.valueKey",
+    "@Component.remTag")
     </script>
-    <script language="javascript" type="text/javascript">
-        function popitup(url) {
-            newwindow=window.open(url, 'popup', 'height=100,width=75');
-            if (window.focus) {newwindow.focus()}
-        return false;
-        }
-</script>
+    <script type='text/javascript' src="@routes.Assets.at("javascripts/popitup.js")"></script>
 }{@content}
 

@@ -1,2 +1,2 @@
 db.tracker.ensureIndex({"id":1}, {unique:true})
-db.transfer.ensureIndex({"from":1, "to" :1, "fromQuad" :1, "toQuad" : 1}, {unique: true, dropDups: true})
+db.transfer.ensureIndex({"from":1, "to" :1, "fromQuad" :1, "toQuad" : 1, "slice" :1}, {unique: true, dropDups: true})

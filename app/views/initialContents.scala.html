@@ -8,7 +8,7 @@
 @import helper._
 @import models.initialContents.InitialContents
 
-@if(!validContents.isEmpty) {
+@if(validContents.nonEmpty) {
 	@select(field = componentForm(Container.contentKey),
 		options = options("" +: InitialContents.getContentDisplayValues(validContents)), '_label -> "Initial Content")
 }
