@@ -148,7 +148,6 @@ object Transfer {
 		val S4 = Value("10-12 x A-H")
 		val S5 = Value("1-6 x A-H")
 		val S6 = Value("7-12 x A-H")
-		val S7 = Value("1-12 x A-H")
 	}
 
 	// String values for dropdown lists etc.
@@ -171,7 +170,6 @@ object Transfer {
 			case S4 => slice24(10)
 			case S5 => slice48(1)
 			case S6 => slice48(7)
-			case S7 => (1, 'A', 12, 8)
 		}
 		val xRange = s._2 until (s._2 + s._4).toChar
 		val yRange = s._1 until (s._1 + s._3)

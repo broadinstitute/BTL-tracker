@@ -39,11 +39,8 @@ object EZPassController extends Controller {
 					views.html.ezpass(formWithErrors.withGlobalError(Errors.validationError), id)))
 			},
 			data => {
-				val filePath = Play.application().path().getCanonicalPath + "/conf/data/EZPass.xlsx"
 				//@TODO update processing to get Squid project.
-				// Make it possible to report errors (can't simply be sendFile).
-				EZPassController.makeEZPass(filePath, id,
-					data.libSize, data.libVol, data.libConcentration).map {
+				EZPassController.makeEZPass(writeEZPassData, id, data.libSize, data.libVol, data.libConcentration).map {
 					case (Some(file), errs) =>
 						val outFile = new File(file)
 						Ok.sendFile(content = outFile, inline = false,
@@ -60,55 +57,154 @@ object EZPassController extends Controller {
 	}
 
 	/**
+	 * Interface to use to create an EZPass.
+	 * @tparam T context data passed between calls
+	 */
+	trait SetEZPassData[T] {
+		/**
+		 * Initialize what's needed to handle the output data
+		 * @param component ID of component EZPass is being made for
+		 * @param fileHeaders headers we want to set data for in EZPass
+		 * @return context to be used in other interface calls
+		 */
+		def initData(component: String, fileHeaders: List[String]): T
+
+		/**
+		 * Set fields for a new row of EZPass data.
+		 * @param context context being kept for setting EZPass data
+		 * @param strData strings to be set for next spreadsheet entry (fieldName -> data)
+		 * @param intData integers to be set for next spreadsheet entry (fieldName -> data)
+		 * @param floatData floating points to be set for next spreadsheet entry (fieldName -> data)
+		 * @param index index of entry (1-based)
+		 * @return context to continue operations
+		 */
+		def setFields(context: T, strData: Map[String, String], intData: Map[String, Int],
+					  floatData: Map[String, Float], index: Int): T
+
+		/**
+		 * All done processing EZPass data.
+		 * @param context context kept for handling EZPass data
+		 * @param samplesFound # of samples found
+		 * @param errs list of errors found
+		 * @return (optional conclusion, list of errors)
+		 */
+		def allDone(context: T,  samplesFound: Int, errs: List[String]): (Option[String], List[String])
+	}
+
+	/**
+	 * Context information to remember while writting out data to an EZPass spreadsheet.
+	 * @param headersToValues contains locations of headers in spreadsheet and current spreadsheet state
+	 * @param component component that EZPass is being done for
+	 */
+	private case class DataSource(headersToValues: HeadersToValues, component: String)
+
+	/**
+	 * Implementation of setEZPassData to write out EZPass data to a new spreadsheet.
+	 */
+	private object writeEZPassData extends SetEZPassData[DataSource] {
+		/**
+		 * Initialize what's needed to write output to a new EZPass spreadsheet.
+		 * @param component ID of component EZPass is being made for
+		 * @param fileHeaders headers we want to set data for in EZPass
+		 * @return context containing spreadsheet information for setting sample information in spreadsheet
+		 */
+		def initData(component: String, fileHeaders: List[String]) = {
+			val inFile = Play.application().path().getCanonicalPath + "/conf/data/EZPass.xlsx"
+			DataSource(
+				HeadersToValues(inFile, 0, fileHeaders, Map.empty[String, (List[String], List[String])]), component)
+		}
+
+		/**
+		 * Set the fields for a row in the spreadsheet.  We retrieve all the values and set them in the proper row
+		 * (based on index) under the proper headers.
+		 * @param context spreadsheet information
+		 * @param strData strings to be set for next spreadsheet entry (fieldName -> data)
+		 * @param intData integers to be set for next spreadsheet entry (fieldName -> data)
+		 * @param floatData floating points to be set for next spreadsheet entry (fieldName -> data)
+		 * @param index index of entry (1-based)
+		 * @return context with spreadsheet information to keep using
+		 */
+		def setFields(context: DataSource, strData: Map[String, String], intData: Map[String, Int],
+					  floatData: Map[String, Float], index: Int): DataSource = {
+			/*
+			 * Set values in spreadsheet cells
+			 * @param fields fields to set (header name -> value to set)
+			 * @param index sample number
+			 * @param setCell callback to set cell value
+			 * @tparam T type of cell value
+			 */
+			def setValues[T](context: DataSource, fields: Map[String, T], index: Int, setCell: (Cell, T) => Unit) = {
+				val headerParameters = context.headersToValues
+				val sheet = headerParameters.getSheet.get
+				fields.foreach {
+					case (header, value) => headerParameters.getHeaderLocation(header) match {
+						case Some((r, c)) =>
+							val row = sheet.getRow(r + index) match {
+								case null => sheet.createRow(r + index)
+								case rowFound => rowFound
+							}
+							val cell = row.getCell(c) match {
+								case null => row.createCell(c)
+								case cellFound => cellFound
+							}
+							setCell(cell, value)
+						case _ =>
+					}
+				}
+			}
+			// Set the values into the spreadsheet
+			setValues[String](context, strData, index, (cell, value) => cell.setCellValue(value))
+			setValues[Int](context, intData, index, (cell, value) => cell.setCellValue(value))
+			setValues[Float](context, floatData, index, (cell, value) => cell.setCellValue(value))
+			context
+		}
+
+		/**
+		 * We're all done setting data into the EZPass.  If any samples present then write out a new EZPass and shut
+		 * things down.  The output file is a temp file that is ready to be uploaded to the user.
+		 * @param context context kept for handling EZPass data
+		 * @param samplesFound # of samples found
+		 * @param errs list of errors found
+		 * @return (path of output file, list of errors)
+		 */
+		def allDone(context: DataSource, samplesFound: Int, errs: List[String]) = {
+			context.headersToValues.getSheet match {
+				case Some(sheet) =>
+					if (samplesFound != 0) {
+						// Create temporary file and write new EZPASS there
+						val tFile = File.createTempFile("TRACKER_", ".xlsx")
+						val outFile = new FileOutputStream(tFile)
+						sheet.getWorkbook.write(outFile)
+						outFile.close()
+						(Some(tFile.getCanonicalPath), errs)
+					} else
+						(None, List(s"No samples found") ++ errs)
+				case None =>
+					(None, errs)
+			}
+		}
+	}
+
+	/**
 	 * Make an EZPASS file.
-	 * @param inFile template EZPASS
 	 * @param component ID of component to make EZPASS for
 	 * @param libSize library insert size including adapters
 	 * @param libVol library volume (ul)
 	 * @param libConcentration library concentration (ng/ul)
+	 * @tparam T type of context kept while setting data
 	 * @return list of errors
 	 */
-	def makeEZPass(inFile: String, component: String, libSize: Int, libVol: Int, libConcentration: Float) = {
-		// Open up template EZPASS and get locations of wanted headers
-		val headerPositions = HeadersToValues(inFile, 0, headers, Map.empty[String, (List[String], List[String])])
-		// Get poi sheet and workbook for EZPASS
-		val sheet = headerPositions.getSheet.get
-		val workBook = sheet.getWorkbook
-
-		/*
-		 * Set values in spreadsheet cells
-		 * @param fields fields to set (header name -> value to set)
-		 * @param index sample number
-		 * @param setCell callback to set cell value
-		 * @tparam T type of cell value
-		 */
-		def setValues[T](fields: Map[String, T], index: Int, setCell: (Cell, T) => Unit) =
-			fields.foreach {
-				case (header, value) => headerPositions.getHeaderLocation(header) match {
-					case Some((r, c)) =>
-						val row = sheet.getRow(r + index) match {
-							case null => sheet.createRow(r + index)
-							case rowFound => rowFound
-						}
-						val cell = row.getCell(c) match {
-							case null => row.createCell(c)
-							case cellFound => cellFound
-						}
-						setCell(cell, value)
-					case _ =>
-				}
-			}
-
+	def makeEZPass[T](setData: SetEZPassData[T], component: String, libSize: Int, libVol: Int, libConcentration: Float) = {
 		/*
 		 * Process the results of looking at transfers into wanted component.
+		 * @param setContext context kept for handling EZpass
  		 * @param index sample number
 		 * @param results results from transfers
 		 * @param samplesFound # of bsp samples found so far
-		 * @return total # of samples found
+		 * @return (context, total # of samples found)
 		 */
 		@tailrec
-		def processResults(index: Int, results: Iterator[MergeResult], samplesFound: Int)
-						  (setFields: (Map[String, String], Map[String, Int], Map[String, Float], Int) => Unit): Int = {
+		def processResults(setContext: T, index: Int, results: Iterator[MergeResult], samplesFound: Int): (T, Int) = {
 			if (results.hasNext) {
 				val result = results.next()
 				val ezPassResults = result.bsp match {
@@ -123,18 +219,18 @@ object EZPassController extends Controller {
 							getCalcStrFields(component) ++ constantFields
 						val intFields = getCalcIntFields(index, libSize, libVol)
 						val floatFields = getCalcFloatFields(libConcentration)
-						setFields(strFields, intFields, floatFields, index)
 						// Found sample
-						1
+						(setData.setFields(setContext, strFields, intFields, floatFields, index), 1)
 					// Sample not found
-					case None => 0
+					case None => (setContext, 0)
 				}
 				// Go get next sample
-				processResults(index + 1, results, samplesFound + ezPassResults)(setFields)
-			} else samplesFound
+				processResults(ezPassResults._1, index + 1, results, samplesFound + ezPassResults._2)
+			} else (setContext, samplesFound)
 		}
 
-		import java.io.File
+		// Go initialize output and get context for completing writing of data
+		val context = setData.initData(component, headers) // Initiate collecting of data
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Go get contents from transfers into specified component
 		TransferContents.getContents(component).map {
@@ -142,24 +238,14 @@ object EZPassController extends Controller {
 			case Some(contents) => contents.wells.get(TransferContents.oneWell) match {
 				case Some(resultSet) =>
 					// Go put results into the EZPASS
-					val samplesFound = processResults(1, resultSet.toIterator, 0)(
-						(strFields, intFields, floatFields, index) => {
-							// Now go set the values into the spreadsheet
-							setValues[String](strFields, index, (cell, value) => cell.setCellValue(value))
-							setValues[Int](intFields, index, (cell, value) => cell.setCellValue(value))
-							setValues[Float](floatFields, index, (cell, value) => cell.setCellValue(value))
-						})
-					if (samplesFound != 0) {
-						// Create temporary file and write new EZPASS there
-						val tFile = File.createTempFile("TRACKER_", ".xlsx")
-						val outFile = new FileOutputStream(tFile)
-						workBook.write(outFile)
-						outFile.close()
-						(Some(tFile.getCanonicalPath), contents.errs)
-					} else (None, List(s"No samples found") ++ contents.errs)
-				case None => (None, List(s"$component is a multi-well component") ++ contents.errs)
+					val samplesFound = processResults(context, 1, resultSet.toIterator, 0)
+					// Finish things up
+					setData.allDone(samplesFound._1, samplesFound._2, contents.errs)
+				// No results - must not be a tube
+				case None => setData.allDone(context, 0, List(s"$component is a multi-well component") ++ contents.errs)
 			}
-			case None => (None, List(s"$component has no contents"))
+			// No contents
+			case None => setData.allDone(context, 0, List(s"$component has no contents"))
 		}
 	}
 
@@ -171,7 +257,7 @@ object EZPassController extends Controller {
 	private def getIndividual(bsp: MergeBsp) = bsp.individual
 	private def getLibrary(bsp: MergeBsp) = bsp.library
 	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
-	// Map of headers to methods to retrieve value
+	// Map of headers to methods to retrieve bsp values
 	private val bspMap : Map[String, (MergeBsp) => Option[String]]=
 		Map("Additional Sample Information" -> getProject, // Jira ticket
 			"Project Title Description (e.g. MG1655 Jumping Library Dev.)" -> getProjectDescription, // Ticket summary
@@ -294,6 +380,8 @@ object EZPassController extends Controller {
 	private val unKnownFields = Map(
 		"Funding Source" -> "Get from Jira parent ticket",
 		"Coverage (# Lanes/Sample)" -> "Get from Jira parent ticket",
+		"SQUID project" -> "Get via SQUID",
+		"Virtual GSSR ID" -> "Assigned via SQUID",
 		"Strain" -> unknown,
 		"Sex (for non-human samples only)" -> unknown,
 		"Cell Line"	-> unknown,
