@@ -1,10 +1,8 @@
-package controllers
+package models
 
 import models.ContainerDivisions.Division._
 import models.initialContents.InitialContents
-import models.Transfer
-import models.{Rack, Component, Container, ContainerDivisions}
-import controllers.TransferHistory.TransferEdge
+import models.TransferHistory.TransferEdge
 
 import scalax.collection.edge.LkDiEdge
 
@@ -75,7 +73,6 @@ object TransferContents {
 	import scalax.collection.edge.LBase._
 	object TransferLabel extends LEdgeImplicits[TransferEdge]
 	import TransferLabel._
-
 	import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 	/**
@@ -101,7 +98,7 @@ object TransferContents {
 			 */
 			def getBspContent(c: Component) =
 				c match {
-					case rack: Rack => RackController.getBSPmatch(rack.id,
+					case rack: Rack => Rack.getBSPmatch(rack.id,
 						found = (matches, ssfIssue) => {
 							// Get results of bsp matching into a map of wells to sample info
 							val bspMatches = matches.flatMap {

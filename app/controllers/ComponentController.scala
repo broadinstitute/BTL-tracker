@@ -1,13 +1,13 @@
 package controllers
 
 import models.Component
+import models.db.{TransferCollection, TrackerCollection}
 import models.Component.{HiddenFields,ComponentType}
 import play.api.Logger
 import play.api.data.Form
 import play.api.libs.json._
 import play.api.mvc._
 import play.modules.reactivemongo.MongoController
-import play.modules.reactivemongo.json.collection.JSONCollection
 import play.twirl.api.{HtmlFormat,Html}
 
 import scala.concurrent.Future
@@ -123,7 +123,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 		doRequestFromForm(form,
 			// Note that afterbind returns a future
 			afterBind = (data: C) => {
-				trackerCollection.insert(data).map { lastError =>
+				TrackerCollection.trackerCollection.insert(data).map { lastError =>
 					val success = s"Successfully inserted item ${data.id}"
 					Logger.debug(s"$success with status: $lastError")
 					// Go home and tell everyone what we've done
@@ -155,7 +155,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 				if (errs.isEmpty) {
 					// Binding was successful - now go update the wanted item with data from the form
 					val selector = Json.obj(Component.idKey -> data.id,Component.typeKey -> data.component.toString)
-					trackerCollection.update(selector,data).map { lastError =>
+					TrackerCollection.trackerCollection.update(selector,data).map { lastError =>
 						val success = s"Successfully updated ${data.id}"
 						Logger.debug(s"$success with status: $lastError")
 						// Go home and tell everyone what we've done
@@ -181,16 +181,6 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 
 object ComponentController extends Controller with MongoController {
 	/**
-	 * Tracker collection name
-	 */
-	val trackerCollectionName = "tracker"
-	/**
-	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
-	 * @return collection that uses JSON for input/output
-	 */
-	def trackerCollection: JSONCollection = db.collection[JSONCollection](trackerCollectionName)
-
-	/**
 	 * Go delete item and associated transfers from DB.
 	 * @param id ID for item to be deleted
 	 * @param deleted callback if delete went well
@@ -198,19 +188,18 @@ object ComponentController extends Controller with MongoController {
 	 */
 	def delete[R](id: String, deleted: () => R, error: (Throwable) => R) = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		val key = Json.obj(Component.idKey -> id)
 		// Start up deletes of component as well as associated transfers
-		val componentRemove = trackerCollection.remove(Json.toJson(key))
-		val transferRemove = TransferController.removeTransfers(id)
-		// Wait for completions of deletes
-		componentRemove.flatMap { lastError =>
-			Logger.debug(s"Successfully deleted item $id with status: $lastError")
-			transferRemove.map {
-				case Some(err) => error(err)
-				case None => deleted()
+		val componentRemove = TrackerCollection.remove(id)
+		val transferRemove = TransferCollection.removeTransfers(id)
+		for {cr <- componentRemove
+			tr <- transferRemove
+		} yield {
+			(cr, tr) match {
+				case (Some(err), None) => error(err)
+				case (Some(err), Some(_)) => error(err)
+				case (None, Some(err)) => error(err)
+				case _ => deleted()
 			}
-		}.recover{
-			case err => error(err)
 		}
 	}
 
@@ -236,7 +225,7 @@ object ComponentController extends Controller with MongoController {
 				Json.obj(Component.idKey -> id,Component.typeKey -> Json.obj("$in" -> componentType.map(_.toString)))
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Using implicit reader and execution context
-		val item = trackerCollection.find(Json.toJson(findMap)).one
+		val item = TrackerCollection.trackerCollection.find(Json.toJson(findMap)).one
 		// First map for future (returns new future that will map original future results into new results)
 		// Next map for option that is returned when original future completes
 		// When original future completes callback is used to get results
@@ -303,10 +292,8 @@ object ComponentController extends Controller with MongoController {
 	 * Class to hold redirect calls and json conversions
 	 * @param updateRoute Method to get call to redirect updates to
 	 * @param addRoute Method to get call to redirect adds to
-	 * @param jsonToComponent Method to create component object from json
 	 */
-	case class ControllerActions(updateRoute: (String) => Call, addRoute: (String) => Call,
-	                             jsonToComponent: (JsObject) => Component)
+	case class ControllerActions(updateRoute: (String) => Call, addRoute: (String) => Call)
 
 	/**
 	 * Map of calls to use for redirects to find (by id) or add a component and json to component conversions
@@ -315,16 +302,16 @@ object ComponentController extends Controller with MongoController {
 		Map(
 			ComponentType.Freezer ->
 				ControllerActions(routes.FreezerController.findFreezerByID(_: String),
-					routes.FreezerController.addFreezer(_: String), FreezerController.componentFromJson(_: JsObject)),
+					routes.FreezerController.addFreezer(_: String)),
 			ComponentType.Plate ->
 				ControllerActions(routes.PlateController.findPlateByID(_: String),
-					routes.PlateController.addPlate(_: String), PlateController.componentFromJson(_: JsObject)),
+					routes.PlateController.addPlate(_: String)),
 			ComponentType.Rack ->
 				ControllerActions(routes.RackController.findRackByID(_: String),
-					routes.RackController.addRack(_: String), RackController.componentFromJson(_: JsObject)),
+					routes.RackController.addRack(_: String)),
 			ComponentType.Tube ->
 				ControllerActions(routes.TubeController.findTubeByID(_: String),
-					routes.TubeController.addTube(_: String), TubeController.componentFromJson(_: JsObject))
+					routes.TubeController.addTube(_: String))
 		)
 
 	/**

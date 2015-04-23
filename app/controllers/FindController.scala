@@ -1,12 +1,13 @@
 package controllers
 
 import models.Find._
+import models.db.TrackerCollection
+import models.TransferHistory
 import models.{ContainerDivisions, Container, Find}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.iteratee.{Enumeratee, Iteratee}
 import play.api.mvc.{Action, Controller}
 import play.modules.reactivemongo.MongoController
-import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson._
 import scala.collection.Set
 
@@ -17,11 +18,6 @@ import scala.concurrent.Future
  * Created by nnovod on 4/6/15.
  */
 object FindController extends Controller with MongoController {
-	/**
-	 * Get collection to do mongo operations with BSON
-	 */
-	def trackerBSONCollection: BSONCollection = db.collection[BSONCollection](ComponentController.trackerCollectionName)
-
 	/**
 	 * Initiate search of components - just put up form to get search criteria
 	 * @return action to get id of wanted component
@@ -73,7 +69,7 @@ object FindController extends Controller with MongoController {
 				// Get find query from what was set in form
 				val findQuery = BSON.writeDocument[Find](data)
 				// Get enumerator to produce documents found
-				val getDocs = trackerBSONCollection.find(findQuery).cursor[BSONDocument].enumerate()
+				val getDocs = TrackerCollection.trackerCollectionBSON.find(findQuery).cursor[BSONDocument].enumerate()
 				// Get enumeratee we want, depending on whether transfers are to be included
 				val filter = if (data.includeTransfers) findWithTransfers else findWithoutTransfers
 				// Now get results (get documents via enumerator and modify them via enumeratee and finally get

@@ -1,6 +1,7 @@
 package controllers
 
 import models.Component.ComponentType
+import models.db.TransferCollection
 import play.api.libs.json._
 import play.api.mvc._
 import models._
@@ -75,7 +76,7 @@ object Application extends Controller {
 	 * @return result with
 	 */
 	def deleteCheck(id: String) = Action.async { request =>
-		TransferController.countTransfers(id).map((count) => {
+		TransferCollection.countTransfers(id).map((count) => {
 			Ok(views.html.deleteConfirm(id, count))
 		}).recover {
 			case err => BadRequest(

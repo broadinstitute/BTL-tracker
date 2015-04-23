@@ -2,8 +2,7 @@ package models
 
 import java.io.{FileOutputStream, File}
 
-import controllers.TransferContents
-import controllers.TransferContents.{MergeMid, MergeBsp, MergeResult}
+import models.TransferContents.{MergeMid, MergeBsp, MergeResult}
 import org.apache.poi.ss.usermodel.Cell
 import org.broadinstitute.spreadsheets.HeadersToValues
 import play.Play
@@ -86,7 +85,7 @@ object EZPass {
 	 * @param headersToValues contains locations of headers in spreadsheet and current spreadsheet state
 	 * @param component component that EZPass is being done for
 	 */
-	private case class DataSource(headersToValues: HeadersToValues, component: String)
+	case class DataSource(headersToValues: HeadersToValues, component: String)
 
 	/**
 	 * Implementation of setEZPassData to write out EZPass data to a new spreadsheet.

@@ -9,7 +9,6 @@ import play.api.libs.Files
 import play.api.libs.json.JsObject
 import play.api.mvc.{MultipartFormData, Action}
 import Errors.FlashingKeys
-import models.project.JiraProject
 
 /**
  * Rack of other containers.
@@ -57,23 +56,6 @@ object RackController extends ComponentController[Rack] {
 	def createRackFromForm(id: String) = Action.async { implicit request => create(id, request)}
 
 	/**
-	 * Make an error message for when we can't find something in the DB
-	 * @param whatNotFound item we couldn't find
-	 * @param id item id we looked for
-	 * @param err error returned from database
-	 * @return nice text with all the error parts put together
-	 */
-	private def makeErrMsg(whatNotFound: String, id: String, err: Option[String]) = {
-		val m = whatNotFound + " not found for " + id
-		val dbErr =
-			err match {
-				case Some(errMsg) => ": " + errMsg
-				case None => ""
-			}
-		m + dbErr
-	}
-
-	/**
 	 * Do BSP report for a Rack.  We show how the scan done of the rack being used compares with what BSP reported
 	 * about the rack.
 	 * @param id barcode for rack
@@ -81,7 +63,7 @@ object RackController extends ComponentController[Rack] {
 	 */
 	def doBSPReport(id: String) = Action.async { implicit request =>
 		Application.findRequestUsingID(id,request,List(ComponentType.Rack))((cType,json,request) => {
-			getBSPmatch(id,
+			Rack.getBSPmatch(id,
 				(matches, foundRack) => {
 					// Get layout type and corresponding data to now dimensions of rack
 					val layout = (json \ ContainerDivisions.divisionKey).as[String]
@@ -133,45 +115,6 @@ object RackController extends ComponentController[Rack] {
 					case _ => Map.empty[Option[String], String]
 				}
 			})
-	}
-
-	/**
-	 * Get matches for BSP rack.
- 	 * @param id id for rack
-	 * @param found callback if matches found for BSP rack
-	 * @param notFound callback if matches not found for BSP rack
-	 * @tparam R type returned by callback (and thus us)
-	 * @return callback return type
-	 */
-	def getBSPmatch[R](id: String, found: (RackScan#MatchByPos[BSPTube], SSFIssueList[BSPScan]) => R,
-					   notFound: (String) => R) = {
-		// Find the projects with scan of the rack
-		val (rack, err) = JiraProject.getRackIssueCollection(id)
-		if (rack.isEmpty) {
-			// Looks like scan of rack never done
-			notFound(makeErrMsg("Scan File entry", id, err))
-		} else {
-			// Get list of projects containing original BSP scan of rack
-			val (bspRacks, bspErr) = JiraProject.getBSPRackIssueCollection(id)
-			// Get first of list of scanned racks (should only be one there)
-			val foundRack = rack.head
-			if (bspRacks.isEmpty || foundRack.list.isEmpty) {
-				// Looks like BSP results never entered
-				notFound(makeErrMsg("BSP Rack entry", id, bspErr))
-			} else {
-				// If an empty rack then a bad BSP report
-				val isEmptyRack =
-					bspRacks.forall((issue) => issue.list.forall(_.contents.isEmpty))
-				if (isEmptyRack) {
-					notFound("BSP rack has no recorded contents." +
-						"  Check if the Jira BSP attachment is missing fields, such as tube barcodes.")
-				} else {
-					// Get how scan matches up using first project from each list (should only be one in each list)
-					val matches = foundRack.list.head.matchContent(bspRacks.head.list)
-					found(matches, bspRacks.head)
-				}
-			}
-		}
 	}
 
 	/**

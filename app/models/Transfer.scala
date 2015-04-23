@@ -24,7 +24,20 @@ import play.api.libs.json._
  */
 case class Transfer(from: String, to: String,
 					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String],
-					slice: Option[Transfer.Slice.Slice])
+					slice: Option[Transfer.Slice.Slice]) {
+
+	import models.Transfer.Quad._
+	import models.Transfer.Slice._
+	/**
+	 * Make a description of the transfer, including quadrant descriptions.
+	 * @return description of transfer, including quadrant information
+	 */
+	def quadDesc = {
+		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) =
+			slice.map((s) => s"slice $s of ").getOrElse("") + quad.map((q) => s"$q of $id").getOrElse(id)
+		"transfer from " + qDesc(from, fromQuad, slice) + " to " + qDesc(to, toQuad, None)
+	}
+}
 
 /**
  * Junior class to Transfer to get initial data for transfer.  This is just used in forms.

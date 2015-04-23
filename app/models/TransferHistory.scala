@@ -1,9 +1,14 @@
-package controllers
+package models
 
+/**
+ * Model for creating and manipulating transfer history graphs.
+ * Created by nnovod on 4/23/15.
+ */
 import models.Transfer.Slice.Slice
-import models._
 import models.Transfer.Quad._
+import models.db.{TrackerCollection, TransferCollection}
 import play.api.libs.json.JsObject
+import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.BSONFormats
 import reactivemongo.bson.{BSONObjectID, BSONDocument}
@@ -21,32 +26,7 @@ import scalax.collection.edge.Implicits._
  *         Date: 3/2/15
  *         Time: 12:02 PM
  */
-object TransferHistory extends MongoController {
-
-	/**
-	 * Future to get list of component that are source/destination of transfers to/from a specified component
- 	 * @param id component id
-	 * @param directionKey transfer key to indicate to or from
-	 * @return list of components that were target or source of transfers to specified component
-	 */
-	private def getTransferIDs(id: String, directionKey: String) = {
-		val cursor = TransferController.transferCollection.find(BSONDocument(directionKey -> id)).cursor[BSONDocument]
-		cursor.collect[List]()
-	}
-
-	/**
-	 * Future to get list of components that were directly transferred into a component id
-	 * @param id component ID
-	 * @return list of components that were directly transferred to the input component id
-	 */
-	private def getSourceIDs(id: String) = getTransferIDs(id, Transfer.toKey)
-
-	/**
-	 * Future to get list of components that were directly transferred from a component id
-	 * @param id component ID
-	 * @return list of components that were directly transferred to from the input component id
-	 */
-	private def getTargetIDs(id: String) = getTransferIDs(id, Transfer.fromKey)
+object TransferHistory extends Controller with MongoController {
 
 	/**
 	 * Get source of transfer
@@ -65,12 +45,14 @@ object TransferHistory extends MongoController {
 	/**
 	 * Partial function to make a graph of sources
 	 */
-	private val sourceGraphParams = makeDirectionalGraph(_: String, getSourceIDs, getSourceTransferID)
+	private val sourceGraphParams = makeDirectionalGraph(_: String,
+		TransferCollection.getSourceIDs, getSourceTransferID)
 
 	/**
 	 * Partial function to make a graph of targets
 	 */
-	private val targetGraphParams = makeDirectionalGraph(_: String, getTargetIDs, getTargetTransferID)
+	private val targetGraphParams = makeDirectionalGraph(_: String,
+		TransferCollection.getTargetIDs, getTargetTransferID)
 
 	/**
 	 * Future to retrieve list of source components, given list of transfers
@@ -88,7 +70,7 @@ object TransferHistory extends MongoController {
 			}
 		)
 		// Go find all the components that were in the from list
-		val cursor = ComponentController.trackerCollection.find(BSONDocument(
+		val cursor = TrackerCollection.trackerCollection.find(BSONDocument(
 			Component.idKey -> BSONDocument("$in" -> idList))).cursor[BSONDocument]
 		cursor.collect[List]().map((_, transfers))
 	}
@@ -101,7 +83,7 @@ object TransferHistory extends MongoController {
 	private def getComponentObject(bson: BSONDocument) = {
 		// Get json since model conversions are setup to do json reads/writes
 		val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
-		TransferController.getComponent(json)
+		ComponentFromJson.getComponent(json)
 	}
 
 	/**
@@ -204,7 +186,7 @@ object TransferHistory extends MongoController {
 
 	/**
 	 * Get list of all projects referenced in a graph
- 	 * @param graph graph to be searched
+	 * @param graph graph to be searched
 	 * @return components that have a project set
 	 */
 	def getGraphProjects(graph: Graph[Component, LkDiEdge]) =

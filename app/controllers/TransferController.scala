@@ -1,18 +1,12 @@
 package controllers
 
 import controllers.Errors.FlashingKeys
-import models.Transfer.Quad.Quad
-import models.Transfer.Slice.Slice
 import models._
-import play.api.Logger
+import models.db.{TrackerCollection, TransferCollection}
 import play.api.data.Form
 import play.api.mvc.{Result, Action, Controller}
 import play.modules.reactivemongo.MongoController
-import play.modules.reactivemongo.json.collection.JSONCollection
 import play.api.libs.json._
-import reactivemongo.api.collections.default.BSONCollection
-import reactivemongo.bson.{BSONArray, BSONDocument}
-import reactivemongo.core.commands.Count
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -34,15 +28,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  *         Time: 6:27 PM
  */
 // @TODO Need ability to delete individual transfers
-object TransferController extends Controller with MongoController {
-	/**
-	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
-	 * @return collection that uses JSON for input/output of transfer data
-	 */
-	val transferCollectionName = "transfer"
-	def transferCollection: JSONCollection = db.collection[JSONCollection](transferCollectionName)
-	def transferCollectionBSON: BSONCollection = db.collection[BSONCollection](transferCollectionName)
-
+object TransferController extends Controller {
 	/**
 	 * Initiate transfer - if additional info needed bring up form otherwise try to do transfer now
 	 * @return action to go get transfer information
@@ -87,8 +73,8 @@ object TransferController extends Controller with MongoController {
 	private def getTransferInfo[T: Reads](data: TransferStart) = {
 		// Go retrieve both objects via futures
 		for {
-			to <- ComponentController.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
-			from <- ComponentController.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
+			to <- TrackerCollection.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
+			from <- TrackerCollection.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
 		} yield {
 			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
@@ -106,17 +92,6 @@ object TransferController extends Controller with MongoController {
 	}
 
 	/**
-	 * Get component object from json.
-	 * @param json input json
-	 * @return component object
-	 */
-	def getComponent(json: JsObject) = {
-		import models.Component.ComponentType._
-		val componentType = (json \ Component.typeKey).as[ComponentType]
-		ComponentController.actions(componentType).jsonToComponent(json)
-	}
-
-	/**
 	 * Is the transfer valid?  Check from component can be transferred to to component.
 	 * @param data transfer data
 	 * @param from json from find of from component
@@ -125,9 +100,9 @@ object TransferController extends Controller with MongoController {
 	 */
 	private def isTransferValid(data: TransferStart, from: JsObject, to: JsObject) = {
 		// Get to component
-		val toC = getComponent(to)
+		val toC = ComponentFromJson.getComponent(to)
 		// Get from component and see if transfer from it is valid
-		getComponent(from) match {
+		ComponentFromJson.getComponent(from) match {
 			case fromC: Component with Transferrable if fromC.validTransfers.contains(toC.component) =>
 				(fromC, toC, None)
 			case fromC => (fromC, toC, Some("Can't do transfer from a " + fromC.component.toString +
@@ -297,7 +272,7 @@ object TransferController extends Controller with MongoController {
 								// Source isn't divided - go complete transfer of its contents
 								case _ =>
 									val tForm = data.toTransferForm
-									insertTransfer(tForm, () => quadDesc(tForm.transfer))
+									insertTransfer(tForm)
 							}
 					}
 				}
@@ -389,61 +364,12 @@ object TransferController extends Controller with MongoController {
 	 * @param data transfer to record in DB
 	 * @return result to return with completion status
 	 */
-	private def insertTransfer(data: TransferForm, whatDone: () => String) = {
-		transferCollection.insert(data.transfer).map {
-			(lastError) => {
-				Logger.debug(s"Successfully inserted ${whatDone()} with status: $lastError")
-				transferComplete(() => "Completed " + whatDone())
-			}
+	private def insertTransfer(data: TransferForm) = {
+		TransferCollection.insert(data.transfer).map {
+			(lastError) => transferComplete(() => "Completed " + data.transfer.quadDesc)
 		}.recover {
 			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
 		}
-	}
-
-	/**
-	 * Get BSON document query for transfers to and from a component
-	 * @param id component id
-	 * @return query to find transfers directly to/from a component
-	 */
-	private def transferBson(id: String) = BSONDocument("$or" -> BSONArray(
-		BSONDocument("from" -> id),
-		BSONDocument("to" -> id)))
-
-	/**
-	 * Remove transfers involving a component.
-	 * @param id component id
-	 * @return future with optional string containing error
-	 */
-	def removeTransfers(id: String) = {
-		transferCollectionBSON.remove(transferBson(id)).map {
-			(lastError) => {
-				Logger.debug(s"Successfully deleted transfers for $id with status: $lastError")
-				None
-			}
-		}.recover {
-			case err => Some(err)
-		}
-	}
-
-	/**
-	 * Get count of transfers involving a component.
-	 * @param id component id
-	 * @return future with optional string containing error
-	 */
-	def countTransfers(id: String) = {
-		val command = Count(transferCollectionName, Some(transferBson(id)))
-		db.command(command)
-	}
-
-	/**
-	 * Make a description of the transfer, including quadrant descriptions.
-	 * @param data data transferred
-	 * @return description of transfer, including quadrant information
-	 */
-	private def quadDesc(data: Transfer) = {
-		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) =
-			slice.map((s) => s"slice $s of ").getOrElse("") + quad.map((q) => s"$q of $id").getOrElse(id)
-		"transfer from " + qDesc(data.from, data.fromQuad, data.slice) + " to " + qDesc(data.to, data.toQuad, None)
 	}
 
 	/**
@@ -459,7 +385,7 @@ object TransferController extends Controller with MongoController {
 						None, None, None)),
 				formData => Future.successful(
 					transferFormErrorResult(formWithErrors.withGlobalError(Errors.validationError), formData))),
-			data =>	insertTransfer(data, () => quadDesc(data.transfer))
+			data =>	insertTransfer(data)
 		).recover {
 			case err =>
 				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)),
