@@ -4,7 +4,6 @@ import models.Transfer.Slice.Slice
 import models._
 import models.Transfer.Quad._
 import play.api.libs.json.JsObject
-import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.BSONFormats
 import reactivemongo.bson.{BSONObjectID, BSONDocument}
@@ -22,7 +21,7 @@ import scalax.collection.edge.Implicits._
  *         Date: 3/2/15
  *         Time: 12:02 PM
  */
-object TransferHistory extends Controller with MongoController {
+object TransferHistory extends MongoController {
 
 	/**
 	 * Future to get list of component that are source/destination of transfers to/from a specified component
