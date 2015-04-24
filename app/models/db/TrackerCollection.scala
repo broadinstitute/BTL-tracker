@@ -1,7 +1,7 @@
 package models.db
 
 import models.Component
-import play.api.Logger
+import play.api.{Play, Logger}
 import play.api.libs.json._
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
@@ -19,8 +19,12 @@ import scala.concurrent.Future
  * Created by nnovod on 4/23/15.
  */
 object TrackerCollection extends Controller with MongoController {
-	// Collection name
-	private val trackerCollectionName = "tracker"
+	/**
+	 * Get tracker collection name.  We use a def instead of a val to avoid hot-reloading problems.
+	 * @return collection name
+	 */
+	private def trackerCollectionName =
+		Play.current.configuration.getString("mongodb.collection.tracker").getOrElse("tracker")
 
 	/**
 	 * Get collection to do JSON mongo operations.  We use a def instead of a val to avoid hot-reloading problems.

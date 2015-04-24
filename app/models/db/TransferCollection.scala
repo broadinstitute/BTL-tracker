@@ -1,7 +1,7 @@
 package models.db
 
 import models.Transfer
-import play.api.Logger
+import play.api.{Play, Logger}
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
@@ -15,8 +15,12 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * Created by nnovod on 4/23/15.
  */
 object TransferCollection extends Controller with MongoController {
-	// Collection name
-	private val transferCollectionName = "transfer"
+	/**
+	 * Get transfer collection name.  We use a def instead of a val to avoid hot-reloading problems.
+	 * @return collection name
+	 */
+	private def transferCollectionName =
+		Play.current.configuration.getString("mongodb.collection.transfer").getOrElse("transfer")
 
 	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
