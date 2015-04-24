@@ -225,7 +225,7 @@ object ComponentController extends Controller with MongoController {
 				Json.obj(Component.idKey -> id,Component.typeKey -> Json.obj("$in" -> componentType.map(_.toString)))
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Using implicit reader and execution context
-		val item = TrackerCollection.trackerCollection.find(Json.toJson(findMap)).one
+		val item = TrackerCollection.findWithJsonQuery(Json.toJson(findMap))
 		// First map for future (returns new future that will map original future results into new results)
 		// Next map for option that is returned when original future completes
 		// When original future completes callback is used to get results

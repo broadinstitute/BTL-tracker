@@ -13,7 +13,6 @@ import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.BSONFormats
 import reactivemongo.bson.{BSONObjectID, BSONDocument}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import play.modules.reactivemongo.json.BSONFormats._
 
 import scala.concurrent.Future
 import scalax.collection.edge.LkDiEdge
@@ -70,9 +69,7 @@ object TransferHistory extends Controller with MongoController {
 			}
 		)
 		// Go find all the components that were in the from list
-		val cursor = TrackerCollection.trackerCollection.find(BSONDocument(
-			Component.idKey -> BSONDocument("$in" -> idList))).cursor[BSONDocument]
-		cursor.collect[List]().map((_, transfers))
+		TrackerCollection.findIds(idList).map((_, transfers))
 	}
 
 	/**
@@ -83,6 +80,7 @@ object TransferHistory extends Controller with MongoController {
 	private def getComponentObject(bson: BSONDocument) = {
 		// Get json since model conversions are setup to do json reads/writes
 		val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
+		// Do conversion to model component object
 		ComponentFromJson.getComponent(json)
 	}
 
@@ -97,7 +95,7 @@ object TransferHistory extends Controller with MongoController {
 			case Some(id) => id.time
 			case _ => 0
 		}
-		// Get json since model conversions are setup to do json reads/writes
+		// Get json since Transfer conversions are setup to do json reads/writes
 		val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
 		import Transfer.transferFormat
 		val transfer = json.as[Transfer]

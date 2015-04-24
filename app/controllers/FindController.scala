@@ -69,7 +69,7 @@ object FindController extends Controller with MongoController {
 				// Get find query from what was set in form
 				val findQuery = BSON.writeDocument[Find](data)
 				// Get enumerator to produce documents found
-				val getDocs = TrackerCollection.trackerCollectionBSON.find(findQuery).cursor[BSONDocument].enumerate()
+				val getDocs = TrackerCollection.findWithQuery(findQuery).enumerate()
 				// Get enumeratee we want, depending on whether transfers are to be included
 				val filter = if (data.includeTransfers) findWithTransfers else findWithoutTransfers
 				// Now get results (get documents via enumerator and modify them via enumeratee and finally get

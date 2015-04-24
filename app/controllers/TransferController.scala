@@ -5,7 +5,6 @@ import models._
 import models.db.{TrackerCollection, TransferCollection}
 import play.api.data.Form
 import play.api.mvc.{Result, Action, Controller}
-import play.modules.reactivemongo.MongoController
 import play.api.libs.json._
 
 import scala.concurrent.Future
@@ -72,9 +71,11 @@ object TransferController extends Controller {
 	 */
 	private def getTransferInfo[T: Reads](data: TransferStart) = {
 		// Go retrieve both objects via futures
+		val toQuery = TrackerCollection.findID(data.to)
+		val fromQuery = TrackerCollection.findID(data.from)
 		for {
-			to <- TrackerCollection.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.to))).one
-			from <- TrackerCollection.trackerCollection.find(Json.toJson(Json.obj(Component.idKey -> data.from))).one
+			to <- toQuery
+			from <- fromQuery
 		} yield {
 			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
@@ -153,9 +154,9 @@ object TransferController extends Controller {
 											fromQuad: Boolean, toQuad: Boolean) = {
 		// dataMandatory set via xor of quad settings (if only one quad wanted then it's transfer between different
 		// size containers)
-		val dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad)
 		transferIncomplete(data, fromQuad = fromQuad, toQuad = toQuad,
-			dataMandatory = dataMandatory, isQuadToQuad = toQuad && fromQuad, isQuadToTube = false)
+			dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad),
+			isQuadToQuad = toQuad && fromQuad, isQuadToTube = false)
 	}
 
 	/**
