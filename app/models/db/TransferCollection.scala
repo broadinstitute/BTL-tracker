@@ -15,13 +15,19 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * Created by nnovod on 4/23/15.
  */
 object TransferCollection extends Controller with MongoController {
+	// Collection name
+	private val transferCollectionName = "transfer"
 
 	/**
 	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
 	 * @return collection that uses JSON for input/output of transfer data
 	 */
-	private val transferCollectionName = "transfer"
 	private def transferCollection: JSONCollection = db.collection[JSONCollection](transferCollectionName)
+
+	/**
+	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
+	 * @return collection that uses BSON for input/output of transfer data
+	 */
 	private def transferCollectionBSON: BSONCollection = db.collection[BSONCollection](transferCollectionName)
 
 	/**

@@ -6,7 +6,6 @@ import models.Component.{HiddenFields,ComponentType}
 import play.api.data.Form
 import play.api.libs.json._
 import play.api.mvc._
-import play.modules.reactivemongo.MongoController
 import play.twirl.api.{HtmlFormat,Html}
 
 import scala.concurrent.Future
@@ -20,7 +19,7 @@ import scala.concurrent.Future
  * Controller to do CRUD on a component to/from a Mongo database.
  * @tparam C type of component
  */
-trait ComponentController[C <: Component] extends Controller with MongoController {
+trait ComponentController[C <: Component] extends Controller {
 
 	import ComponentController._
 
@@ -171,7 +170,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	}
 }
 
-object ComponentController extends Controller with MongoController {
+object ComponentController extends Controller {
 	/**
 	 * Go delete item and associated transfers from DB.
 	 * @param id ID for item to be deleted

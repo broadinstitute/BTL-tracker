@@ -61,7 +61,7 @@ object Application extends Controller {
 	 * Using type supplied from form go to next step to fill in type specific data for components.
 	 * @return action to execute to put up form to get component data
 	 */
-	def addFromForm = Action { request =>
+	def addFromForm() = Action { request =>
 		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				BadRequest(views.html.add(formWithErrors.withGlobalError(Errors.validationError), formWithErrors.get.id)),

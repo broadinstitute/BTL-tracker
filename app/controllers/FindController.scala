@@ -7,7 +7,6 @@ import models.{ContainerDivisions, Container, Find}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.iteratee.{Enumeratee, Iteratee}
 import play.api.mvc.{Action, Controller}
-import play.modules.reactivemongo.MongoController
 import reactivemongo.bson._
 import scala.collection.Set
 
@@ -17,7 +16,7 @@ import scala.concurrent.Future
  * Controller to execute Find command.
  * Created by nnovod on 4/6/15.
  */
-object FindController extends Controller with MongoController {
+object FindController extends Controller {
 	/**
 	 * Initiate search of components - just put up form to get search criteria
 	 * @return action to get id of wanted component
