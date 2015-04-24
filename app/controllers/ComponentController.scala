@@ -148,8 +148,7 @@ trait ComponentController[C <: Component] extends Controller {
 				val errs = preUpdate(data)
 				if (errs.isEmpty) {
 					// Binding was successful - now go update the wanted item with data from the form
-					val selector = Json.obj(Component.idKey -> data.id,Component.typeKey -> data.component.toString)
-					TrackerCollection.updateComponent(selector, data,
+					TrackerCollection.updateComponent(data,
 						// Go home and tell everyone what we've done
 						onSuccess = (msg) => Errors.homeRedirect(msg),
 						// Recover from exception - return form with errors

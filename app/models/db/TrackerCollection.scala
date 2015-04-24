@@ -9,6 +9,9 @@ import play.modules.reactivemongo.json.collection.JSONCollection
 import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson.BSONDocument
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import reactivemongo.core.commands.LastError
+
+import scala.concurrent.Future
 
 
 /**
@@ -100,13 +103,7 @@ object TrackerCollection extends Controller with MongoController {
 	 * @return future with return type
 	 */
 	def insertComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) =
-		trackerCollection.insert(data).map { lastError =>
-			val success = s"Successfully inserted item ${data.id}"
-			Logger.debug(s"$success with status: $lastError")
-			onSuccess(success)
-		}.recover {
-			case err => onFailure(err)
-		}
+		doComponentDBOperation(trackerCollection.insert(_: C), "inserted", data, onSuccess, onFailure)
 
 	/**
 	 * Update a component, via reactive mongo, into the tracker DB
@@ -117,13 +114,34 @@ object TrackerCollection extends Controller with MongoController {
 	 * @tparam R return type of callbacks
 	 * @return future with return type
 	 */
-	def updateComponent[C <: Component : Format, R](selector: JsObject, data: C,
-													onSuccess: (String) => R, onFailure: (Throwable) => R) =
-		trackerCollection.update(selector, data).map { lastError =>
-			val success = s"Successfully updated item ${data.id}"
-			Logger.debug(s"$success with status: $lastError")
-			onSuccess(success)
+	def updateComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) = {
+		val selector = Json.obj(Component.idKey -> data.id, Component.typeKey -> data.component.toString)
+		doComponentDBOperation(trackerCollection.update(selector, _: C), "updated", data, onSuccess, onFailure)
+	}
+
+	/**
+	 * Do component database operation.
+	 * @param oper database function to execute
+	 * @param operLabel label for operation logging message
+	 * @param data component on which to do operation
+	 * @param onSuccess callback if all goes well
+	 * @param onFailure callback if problems
+	 * @tparam C component type
+	 * @tparam R return type of callbacks
+	 * @return future with return type
+	 */
+	private def doComponentDBOperation[C <: Component, R](oper: (C) => Future[LastError], operLabel: String, data: C,
+														  onSuccess: (String) => R, onFailure: (Throwable) => R) = {
+		// Do db operation
+		oper(data).map {
+			// All went well - log that and call back with success
+			lastError =>
+				val success = s"Successfully $operLabel item ${data.id}"
+				Logger.debug(s"$success with status: $lastError")
+				onSuccess(success)
 		}.recover {
+			// Problems - callback to report error
 			case err => onFailure(err)
 		}
+	}
 }
