@@ -4,7 +4,7 @@ import models.Component.ComponentType
 import play.api.libs.json.JsObject
 
 /**
- * Little fellow to be able to convert from json to an model object
+ * Little fellow to be able to convert from json to a model object
  * Created by nnovod on 4/23/15.
  */
 object ComponentFromJson {

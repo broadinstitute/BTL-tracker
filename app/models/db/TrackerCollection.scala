@@ -2,7 +2,7 @@ package models.db
 
 import models.Component
 import play.api.Logger
-import play.api.libs.json.{JsValue, Json, Reads}
+import play.api.libs.json._
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
@@ -16,14 +16,19 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * Created by nnovod on 4/23/15.
  */
 object TrackerCollection extends Controller with MongoController {
-
+	// Collection name
+	private val trackerCollectionName = "tracker"
 
 	/**
-	 * Get collection to do mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
+	 * Get collection to do JSON mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
 	 * @return collection that uses JSON for input/output of tracker data
 	 */
-	private val trackerCollectionName = "tracker"
-	def trackerCollection: JSONCollection = db.collection[JSONCollection](trackerCollectionName)
+	private def trackerCollection: JSONCollection = db.collection[JSONCollection](trackerCollectionName)
+
+	/**
+	 * Get collection to do BSON mongo operations.  We use a def instead of a val to avoid hot-reloading problems.
+	 * @return collection that uses BSON for input/output of tracker data
+	 */
 	private def trackerCollectionBSON: BSONCollection = db.collection[BSONCollection](trackerCollectionName)
 
 	/**
@@ -73,7 +78,7 @@ object TrackerCollection extends Controller with MongoController {
 	 * @tparam T Result type (must have implicit Reads)
 	 * @return single object matching query
 	 */
-	def findWithJsonQuery[T: Reads](query: JsValue) =
+	def findOneWithJsonQuery[T: Reads](query: JsValue) =
 		trackerCollection.find(query).one
 
 	/**
@@ -83,5 +88,42 @@ object TrackerCollection extends Controller with MongoController {
 	 * @return single object returned by query
 	 */
 	def findID[T: Reads](id: String) =
-		findWithJsonQuery(Json.toJson(Json.obj(Component.idKey -> id)))
+		findOneWithJsonQuery(Json.toJson(Json.obj(Component.idKey -> id)))
+
+	/**
+	 * Insert a component, via reactive mongo, into the tracker DB
+	 * @param data component to insert
+	 * @param onSuccess callback upon success (paramater is success message)
+	 * @param onFailure callback upon failure (parameter is exception)
+	 * @tparam C component type
+	 * @tparam R return type of callbacks
+	 * @return future with return type
+	 */
+	def insertComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) =
+		trackerCollection.insert(data).map { lastError =>
+			val success = s"Successfully inserted item ${data.id}"
+			Logger.debug(s"$success with status: $lastError")
+			onSuccess(success)
+		}.recover {
+			case err => onFailure(err)
+		}
+
+	/**
+	 * Update a component, via reactive mongo, into the tracker DB
+	 * @param data component to update
+	 * @param onSuccess callback upon success (paramater is success message)
+	 * @param onFailure callback upon failure (parameter is exception)
+	 * @tparam C component type
+	 * @tparam R return type of callbacks
+	 * @return future with return type
+	 */
+	def updateComponent[C <: Component : Format, R](selector: JsObject, data: C,
+													onSuccess: (String) => R, onFailure: (Throwable) => R) =
+		trackerCollection.update(selector, data).map { lastError =>
+			val success = s"Successfully updated item ${data.id}"
+			Logger.debug(s"$success with status: $lastError")
+			onSuccess(success)
+		}.recover {
+			case err => onFailure(err)
+		}
 }

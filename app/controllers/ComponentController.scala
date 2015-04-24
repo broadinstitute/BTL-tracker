@@ -3,7 +3,6 @@ package controllers
 import models.Component
 import models.db.{TransferCollection, TrackerCollection}
 import models.Component.{HiddenFields,ComponentType}
-import play.api.Logger
 import play.api.data.Form
 import play.api.libs.json._
 import play.api.mvc._
@@ -119,22 +118,19 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 * @return future to create component (on error displays form with errors)
 	 */
 	def create(id: String, request: Request[AnyContent]) = {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		doRequestFromForm(form,
 			// Note that afterbind returns a future
 			afterBind = (data: C) => {
-				TrackerCollection.trackerCollection.insert(data).map { lastError =>
-					val success = s"Successfully inserted item ${data.id}"
-					Logger.debug(s"$success with status: $lastError")
+				TrackerCollection.insertComponent(data,
 					// Go home and tell everyone what we've done
-					Errors.homeRedirect(success)
-				}
+					onSuccess = (status) => Errors.homeRedirect(status),
+					// Recover from exception - return form with errors
+					onFailure =
+						(err) => BadRequest(htmlForCreate(id)(form.withGlobalError(Errors.exceptionMessage(err)))))
 			},
 			// if trouble then show form that should be updated with error messages
 			onFailure = (f: Form[C]) => htmlForCreate(id)(f)
-		)(request).recover {
-			case err => BadRequest(htmlForCreate(id)(form.withGlobalError(Errors.exceptionMessage(err))))
-		}
+		)(request)
 	}
 
 	/**
@@ -146,7 +142,6 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 	 */
 	def update(id: String, request: Request[AnyContent],
 	           preUpdate: (C) => Map[Option[String], String] = (_) => Map.empty) = {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		doRequestFromForm(form,
 			// Note that afterbind returns a future
 			afterBind = (data: C) => {
@@ -155,12 +150,13 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 				if (errs.isEmpty) {
 					// Binding was successful - now go update the wanted item with data from the form
 					val selector = Json.obj(Component.idKey -> data.id,Component.typeKey -> data.component.toString)
-					TrackerCollection.trackerCollection.update(selector,data).map { lastError =>
-						val success = s"Successfully updated ${data.id}"
-						Logger.debug(s"$success with status: $lastError")
+					TrackerCollection.updateComponent(selector, data,
 						// Go home and tell everyone what we've done
-						Errors.homeRedirect(success)
-					}
+						onSuccess = (msg) => Errors.homeRedirect(msg),
+						// Recover from exception - return form with errors
+						onFailure = (err) => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
+							(form.withGlobalError(Errors.exceptionMessage(err))))
+					)
 				} else {
 					// If pre-update returned errors then return form with those errors - remember original
 					// hidden fields so any changes made to them are ignored for now
@@ -171,11 +167,7 @@ trait ComponentController[C <: Component] extends Controller with MongoControlle
 			},
 			// if trouble then show form that should be updated with error messages
 			onFailure = (f: Form[C]) => htmlForUpdate(id, Component.getHiddenFields(request))(f)
-		)(request).recover {
-			// Recover from exception - return form with errors
-			case err => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
-				(form.withGlobalError(Errors.exceptionMessage(err))))
-		}
+		)(request)
 	}
 }
 
@@ -225,7 +217,7 @@ object ComponentController extends Controller with MongoController {
 				Json.obj(Component.idKey -> id,Component.typeKey -> Json.obj("$in" -> componentType.map(_.toString)))
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Using implicit reader and execution context
-		val item = TrackerCollection.findWithJsonQuery(Json.toJson(findMap))
+		val item = TrackerCollection.findOneWithJsonQuery(Json.toJson(findMap))
 		// First map for future (returns new future that will map original future results into new results)
 		// Next map for option that is returned when original future completes
 		// When original future completes callback is used to get results
