@@ -107,7 +107,7 @@ object Errors {
 	}
 
 	/**
-	 * Default not found redirection - we redirect to add page flashing what we didn't find.
+	 * Redirect back to the home displaying a global message.  This is typically done when a request completes.
 	 * @param flashMsg Message to display upon redirect
 	 * @return redirect to home page
 	 */
