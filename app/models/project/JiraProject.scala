@@ -3,7 +3,7 @@ package models.project
 import models.Component
 import models.Component._
 import org.broadinstitute.LIMStales.mongo.{BtllimsPlatesCollection,BtllimsBSPsCollection,BtllimsRacksCollection}
-import org.broadinstitute.LIMStales.sampleRacks.{SamplePlate,SSFIssueList,BSPScan,RackScan}
+import org.broadinstitute.LIMStales.sampleRacks._
 
 import scala.concurrent.Future
 
@@ -57,6 +57,21 @@ trait JiraProject {
 }
 
 object JiraProject {
+	/**
+	 * Make a SSFList from a file containing scan (set of position/barcodes) of a rack's contents.
+	 * @param file rack scan results
+	 * @return list with rack scan contents
+	 */
+	def makeRackScanList(file: String) = SSFList(file, RackScan)
+
+	/**
+	 * Put rack scan results into the database.
+	 * @param racks list with rack scan contents
+	 * @param project project (SSF ticket) to associate with rack scan
+	 */
+	def insertRackIssueCollection(racks: SSFList[RackScan], project: String) =
+		BtllimsRacksCollection.insertRacks(SSFIssueList(project, List.empty, None, racks.list))
+
 	/**
 	 * Get the projects associated with a rack, along with the results of scans done of the racks.  For each rack scan
 	 * a list of the tubes that are part of the rack is included.

@@ -1,9 +1,8 @@
 package controllers
 
 import models.Component.{HiddenFields,ComponentType}
+import models.project.JiraProject
 import models.{Component,ContainerDivisions,Rack}
-import org.broadinstitute.LIMStales.mongo.BtllimsRacksCollection
-import org.broadinstitute.LIMStales.sampleRacks._
 import play.api.data.Form
 import play.api.libs.Files
 import play.api.libs.json.JsObject
@@ -101,8 +100,7 @@ object RackController extends ComponentController[Rack] {
 					case Some(racks) =>
 						if (racks.list.exists((r) => r.barcode == data.id)) {
 							// Racks file has at least one entry for wanted rack - let's put it into the DB
-							BtllimsRacksCollection.insertRacks(
-								SSFIssueList(data.project.get, List.empty, None, racks.list))
+							JiraProject.insertRackIssueCollection(racks, data.project.get)
 							Map.empty[Option[String], String]
 						} else {
 							// Racks file has entries but not wanted rack - get what it is and report error
@@ -126,6 +124,6 @@ object RackController extends ComponentController[Rack] {
 			data <- d
 			file <- data.file(Rack.rackScanKey)
 		} yield {
-			SSFList(file.ref.file.getCanonicalPath, RackScan)
+			JiraProject.makeRackScanList(file.ref.file.getCanonicalPath)
 		}
 }
