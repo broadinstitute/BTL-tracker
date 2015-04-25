@@ -44,7 +44,7 @@ case class Rack(override val id: String,override val description: Option[String]
  	 * @param request HTTP request (has hidden field with project set before update)
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	override protected def isValid(request: Request[AnyContent]) = isProjectValid(request)
+	override protected def isValid(request: Request[AnyContent]) = isProjectValid(getHiddenField(request,_.project))
 }
 
 object Rack extends ComponentObject[Rack](ComponentType.Rack) {

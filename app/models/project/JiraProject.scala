@@ -4,7 +4,6 @@ import models.Component
 import models.Component._
 import org.broadinstitute.LIMStales.mongo.{BtllimsPlatesCollection,BtllimsBSPsCollection,BtllimsRacksCollection}
 import org.broadinstitute.LIMStales.sampleRacks.{SamplePlate,SSFIssueList,BSPScan,RackScan}
-import play.api.mvc.{AnyContent,Request}
 
 import scala.concurrent.Future
 
@@ -18,12 +17,12 @@ trait JiraProject {
 	this: Component =>
 	/**
 	 * Check if what's set in request is valid - specifically we check if the project set contains the rack or plate.
-	 * @param request HTTP request (has hidden field with project set before update)
+	 * @param hiddenProject Hidden field (normally from HTTP request) with project set before update
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	protected def isProjectValid(request: Request[AnyContent]) : Future[Map[Option[String], String]] = {
+	protected def isProjectValid(hiddenProject: Option[String]) : Future[Map[Option[String], String]] = {
 		// If no project set or project hasn't changed then just return saying all is fine
-		if (project.isEmpty || getHiddenField(request,_.project) == project)
+		if (project.isEmpty || hiddenProject == project)
 			Future.successful(Map.empty)
 		else {
 			import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -85,8 +84,8 @@ object JiraProject {
 		getIssueCollection[SamplePlate](() => BtllimsPlatesCollection.retrievePlate(id).toList)
 
 	/**
-	 * Get a list of entries from the DB
- 	 * @param getList callback to get list
+	 * Get a list of entries
+	 * @param getList callback to get list
 	 * @tparam R type of items in list
 	 * @return list found in DB and optional error message
 	 */
