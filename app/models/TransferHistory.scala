@@ -267,14 +267,21 @@ object TransferHistory extends Controller with MongoController {
 			// Get representation for node (Component) in Graph
 			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
 				val component = getNodeComponent(node)
+				val id = component.id
+				// Get id and description up to 23 characters - if longer truncate it and add ...
+				val intro = component.description match {
+					case Some(d) if d.trim.length > 23 => id + " " + d.trim.substring(0, 20) + "..."
+					case Some(d) if d.trim.length > 0 => id + " " + d.trim
+					case _ => id
+				}
 				component match {
 					// If there's initial content include it in identifier
 					case c: Container if c.initialContent.isDefined =>
-						component.id + s" (${c.initialContent.get.toString})"
+						intro + s" (${c.initialContent.get.toString})"
 					// Otherwise, if no initial contents but a project, include project
-					case _ if component.project.isDefined => component.id + s" (${component.project.get.toString})"
+					case _ if component.project.isDefined => intro + s" (${component.project.get.toString})"
 					// Otherwise just identify the node by its id
-					case _ => component.id
+					case _ => intro
 				}
 			}
 
