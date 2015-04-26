@@ -47,10 +47,9 @@ object RackController extends ComponentController[Rack] {
 	def findRackByID(id: String) = Action.async { request => find(id,request) }
 
 	/**
-	 * Go create a rack.  If all goes well the plate is created in the DB and the user is redirected to
-	 * to view/update the newly created rack.
+	 * Go create a rack.  If all goes well the plate is created in the DB and the user is redirected home.
 	 * @param id rack ID
-	 * @return responds to request with html form to view/update added rack
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def createRackFromForm(id: String) = Action.async { implicit request => create(id, request)}
 
@@ -83,8 +82,9 @@ object RackController extends ComponentController[Rack] {
 
 	/**
 	 * Go update a rack.  If all goes well the rack is updated in the DB and the user is redirected to
-	 * to view/update the newly updated rack.
-	 * @return responds to request with updated form to view/update rack
+	 * to the home page.  Before the update takes place we check if a scan file, with barcodes and positiions,
+	 * has been specified.  If a rack scan file is there we record the contents.
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def updateRackFromForm(id: String) = Action.async { implicit request =>
 		update(id, request,

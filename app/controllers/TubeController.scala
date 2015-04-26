@@ -45,17 +45,15 @@ object TubeController extends ComponentController[Tube] {
 	def findTubeByID(id: String) = Action.async { request => find(id,request)}
 
 	/**
-	 * Go create a tube.  If all goes well the tube is created in the DB and the user is redirected to
-	 * to view/update the newly created tube.
+	 * Go create a tube.  If all goes well the tube is created in the DB and the user is redirected home.
 	 * @param id tube ID
-	 * @return responds to request with html form to view/update added tube
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def createTubeFromForm(id: String) = Action.async { request => create(id, request)}
 
 	/**
-	 * Go update a tube.  If all goes well the tube is updated in the DB and the user is redirected to
-	 * to view/update the newly updated tube.
-	 * @return responds to request with updated form to view/update tube
+	 * Go update a tube.  If all goes well the tube is updated in the DB and the user is redirected home.
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def updateTubeFromForm(id: String) = Action.async { request => update(id, request)}
 }

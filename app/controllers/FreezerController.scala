@@ -37,25 +37,23 @@ object FreezerController extends ComponentController[Freezer] {
 	def addFreezer(id: String) = Action { add(id) }
 
 	/**
-	 * Request to find a freezer, identified by an ID.  We find the freezer (or return an error if it can’t be found) and
-	 * then go to the page to view/update the freezer.
+	 * Request to find a freezer, identified by an ID.  We find the freezer (or return an error if it can’t be found)
+	 * and go to the page to view/update the freezer.
 	 * @param id freezer ID
 	 * @return responds to request with html form to view/update freezer
 	 */
 	def findFreezerByID(id: String) = Action.async { request => find(id,request)}
 
 	/**
-	 * Go create a freezer.  If all goes well the freezer is created in the DB and the user is redirected to
-	 * to view/update the newly created freezer.
+	 * Go create a freezer.  If all goes well the freezer is created in the DB and the user is redirected home.to
 	 * @param id freezer ID
-	 * @return responds to request with html form to view/update added freezer
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def createFreezerFromForm(id: String) = Action.async { request => create(id, request)}
 
 	/**
-	 * Go update a freezer.  If all goes well the freezer is updated in the DB and the user is redirected to
-	 * to view/update the newly updated freezer.
-	 * @return responds to request with updated form to view/update freezer
+	 * Go update a freezer.  If all goes well the freezer is updated in the DB and the user is redirected home.
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def updateFreezerFromForm(id: String) = Action.async { request => update(id, request)}
 }

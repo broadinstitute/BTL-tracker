@@ -45,17 +45,15 @@ object PlateController extends ComponentController[Plate] {
 	def findPlateByID(id: String) = Action.async { request => find(id, request)}
 
 	/**
-	 * Go create a plate.  If all goes well the plate is created in the DB and the user is redirected to
-	 * to view/update the newly created plate.
+	 * Go create a plate.  If all goes well the plate is created in the DB and the user is redirected home.
 	 * @param id plate ID
-	 * @return responds to request with html form to view/update added plate
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def createPlateFromForm(id: String) = Action.async { request => create(id, request)}
 
 	/**
-	 * Go update a plate.  If all goes well the plate is updated in the DB and the user is redirected to
-	 * to view/update the newly updated plate.
-	 * @return responds to request with updated form to view/update plate
+	 * Go update a plate.  If all goes well the plate is updated in the DB and the user is redirected home.
+	 * @return responds to request with message and form with errors or home page
 	 */
 	def updatePlateFromForm(id: String) = Action.async { request => update(id, request)}
 }
