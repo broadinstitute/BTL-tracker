@@ -1,0 +1,17 @@
+@(delForm: Form[TransferDelete], id: String)
+
+@import helper._
+@import models.TransferDelete
+
+@main("Delete Transfer") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Delete Transfers", delForm)
+	@form(routes.TransferDeleteController.deleteTransferFromForm(id), 'style -> "display:inline;") {
+		@inputText(delForm(TransferDelete.fromKey).copy(value = Some(id)),
+			'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
+		@inputText(delForm(TransferDelete.toKey), '_label -> "To ID")
+		<input type="submit" value="Delete" style="display:inline;">
+	}
+	@homeOption(Seq.empty)
+}

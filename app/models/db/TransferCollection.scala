@@ -44,14 +44,22 @@ object TransferCollection extends Controller with MongoController {
 		BSONDocument("to" -> id)))
 
 	/**
-	 * Remove transfers involving a component.
-	 * @param id component id
+	 * Get BSON document query for transfer between two specified components
+	 * @param from transfer source component
+	 * @param to transfer target component
+	 * @return query to find transfers directly between specified components
+	 */
+	private def transferBetweenBson(from: String, to: String) = BSONDocument("from" -> from, "to" -> to)
+
+	/**
+	 * Remove transfers.
+	 * @param bson query to find transfers to be removed
 	 * @return future with optional string containing error
 	 */
-	def removeTransfers(id: String) = {
-		transferCollectionBSON.remove(transferBson(id)).map {
+	private def doRemove(bson: BSONDocument, whatDeleted: () => String) = {
+		transferCollectionBSON.remove(bson).map {
 			(lastError) => {
-				Logger.debug(s"Successfully deleted transfers for $id with status: $lastError")
+				Logger.debug(s"Successfully deleted transfers ${whatDeleted()} with status: $lastError")
 				None
 			}
 		}.recover {
@@ -60,14 +68,44 @@ object TransferCollection extends Controller with MongoController {
 	}
 
 	/**
+	 * Remove transfers involving a component.
+	 * @param id component id
+	 * @return future with optional string containing error
+	 */
+	def removeTransfers(id: String) = doRemove(transferBson(id), () => s"containing $id")
+
+	/**
+	 * Remove transfers involving a component.
+	 * @param from transfer source component id
+	 * @param to transfer target component id
+	 * @return future with optional string containing error
+	 */
+	def removeBetweenTransfers(from: String, to: String) =
+		doRemove(transferBetweenBson(from, to), () => s"from $from to $to")
+
+	/**
+	 * Get count of transfers involving a component.
+	 * @param bson callback to get BSON document to get count for
+	 * @return future with optional string containing error
+	 */
+	private def getCount(bson: BSONDocument) = {
+		val command = Count(transferCollectionName, Some(bson))
+		db.command(command)
+	}
+
+	/**
 	 * Get count of transfers involving a component.
 	 * @param id component id
 	 * @return future with optional string containing error
 	 */
-	def countTransfers(id: String) = {
-		val command = Count(transferCollectionName, Some(transferBson(id)))
-		db.command(command)
-	}
+	def countTransfers(id: String) = getCount(transferBson(id))
+
+	/**
+	 * Get count of transfers between two components.
+	 * @param from source component id
+	 * @param to target component id
+	 */
+	def countBetweenTransfers(from: String, to: String) = getCount(BSONDocument("from" -> from, "to" -> to))
 
 	/**
 	 * Future to get list of component that are source/destination of transfers to/from a specified component

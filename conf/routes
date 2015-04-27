@@ -73,6 +73,11 @@ POST        /transferIDs                             controllers.TransferControl
 # Transfer using input from form that includes IDs and quadrants
 POST        /transfer                                controllers.TransferController.transferFromForm
 
+# Initial transfer delete
+GET         /transferDelete/:id                      controllers.TransferDeleteController.deleteTransfer(id: String)
+POST        /transferDeleteFromForm/:id              controllers.TransferDeleteController.deleteTransferFromForm(id: String)
+GET         /transferDeleteWithIDs/:fromID/:toID     controllers.TransferDeleteController.deleteTransferByIDs(fromID: String, toID: String)
+
 # Initial EZPASS request
 GET         /EZPASS/:id                              controllers.EZPassController.ezpass(id: String)
 # Post from form with parameters needed (e.g., dilution) to create EZPASS

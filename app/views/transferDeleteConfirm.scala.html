@@ -1,0 +1,18 @@
+@(from: String, to: String, count: Int)
+@import helper._
+
+@* Call main template with title and html to display *@
+@main("Transfer Delete Confirmation"){
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@if(count==1){<h3>Sure you want to delete transfer from @from to @to?</h3>}else{
+		<h3>Sure you want to delete @count transfers from @from to @to?</h3>
+	}
+	@form(controllers.routes.TransferDeleteController.deleteTransferByIDs(from, to),
+		'style -> "display:inline;") {
+		<input type="submit" value="You betcha!" style="display:inline;">
+	}
+	@form(controllers.routes.Application.index(), 'style -> "display:inline;") {
+		<input type="submit" value="No way!" style="display:inline;">
+	}
+}

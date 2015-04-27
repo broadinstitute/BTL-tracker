@@ -1,4 +1,4 @@
-import java.io.{PrintWriter, FileOutputStream, File}
+import java.io.{PrintWriter, File}
 
 import models.project.JiraProject
 import org.junit.runner.RunWith
