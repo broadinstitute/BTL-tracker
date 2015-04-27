@@ -277,6 +277,9 @@ object Component {
 	 */
 	def getHiddenFields(request: Request[AnyContent]) = getHiddenField(request, Some(_))
 
+	/**
+	 * Types of components.
+	 */
 	object ComponentType extends Enumeration {
 		type ComponentType = Value
 		val Tube, Plate, Rack, Freezer = Value
@@ -285,7 +288,7 @@ object Component {
 			enumFormat(this)
 
 		/**
-		 * Get optional content type from string.  Set as optional if content type is NoContents or invalid.
+		 * Get optional content type from string.  Set as None if no type found matching string.
 		 * @param content content type as string
 		 * @return optional content type found
 		 */
@@ -314,8 +317,15 @@ object Component {
 	 */
 	val errMsgKey = "msg"
 
+	/**
+	 * Used to hold optional error message for a form
+	 * @param msg optional error message
+	 */
 	case class Error(msg: Option[String])
 
+	/**
+	 * Form with just an error message and nothing more
+	 */
 	val blankForm =
 		Form(
 			mapping(
@@ -324,6 +334,7 @@ object Component {
 
 	/**
 	 * Little form for just getting a component type
+	 * @param id component ID
 	 * @param t component type
 	 */
 	case class ComponentIDandTypeClass(id: String, t: ComponentType.ComponentType)
