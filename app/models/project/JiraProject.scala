@@ -2,8 +2,8 @@ package models.project
 
 import models.Component
 import models.Component._
-import org.broadinstitute.LIMStales.mongo.{BtllimsPlatesCollection,BtllimsBSPsCollection,BtllimsRacksCollection}
 import org.broadinstitute.LIMStales.sampleRacks._
+import JiraDBs._
 
 import scala.concurrent.Future
 
@@ -12,6 +12,7 @@ import scala.concurrent.Future
  *         Date: 2/12/15
  *         Time: 4:27 PM
  */
+
 trait JiraProject {
 	// Must be associated with a component
 	this: Component =>
@@ -70,7 +71,7 @@ object JiraProject {
 	 * @param project project (SSF ticket) to associate with rack scan
 	 */
 	def insertRackIssueCollection(racks: SSFList[RackScan], project: String) =
-		BtllimsRacksCollection.insertRacks(SSFIssueList(project, List.empty, None, racks.list))
+		BtllimsRackOpers.insertRacks(SSFIssueList(project, List.empty, None, racks.list))
 
 	/**
 	 * Get the projects associated with a rack, along with the results of scans done of the racks.  For each rack scan
@@ -79,7 +80,7 @@ object JiraProject {
 	 * @return lists of projects found along with associated rack scans (optional error message returned as well)
 	 */
 	def getRackIssueCollection(id: String) =
-		getIssueCollection[RackScan](() => BtllimsRacksCollection.retrieveOneRack(id).toList)
+		getIssueCollection[RackScan](() => BtllimsRackOpers.retrieveOneRack(id).toList)
 
 	/**
 	 * Get the projects associated with a rack, along with the results of BSP scans done of racks.  For each rack
@@ -88,7 +89,7 @@ object JiraProject {
 	 * @return list of projects found along with associate BSP rack scans (optional error message returned as well)
 	 */
 	def getBSPRackIssueCollection(id: String) =
-		getIssueCollection[BSPScan](() => BtllimsBSPsCollection.retrieveRack(id).toList)
+		getIssueCollection[BSPScan](() => BtllimsBspOpers.retrieveRack(id).toList)
 
 	/**
 	 * Get the projects associated with a plate.
@@ -96,7 +97,7 @@ object JiraProject {
 	 * @return list of projects found along with associated Plate information (optional error message returned as well)
 	 */
 	def getPlateIssueCollection(id: String) =
-		getIssueCollection[SamplePlate](() => BtllimsPlatesCollection.retrievePlate(id).toList)
+		getIssueCollection[SamplePlate](() => BtllimsPlateOpers.retrievePlate(id).toList)
 
 	/**
 	 * Get a list of entries

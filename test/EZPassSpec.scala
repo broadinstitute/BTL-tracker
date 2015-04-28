@@ -5,6 +5,7 @@ import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
 /**
+ * Some high level EZPass tests.
  * Created by nnovod on 4/26/15.
  */
 @RunWith(classOf[JUnitRunner])

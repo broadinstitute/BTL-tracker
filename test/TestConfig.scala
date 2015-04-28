@@ -12,10 +12,8 @@ trait TestConfig extends SuiteMixin { this: Suite =>
 	implicit lazy val app: FakeApplication = new FakeApplication(
 		// Overwrite configuration settings
 		additionalConfiguration = Map(
-		// First two must be loaded as VM parameters (e.g., -DDBConfig.host="localhost") since outside library
-		// doesn't look at play current config
-		// "DBConfig.host" -> "localhost",
-		// "DBConfig.jiraDB" -> "jiraTest",
+			"DBConfig.host" -> "localhost",
+			"DBConfig.jiraDB" -> "jiraTest",
 			"mongodb.collection.tracker" -> "trackerTest",
 			"mongodb.collection.transfer" -> "transferTest"
 		)
@@ -33,13 +31,6 @@ trait TestConfig extends SuiteMixin { this: Suite =>
 		try {
 			val newConfigMap = args.configMap + ("org.scalatestplus.play.app" -> app)
 			val newArgs = args.copy(configMap = newConfigMap)
-			// Make sure we're dealing with a fake jira DB
-			import com.typesafe.config.ConfigFactory
-			val conf = ConfigFactory.load()
-			val confMust =
-				"VM parameters -DDBConfig.host=\"localhost\" -DDBConfig.jiraDB=\"jiraTest\" must be specified"
-			assert(conf.getString("DBConfig.host") == "localhost", confMust)
-			assert(conf.getString("DBConfig.jiraDB") == "jiraTest", confMust)
 			// Go run the test
 			val status = super.run(testName, newArgs)
 			status.whenCompleted { _ => Play.stop() }
