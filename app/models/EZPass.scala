@@ -81,7 +81,7 @@ object EZPass {
 	}
 
 	/**
-	 * Context information to remember while writting out data to an EZPass spreadsheet.
+	 * Context information to remember while writing out data to an EZPass spreadsheet.
 	 * @param headersToValues contains locations of headers in spreadsheet and current spreadsheet state
 	 * @param component component that EZPass is being done for
 	 */

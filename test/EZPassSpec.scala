@@ -1,10 +1,16 @@
 import java.io.{FileOutputStream, PrintWriter, File}
 
+import models.EZPass
+import models.EZPass.SetEZPassData
+import models.db.{TransferCollection, TrackerCollection}
+import models.initialContents.InitialContents
+import models._
 import models.project.JiraProject
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFList}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
+import play.api.libs.json.Format
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
  * Some high level EZPass tests.
@@ -234,11 +240,14 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 
 			val wb = new XSSFWorkbook()
 			val sheet = wb.createSheet("sheet 0")
+			// Make regular expression to split across lines
 			val lineSplitter = """(?m)$""".r
+			// Split input data into array of individual lines
 			val lines = lineSplitter.split(bspData)
+			// For each line split across tabs
 			(0 until lines.length).foreach((r) => {
-				val colSplitter = """\t""".r
 				val line = lines(r).trim
+				val colSplitter = """\t""".r
 				val cols = colSplitter.split(line)
 				val row = sheet.createRow(r)
 				(0 until cols.length).foreach((c) => {
@@ -246,7 +255,6 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 					cell.setCellValue(cols(c))
 				})
 			})
-
 			val tBspFile = File.createTempFile("TRACKER_", ".xlsx")
 			tBspFile.deleteOnExit()
 			val out = new FileOutputStream(tBspFile)
@@ -257,6 +265,60 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 			val (bspBack, bspErr) = JiraProject.getBspIssueCollection(fakeRack)
 			bspErr mustBe None
 			bspBack.head.issue mustBe fakeProject
+			bspBack.size mustBe 1
+			bspBack.head.list.size mustBe 2
+			val ourRack = bspBack.head.list.find((bp) => bp.barcode == fakeRack)
+			ourRack.isDefined mustBe true
+			val bspRack = ourRack.get
+			bspRack.contents.size mustBe 88
+
+			def insertComponent[C <: Component : Format](data: C) = {
+				TrackerCollection.insertComponent(data, onSuccess = (s) => None,
+					onFailure = (t) => Some(t.getLocalizedMessage))
+			}
+
+			val rack = insertComponent(Rack(fakeRack, None, None, List.empty,
+				None, None, ContainerDivisions.Division.DIM8x12))
+			val atmPlate = insertComponent(Plate("ATM", None, None, List.empty,
+				None, None, ContainerDivisions.Division.DIM8x12))
+			val midPlate = insertComponent(Plate("MID", None, None, List.empty,
+				None, Some(InitialContents.ContentType.NexteraSetA), ContainerDivisions.Division.DIM8x12))
+			val tube = insertComponent(Tube("T", None, None, List.empty, None, None))
+			val inserts = for {
+				r <- rack
+				ap <- atmPlate
+				mp <- midPlate
+				t <- tube
+			} yield {(r, ap, mp, t)}
+			import scala.concurrent.Await
+			import scala.concurrent.duration._
+			val d2 = Duration(2000, MILLISECONDS)
+			Await.result(inserts, d2) mustBe (None, None, None, None)
+
+			def insertTransfer(transfer: Transfer) = TransferCollection.insert(transfer)
+			val rackToAtm = insertTransfer(Transfer(fakeRack, "ATM", None, None, None, None))
+			val atmToT = insertTransfer(Transfer("ATM", "T", None, None, None, None))
+			val midToAtm = insertTransfer(Transfer("MID", "ATM", None, None, None, None))
+			val transfers = for {
+				ra <- rackToAtm
+				at <- atmToT
+				ma <- midToAtm
+			} yield {(ra, at, ma)}
+			Await.result(transfers, d2)
+
+			type EZPassData = List[(Map[String, String], Map[String, Int], Map[String, Float])]
+
+			object TrackEZPass extends SetEZPassData[EZPassData] {
+				def initData(c: String, h: List[String]) =
+					List.empty[(Map[String, String], Map[String, Int], Map[String, Float])]
+				def setFields(context: EZPassData, strData: Map[String, String], intData: Map[String, Int],
+							  floatData: Map[String, Float], index: Int) = context :+ (strData, intData, floatData)
+				def allDone(context: EZPassData, samples: Int, errs: List[String]) = {
+					samples mustBe 96
+					(Some("All done"), errs)
+				}
+			}
+			val ezpassResult = Await.result(EZPass.makeEZPass(TrackEZPass, "T", 10, 20, 15.0f), d2)
 		}
 	}
 }
