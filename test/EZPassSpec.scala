@@ -1,8 +1,8 @@
 import java.io.{FileOutputStream, PrintWriter, File}
 
 import models.project.JiraProject
-import org.apache.poi.ss.usermodel.{WorkbookFactory, Workbook}
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFList}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
@@ -233,7 +233,7 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 			val lineSplitter = """(?m)$""".r
 			val lines = lineSplitter.split(bspData)
 			(0 until lines.length).foreach((r) => {
-				val colSplitter = """\s"""
+				val colSplitter = """\t""".r
 				val line = lines(r).trim
 				val cols = colSplitter.split(line)
 				val row = sheet.createRow(r)
@@ -247,6 +247,8 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 			val out = new FileOutputStream(tBspFile)
 			wb.write(out)
 			out.close()
+			val bspscan = SSFList(tBspFile.getCanonicalPath, BSPScan)
+			println(bspscan)
 		}
 	}
 }
