@@ -119,7 +119,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 			notFound(makeErrMsg("Scan File entry", id, err))
 		} else {
 			// Get list of projects containing original BSP scan of rack
-			val (bspRacks, bspErr) = JiraProject.getBSPRackIssueCollection(id)
+			val (bspRacks, bspErr) = JiraProject.getBspIssueCollection(id)
 			// Get first of list of scanned racks (should only be one there)
 			val foundRack = rack.head
 			if (bspRacks.isEmpty || foundRack.list.isEmpty) {

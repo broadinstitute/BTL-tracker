@@ -31,7 +31,7 @@ trait JiraProject {
 				val componentID = component.toString + " " + id
 				// Go get contents for issue
 				val (entries, err) = component match {
-					case ComponentType.Rack => JiraProject.getBSPRackIssueCollection(id)
+					case ComponentType.Rack => JiraProject.getBspIssueCollection(id)
 					case ComponentType.Plate => JiraProject.getPlateIssueCollection(id)
 					case _ => (List.empty[SSFIssueList[_]], None)
 				}
@@ -83,12 +83,27 @@ object JiraProject {
 		getIssueCollection[RackScan](() => BtllimsRackOpers.retrieveOneRack(id).toList)
 
 	/**
+	 * Make a SSFList from a spreadsheet containing bsp info about a rack's contents.
+	 * @param file bsp spreadsheet
+	 * @return list with bsp scan contents
+	 */
+	def makeBspScanList(file: String) = SSFList(file, BSPScan)
+
+	/**
+	 * Put bsp scan results into the database.
+	 * @param racks list with rack contents
+	 * @param project project (SSF ticket) to associate with bsp scan
+	 */
+	def insertBspIssueCollection(racks: SSFList[BSPScan], project: String) =
+		BtllimsBspOpers.insertBSPs(SSFIssueList(project, List.empty, None, racks.list))
+
+	/**
 	 * Get the projects associated with a rack, along with the results of BSP scans done of racks.  For each rack
 	 * scan a list of the tubes that are part of the rack is included.
 	 * @param id component id
 	 * @return list of projects found along with associate BSP rack scans (optional error message returned as well)
 	 */
-	def getBSPRackIssueCollection(id: String) =
+	def getBspIssueCollection(id: String) =
 		getIssueCollection[BSPScan](() => BtllimsBspOpers.retrieveRack(id).toList)
 
 	/**
