@@ -81,7 +81,7 @@ object MolecularBarcodes {
 
 	/**
 	 * Contents for a plate of molecular barcodes.
-	 * @param contents list of well contents
+	 * @param contents map of well->contents
 	 */
 	case class MolBarcodeContents(contents: Map[String, MolBarcodeWell]) extends ContentsMap[MolBarcodeWell]
 

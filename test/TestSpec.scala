@@ -7,7 +7,9 @@ import org.scalatestplus.play.PlaySpec
 
 trait TestSpec extends PlaySpec with BeforeAndAfter {
 	before {
-		// Run some stuff here
+		TestDB.cleanupTestJiraDB
+		TestDB.cleanupTestTrackerCollection
+		TestDB.cleanupTestTransferCollection
 	}
 
 	after {

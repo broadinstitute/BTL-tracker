@@ -12,10 +12,10 @@ trait TestConfig extends SuiteMixin { this: Suite =>
 	implicit lazy val app: FakeApplication = new FakeApplication(
 		// Overwrite configuration settings
 		additionalConfiguration = Map(
-			"DBConfig.host" -> "localhost",
-			"DBConfig.jiraDB" -> "jiraTest",
-			"mongodb.collection.tracker" -> "trackerTest",
-			"mongodb.collection.transfer" -> "transferTest"
+			"DBConfig.host" -> TestDB.testHost,
+			"DBConfig.jiraDB" -> TestDB.testJira,
+			"mongodb.collection.tracker" -> TestDB.testTrackerCollection,
+			"mongodb.collection.transfer" -> TestDB.testTransferCollection
 		)
 	)
 
