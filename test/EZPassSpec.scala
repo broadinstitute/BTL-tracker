@@ -222,6 +222,7 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 		"be input" in {
 			val fakeProject = "FakeProject"
 			val fakeRack = "XX-11227502"
+
 			// Make rack scan file
 			val tFile = File.createTempFile("TRACKER_", ".csv")
 			tFile.deleteOnExit()
@@ -229,39 +230,47 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 			outFile.write(rackScan.toArray[Char])
 			outFile.close()
 
+			// Get list of rack scans from file and make sure all 96 tubes in scan
 			val racks = JiraProject.makeRackScanList(tFile.getCanonicalPath)
 			val tubeList = racks.list.head.contents
 			tubeList.size mustBe 96
+
+			// Insert rack scan into DB and make sure when we can retrieve it and looks ok
 			JiraProject.insertRackIssueCollection(racks, fakeProject)
 			val (rackBack, rackErr) = JiraProject.getRackIssueCollection(fakeRack)
 			rackErr mustBe None
 			rackBack.head.issue mustBe fakeProject
 			rackBack.head.list.head.contents.size mustBe tubeList.size
 
+			// Create spreadsheet from bsp data
 			val wb = new XSSFWorkbook()
 			val sheet = wb.createSheet("sheet 0")
-			// Make regular expression to split across lines
+			// Regular expression to split at line end and to split at tabs
 			val lineSplitter = """(?m)$""".r
-			// Split input data into array of individual lines
+			val colSplitter = """\t""".r
+			// Split buffer into array of lines and then split each line into an array of fields separated by tabs
 			val lines = lineSplitter.split(bspData)
-			// For each line split across tabs
 			(0 until lines.length).foreach((r) => {
 				val line = lines(r).trim
-				val colSplitter = """\t""".r
 				val cols = colSplitter.split(line)
+				// Make new row in spreadsheet containing fields of line
 				val row = sheet.createRow(r)
 				(0 until cols.length).foreach((c) => {
 					val cell = row.createCell(c)
 					cell.setCellValue(cols(c))
 				})
 			})
+			// Write out spreadsheet to file
 			val tBspFile = File.createTempFile("TRACKER_", ".xlsx")
 			tBspFile.deleteOnExit()
 			val out = new FileOutputStream(tBspFile)
 			wb.write(out)
 			out.close()
+
+			// Get back bsp data into list and enter bsp data into database
 			val bspscan = JiraProject.makeBspScanList(tBspFile.getCanonicalPath)
 			JiraProject.insertBspIssueCollection(bspscan, fakeProject)
+			// Get back what was entered into DB and check that it's looking good
 			val (bspBack, bspErr) = JiraProject.getBspIssueCollection(fakeRack)
 			bspErr mustBe None
 			bspBack.head.issue mustBe fakeProject
@@ -272,11 +281,13 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 			val bspRack = ourRack.get
 			bspRack.contents.size mustBe 88
 
+			// Insert a component into the DB
 			def insertComponent[C <: Component : Format](data: C) = {
 				TrackerCollection.insertComponent(data, onSuccess = (s) => None,
 					onFailure = (t) => Some(t.getLocalizedMessage))
 			}
 
+			// Startup insert of components we'll be using and wait for them to complete
 			val rack = insertComponent(Rack(fakeRack, None, None, List.empty,
 				None, None, ContainerDivisions.Division.DIM8x12))
 			val atmPlate = insertComponent(Plate("ATM", None, None, List.empty,
@@ -295,6 +306,7 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 			val d2 = Duration(2000, MILLISECONDS)
 			Await.result(inserts, d2) mustBe (None, None, None, None)
 
+			// Startup transfers we'll be using and wait for them to complete
 			def insertTransfer(transfer: Transfer) = TransferCollection.insert(transfer)
 			val rackToAtm = insertTransfer(Transfer(fakeRack, "ATM", None, None, None, None))
 			val atmToT = insertTransfer(Transfer("ATM", "T", None, None, None, None))
@@ -306,8 +318,10 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 			} yield {(ra, at, ma)}
 			Await.result(transfers, d2)
 
+			// EZPass data we're saving
 			type EZPassData = List[(Map[String, String], Map[String, Int], Map[String, Float])]
 
+			// Object to make list of EZPass entries
 			object TrackEZPass extends SetEZPassData[EZPassData] {
 				def initData(c: String, h: List[String]) =
 					List.empty[(Map[String, String], Map[String, Int], Map[String, Float])]
@@ -318,6 +332,7 @@ SM-7CYIV	SM-65WCT	PT-1EZXG	Genome Biology / Sasha Zhernakova (UMCG) - IBS-CACO	1
 					(Some("All done"), errs)
 				}
 			}
+			// Make an EZPass and wait for results
 			val ezpassResult = Await.result(EZPass.makeEZPass(TrackEZPass, "T", 10, 20, 15.0f), d2)
 		}
 	}
