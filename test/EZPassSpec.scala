@@ -17,16 +17,12 @@ import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import play.api.libs.json.Format
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import EZPassSpec._
 
 @RunWith(classOf[JUnitRunner])
 class EZPassSpec extends TestSpec with TestConfig {
 	"The rackscan" must {
 		"be input" in {
-			val fakeProject = "FakeProject"
-			val fakeRack = "XX-11227502"
-			// Make regular expression to split across lines
-			val lineSplitter = """(?m)$""".r
-
 			// Make rack scan file
 			val tFile = File.createTempFile("TRACKER_", ".csv")
 			tFile.deleteOnExit()
@@ -34,33 +30,19 @@ class EZPassSpec extends TestSpec with TestConfig {
 			outFile.write(TestData.rackScan.toArray[Char])
 			outFile.close()
 			val scanFileName = tFile.getCanonicalPath
+			val rackSize = 96
 
-			def getFileData(file: String) = {
-				// Method to use to get headers and associated values from spreadsheet/csv file
-				val sheetToVals = (sh: CellSheet) => new HeaderSheet(sh)
-				// Get data from file into header maps
-				if (isSpreadSheet(file)) getSheetData(file, 0, sheetToVals)
-				else getCSVFileData(file, sheetToVals)
-			}
-
-			// Method to make a map of header value to other values in row
-			def getByValue(data: HeaderSheet, header: String) = {
-				// Get values for wanted header
-				val values = data.getHeaderValues(header)
-				// Make map of header value to other values in row
-				values.indices.map((i) => values(i) -> data.getRowValues(i + 1)).toMap
-			}
-
+			// Get back rack scan data and make a by well map of it
 			val rackScanData = getFileData(scanFileName)
 			val rackScanByWell = getByValue(rackScanData, "TUBE")
-			rackScanByWell.size mustBe 96
+			rackScanByWell.size mustBe rackSize
 
 			// Make rack scan entry and check it out
 			val racks = JiraProject.makeRackScanList(scanFileName)
 			val tubeList = racks.list.head.contents
-			tubeList.size mustBe 96
+			tubeList.size mustBe rackSize
 
-			// Insert rack scan into DB and make sure when we can retrieve it and looks ok
+			// Insert rack scan into DB and make sure we can retrieve it and it looks ok
 			JiraProject.insertRackIssueCollection(racks, fakeProject)
 			val (rackBack, rackErr) = JiraProject.getRackIssueCollection(fakeRack)
 			rackErr mustBe None
@@ -68,33 +50,11 @@ class EZPassSpec extends TestSpec with TestConfig {
 			rackBack.head.list.head.contents.size mustBe tubeList.size
 
 			// Make bsp spreadsheet
-			val wb = new XSSFWorkbook()
-			val sheet = wb.createSheet("sheet 0")
-			// Split input data into array of individual lines
-			val lines = lineSplitter.split(TestData.bspData)
-			// For each line split across tabs
-			(0 until lines.length).foreach((r) => {
-				val line = lines(r).trim
-				val colSplitter = """\t""".r
-				val cols = colSplitter.split(line)
-				// Make new row in spreadsheet containing fields of line
-				val row = sheet.createRow(r)
-				(0 until cols.length).foreach((c) => {
-					val cell = row.createCell(c)
-					cell.setCellValue(cols(c))
-				})
-			})
-			// Write out spreadsheet to file
-			val tBspFile = File.createTempFile("TRACKER_", ".xlsx")
-			tBspFile.deleteOnExit()
-			val out = new FileOutputStream(tBspFile)
-			wb.write(out)
-			out.close()
-			val bspFileName = tBspFile.getCanonicalPath
+			val bspFileName = makeSpreadSheet(TestData.bspData)
 			// Save map of barcode to associated values in bsp file
 			val bspFileData = getFileData(bspFileName)
 			val bspByTubeBarcode = getByValue(bspFileData, "Manufacturer Tube Barcode")
-			bspByTubeBarcode.size mustBe 96
+			bspByTubeBarcode.size mustBe rackSize
 
 			// Make bsp entry and check it out
 			val bspscan = JiraProject.makeBspScanList(bspFileName)
@@ -105,17 +65,11 @@ class EZPassSpec extends TestSpec with TestConfig {
 			bspBack.head.issue mustBe fakeProject
 			bspBack.size mustBe 1
 			bspBack.head.list.size mustBe 2
-			bspBack.head.list.foldLeft(0)((soFar, next) => soFar + next.contents.length) mustBe 96
+			bspBack.head.list.foldLeft(0)((soFar, next) => soFar + next.contents.length) mustBe rackSize
 			val ourRack = bspBack.head.list.find((bp) => bp.barcode == fakeRack)
 			ourRack.isDefined mustBe true
 			val bspRack = ourRack.get
 			bspRack.contents.size mustBe 88
-
-			// Insert a component into the DB
-			def insertComponent[C <: Component : Format](data: C) = {
-				TrackerCollection.insertComponent(data, onSuccess = (s) => None,
-					onFailure = (t) => Some(t.getLocalizedMessage))
-			}
 
 			// Startup insert of components we'll be using and wait for them to complete
 			val rack = insertComponent(Rack(fakeRack, None, None, List.empty,
@@ -134,12 +88,9 @@ class EZPassSpec extends TestSpec with TestConfig {
 				t <- tube
 			} yield {(r, ap, mp, t)}
 			import scala.concurrent.Await
-			import scala.concurrent.duration._
-			val d2 = Duration(2000, MILLISECONDS)
-			Await.result(inserts, d2) mustBe (None, None, None, None)
+			Await.result(inserts, d3secs) mustBe (None, None, None, None)
 
-			// Go insert needed transfers
-			def insertTransfer(transfer: Transfer) = TransferCollection.insert(transfer)
+			// Startup insert of needed transfers and wait for them to complete
 			val rackToAtm = insertTransfer(Transfer(fakeRack, "ATM", None, None, None, None))
 			val atmToT = insertTransfer(Transfer("ATM", "T", None, None, None, None))
 			val midToAtm = insertTransfer(Transfer("MID", "ATM", None, None, None, None))
@@ -148,43 +99,174 @@ class EZPassSpec extends TestSpec with TestConfig {
 				at <- atmToT
 				ma <- midToAtm
 			} yield {(ra, at, ma)}
-			Await.result(transfers, d2)
+			Await.result(transfers, d3secs)
 
-			// Type of Data returned for EZPass creation
-			type EZPassData = (Map[String, String], Map[String, Int], Map[String, Float])
-			case class EZPassSaved(data: List[EZPassData], midSet: Set[String])
+			// Setup to make EZPass
+			val trackEZPass = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode, rackSize)
 
-			object TrackEZPass extends SetEZPassData[EZPassSaved] {
-				def initData(c: String, h: List[String]) =
-					EZPassSaved(List.empty[EZPassData], Set.empty[String])
-				// Check entry out and save EZPass data
-				def setFields(context: EZPassSaved, strData: Map[String, String], intData: Map[String, Int],
-							  floatData: Map[String, Float], index: Int) = {
-					// Get barcode sequence from EZPass data
-					val mid = strData("Molecular Barcode Sequence")
-					// Get well for that barcode sequence from MIDs
-					val midWell = midsBySequence(mid)
-					// Get tube barcode for well from rack scan
-					val scanBarcode = rackScanByWell(midWell)
-					// Get bsp entry for tube
-					val bspEntry = bspByTubeBarcode(scanBarcode("BARCODE"))
-					// Get sample ID from bsp
-					val bspSample = bspEntry("Sample ID")
-					// Check if sample ID from BSP is one that wound up in EZPass
-					// If this test passes then barcode sequence assigned to sample is correct and lots of stuff
-					// worked correctly - more of a system test than a unit one
-					bspSample mustBe strData("Library Name (External Collaborator Library ID)")
-					EZPassSaved(context.data :+ (strData, intData, floatData), context.midSet + mid)
-				}
-				// Make sure amount of data is right (note mid collection is a set to make sure there are no duplicates)
-				def allDone(context: EZPassSaved, samples: Int, errs: List[String]) = {
-					samples mustBe 96
-					context.midSet.size mustBe 96
-					context.data.size mustBe 96
-					(Some("All done"), errs)
-				}
-			}
-			val ezpassResult = Await.result(EZPass.makeEZPass(TrackEZPass, "T", 10, 20, 15.0f), d2)
+			// Go make the EZPass
+			Await.result(EZPass.makeEZPass(trackEZPass, "T", 10, 20, 15.0f), d3secs)
 		}
 	}
+}
+
+object EZPassSpec extends TestSpec {
+	// Fake project
+	private val fakeProject = "FakeProject"
+	// Fake rack barcode
+	private val fakeRack = "XX-11227502"
+	// Regular expression to split across lines
+	private val lineSplitter = """(?m)$""".r
+	// Regular expression to split across tabs
+	private val colSplitter = """\t""".r
+
+	// Duration to wait for async operations to complete
+	import scala.concurrent.duration._
+	private val d3secs = Duration(3000, MILLISECONDS)
+
+	/**
+	 * Get headers and associated values from spreadsheet/csv file
+	 * @param file file specification
+	 * @return maps values in rows to keys specified in file headers
+	 */
+	private def getFileData(file: String) = {
+		val sheetToVals = (sh: CellSheet) => new HeaderSheet(sh)
+		// Get data from file into header maps
+		if (isSpreadSheet(file)) getSheetData(file, 0, sheetToVals)
+		else getCSVFileData(file, sheetToVals)
+	}
+
+	/**
+	 * Method to make a map of chosen header key row values to other values in row
+	 * @param data input data values
+	 * @param header header key
+	 * @return map of values found in rows for wanted header key to other values in row
+	 */
+	private def getByValue(data: HeaderSheet, header: String) = {
+		// Get values for wanted header
+		val values = data.getHeaderValues(header)
+		// Make map of header value to other values in row
+		values.indices.map((i) => values(i) -> data.getRowValues(i + 1)).toMap
+	}
+
+	/**
+	 * Insert a component into the DB
+	 * @param data component to insert
+	 * @tparam C type of component
+	 * @return future with error message returned on failure
+	 */
+	private def insertComponent[C <: Component : Format](data: C) = {
+		TrackerCollection.insertComponent(data, onSuccess = (s) => None,
+			onFailure = (t) => Some(t.getLocalizedMessage))
+	}
+
+
+	/**
+	 * Go insert a transfer
+	 * @param transfer transfer to insert
+	 * @return future to complete insert
+	 */
+	private def insertTransfer(transfer: Transfer) = TransferCollection.insert(transfer)
+
+	/**
+	 * Make a spreadsheet of a string with a starting line of header keys and following rows as tab separated values
+	 * matching up to header keys.
+	 * @param data input data
+	 * @return name of spreadsheet file created
+	 */
+	private def makeSpreadSheet(data: String) = {
+		// Initialize spreadsheet
+		val wb = new XSSFWorkbook()
+		val sheet = wb.createSheet("sheet 0")
+		// Split input data into array of individual lines
+		val lines = lineSplitter.split(data)
+		// For each line split across tabs and create cells of values
+		(0 until lines.length).foreach((r) => {
+			val line = lines(r).trim
+			val cols = colSplitter.split(line)
+			// Make new row in spreadsheet containing fields of line
+			val row = sheet.createRow(r)
+			(0 until cols.length).foreach((c) => {
+				val cell = row.createCell(c)
+				cell.setCellValue(cols(c))
+			})
+		})
+		// Write out spreadsheet to temp file
+		val tBspFile = File.createTempFile("TRACKER_", ".xlsx")
+		tBspFile.deleteOnExit()
+		val out = new FileOutputStream(tBspFile)
+		wb.write(out)
+		out.close()
+		// Return file name
+		tBspFile.getCanonicalPath
+	}
+
+	// Type of Data returned for EZPass creation
+	private type EZPassData = (Map[String, String], Map[String, Int], Map[String, Float])
+	private case class EZPassSaved(data: List[EZPassData], midSet: Set[String])
+
+	/**
+	 * Class used to track mock creation of an ezpass.  We look at data passed back by EZPass creation and check that
+	 * it's what we expected.
+	 * @param midsBySequence MID map of barcode sequences to MID wells
+	 * @param rackScanByWell rack scan map of well to map of all values from scan for well
+	 * @param bspByTubeBarcode bsp data map of tube barcode to all values set in bsp data for that tube
+	 * @param numSamples # of samples EZPass is expected to create
+	 */
+	private case class TrackEZPass(midsBySequence: Map[String, String],
+					  rackScanByWell: Map[String, Map[String, String]],
+					  bspByTubeBarcode: Map[String, Map[String, String]], numSamples: Int)
+		extends SetEZPassData[EZPassSaved] {
+		/**
+		 * Initialize EZPass context
+		 * @param c component EZPass is being created for
+		 * @param h headers to set in EZPass
+		 * @return context to be used in other interface calls
+		 */
+		def initData(c: String, h: List[String]) =
+			EZPassSaved(List.empty[EZPassData], Set.empty[String])
+
+		/**
+		 * Check entry out and save EZPass data
+		 * @param context context being kept for setting EZPass data
+		 * @param strData strings to be set for next spreadsheet entry (fieldName -> data)
+		 * @param intData integers to be set for next spreadsheet entry (fieldName -> data)
+		 * @param floatData floating points to be set for next spreadsheet entry (fieldName -> data)
+		 * @param index index of entry (1-based)
+		 * @return context to continue operations
+		 */
+		def setFields(context: EZPassSaved, strData: Map[String, String], intData: Map[String, Int],
+					  floatData: Map[String, Float], index: Int) = {
+			// Get barcode sequence from EZPass data
+			val mid = strData("Molecular Barcode Sequence")
+			// Get well for that barcode sequence from MIDs
+			val midWell = midsBySequence(mid)
+			// Get tube barcode for well from rack scan
+			val scanBarcode = rackScanByWell(midWell)
+			// Get bsp entry for tube
+			val bspEntry = bspByTubeBarcode(scanBarcode("BARCODE"))
+			// Get sample ID from bsp
+			val bspSample = bspEntry("Sample ID")
+			// Check if sample ID from BSP is one that wound up in EZPass
+			// If this test passes then barcode sequence assigned to sample is correct and lots of stuff
+			// worked correctly - more of a system test than a unit one
+			bspSample mustBe strData("Library Name (External Collaborator Library ID)")
+			EZPassSaved(context.data :+ (strData, intData, floatData), context.midSet + mid)
+		}
+		/**
+		 * EZPass create is all done.  Make sure amount of data is right (note mid collection is a set to make sure
+		 * there are no duplicates)
+		 * @param context context kept for handling EZPass data
+		 * @param samples # of sample
+		 * @param errs list of errors found
+		 * @return (optional conclusion, list of errors)
+		 */
+		def allDone(context: EZPassSaved, samples: Int, errs: List[String]) = {
+			samples mustBe numSamples
+			context.midSet.size mustBe numSamples
+			context.data.size mustBe numSamples
+			(Some("All done"), errs)
+		}
+	}
+
 }
