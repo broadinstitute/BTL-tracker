@@ -13,7 +13,7 @@ libraryDependencies ++= Seq(
 	"com.assembla.scala-incubator" %% "graph-dot" % "1.10.0",
 	"org.apache.poi" % "poi" % "3.9",
 	"org.apache.poi" % "poi-ooxml" % "3.9",
-	"org.broadinstitute" %% "spreadsheets" % "1.0.5",
+	"org.broadinstitute" %% "spreadsheets" % "1.0.6",
 	"org.broadinstitute" %% "sampleracks" % "1.9.10",
 	"org.broadinstitute" %% "mongo" % "1.11.0"
 )
