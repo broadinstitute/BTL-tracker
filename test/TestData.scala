@@ -111,6 +111,7 @@ object TestData {
 		"""
 
 	val rackScan = rackScanHeader + '\n' + rackScanS1 + '\n' + rackScanS2 + '\n' + rackScanS3 + '\n' + rackScanS4
+	val rackScanSize = 96
 
 	val bspDataHeader =
 		"""Sample ID	Stock Sample	Participant ID(s)	Collection	Volume	Conc	Manufacturer Tube Barcode	Container	Position	Container Name	Collaborator Participant ID	Collaborator Sample ID	Collaborator Sample ID_2	Country	State	Sample Collection Year	Tissue Site"""

@@ -9,6 +9,7 @@ import models.EZPass.SetEZPassData
 import models.db.{TransferCollection, TrackerCollection}
 import models.initialContents.{MolecularBarcodes, InitialContents}
 import models._
+import models.Transfer._
 import models.project.JiraProject
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.broadinstitute.spreadsheets.Utils._
@@ -23,19 +24,12 @@ import EZPassSpec._
 class EZPassSpec extends TestSpec with TestConfig {
 	"The rackscan" must {
 		"be input" in {
-			// Make rack scan file
-			val tFile = File.createTempFile("TRACKER_", ".csv")
-			tFile.deleteOnExit()
-			val outFile = new PrintWriter(tFile, "UTF-8")
-			outFile.write(TestData.rackScan.toArray[Char])
-			outFile.close()
-			val scanFileName = tFile.getCanonicalPath
-			val rackSize = 96
+			// Make rack scan file from set data
+			val scanFileName = makeRackScanFile(TestData.rackScan)
+			val rackSize = TestData.rackScanSize
 
-			// Get back rack scan data and make a by well map of it
-			val rackScanData = getFileData(scanFileName)
-			val rackScanByWell = getByValue(rackScanData, "TUBE")
-			rackScanByWell.size mustBe rackSize
+			// Get map of well->rackScanData
+			val rackScanByWell = getByValueData(scanFileName, "TUBE", rackSize)
 
 			// Make rack scan entry and check it out
 			val racks = JiraProject.makeRackScanList(scanFileName)
@@ -52,24 +46,10 @@ class EZPassSpec extends TestSpec with TestConfig {
 			// Make bsp spreadsheet
 			val bspFileName = makeSpreadSheet(TestData.bspData)
 			// Save map of barcode to associated values in bsp file
-			val bspFileData = getFileData(bspFileName)
-			val bspByTubeBarcode = getByValue(bspFileData, "Manufacturer Tube Barcode")
-			bspByTubeBarcode.size mustBe rackSize
+			val bspByTubeBarcode = getByValueData(bspFileName, "Manufacturer Tube Barcode", rackSize)
 
-			// Make bsp entry and check it out
-			val bspscan = JiraProject.makeBspScanList(bspFileName)
-			JiraProject.insertBspIssueCollection(bspscan, fakeProject)
-			// Get back what was entered into DB and check that it's looking good
-			val (bspBack, bspErr) = JiraProject.getBspIssueCollection(fakeRack)
-			bspErr mustBe None
-			bspBack.head.issue mustBe fakeProject
-			bspBack.size mustBe 1
-			bspBack.head.list.size mustBe 2
-			bspBack.head.list.foldLeft(0)((soFar, next) => soFar + next.contents.length) mustBe rackSize
-			val ourRack = bspBack.head.list.find((bp) => bp.barcode == fakeRack)
-			ourRack.isDefined mustBe true
-			val bspRack = ourRack.get
-			bspRack.contents.size mustBe 88
+			// Create bsp scan entry and check it out
+			makeBspScan(bspFileName, rackSize)
 
 			// Startup insert of components we'll be using and wait for them to complete
 			val rack = insertComponent(Rack(fakeRack, None, None, List.empty,
@@ -101,11 +81,32 @@ class EZPassSpec extends TestSpec with TestConfig {
 			} yield {(ra, at, ma)}
 			Await.result(transfers, d3secs)
 
-			// Setup to make EZPass
-			val trackEZPass = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode, rackSize)
+			// Setup to make EZPass and check it out
+			val trackEZPass = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode, rackSize, None)
 
-			// Go make the EZPass
+			// Go make the EZPass and check out the results
 			Await.result(EZPass.makeEZPass(trackEZPass, "T", 10, 20, 15.0f), d3secs)
+
+			TestDB.cleanupTestTransferCollection
+
+			// Startup insert of needed transfers and wait for them to complete
+			val rackToAtmS = insertTransfer(Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1)))
+			val atmToTS = insertTransfer(Transfer("ATM", "T", None, None, None, Some(Slice.S1)))
+			val midToAtmS = insertTransfer(Transfer("MID", "ATM", None, None, None, Some(Slice.S1)))
+			val transfersS = for {
+				ra <- rackToAtmS
+				at <- atmToTS
+				ma <- midToAtmS
+			} yield {(ra, at, ma)}
+			Await.result(transfersS, d3secs)
+
+			// Setup to make EZPass and check it out
+			val sliceWells = slice96to96map(Slice.S1).keySet
+			val trackEZPassS = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode,
+				sliceWells.size, Some(sliceWells))
+
+			// Go make the EZPass and check out the results
+			Await.result(EZPass.makeEZPass(trackEZPassS, "T", 10, 20, 15.0f), d3secs)
 		}
 	}
 }
@@ -201,6 +202,55 @@ object EZPassSpec extends TestSpec {
 		tBspFile.getCanonicalPath
 	}
 
+	/**
+	 * Make a rack scan file.
+	 * @param data data to set in file
+	 * @return full path for file created
+	 */
+	private def makeRackScanFile(data: String) = {
+		// Make rack scan file
+		val tFile = File.createTempFile("TRACKER_", ".csv")
+		tFile.deleteOnExit()
+		val outFile = new PrintWriter(tFile, "UTF-8")
+		outFile.write(data.toArray[Char])
+		outFile.close()
+		tFile.getCanonicalPath
+	}
+
+	/**
+	 * Make map data from file with header lines.  We also check that the map size is correct.
+	 * @param file file with data
+	 * @param key key to base map on
+	 * @param size size map must be
+	 * @return map of keyValue->dataInRowWithKey
+	 */
+	private def getByValueData(file: String, key: String, size: Int) = {
+		// Get back data from file
+		val data = getFileData(file)
+		val dataByKey = getByValue(data, key)
+		dataByKey.size mustBe size
+		dataByKey
+	}
+
+	/**
+	 * Put the bsp data into the Jira collection.  We also check that the total # of tubes inserted is correct.
+	 * @param bspFileName name of file with bsp data
+	 * @param size total number of entries in bsp file
+	 */
+	private def makeBspScan(bspFileName: String, size: Int) = {
+		// Make bsp entry and check it out
+		val bspscan = JiraProject.makeBspScanList(bspFileName)
+		JiraProject.insertBspIssueCollection(bspscan, fakeProject)
+		// Get back what was entered into DB and check that it's looking good
+		val (bspBack, bspErr) = JiraProject.getBspIssueCollection(fakeRack)
+		bspErr mustBe None
+		bspBack.head.issue mustBe fakeProject
+		bspBack.size mustBe 1
+		bspBack.head.list.foldLeft(0)((soFar, next) => soFar + next.contents.length) mustBe size
+		val ourRack = bspBack.head.list.find((bp) => bp.barcode == fakeRack)
+		ourRack.isDefined mustBe true
+	}
+
 	// Type of Data returned for EZPass creation
 	private type EZPassData = (Map[String, String], Map[String, Int], Map[String, Float])
 	private case class EZPassSaved(data: List[EZPassData], midSet: Set[String])
@@ -212,10 +262,11 @@ object EZPassSpec extends TestSpec {
 	 * @param rackScanByWell rack scan map of well to map of all values from scan for well
 	 * @param bspByTubeBarcode bsp data map of tube barcode to all values set in bsp data for that tube
 	 * @param numSamples # of samples EZPass is expected to create
+	 * @param wells legitimate wells to be in EZPass
 	 */
 	private case class TrackEZPass(midsBySequence: Map[String, String],
 					  rackScanByWell: Map[String, Map[String, String]],
-					  bspByTubeBarcode: Map[String, Map[String, String]], numSamples: Int)
+					  bspByTubeBarcode: Map[String, Map[String, String]], numSamples: Int, wells: Option[Set[String]])
 		extends SetEZPassData[EZPassSaved] {
 		/**
 		 * Initialize EZPass context
@@ -241,6 +292,11 @@ object EZPassSpec extends TestSpec {
 			val mid = strData("Molecular Barcode Sequence")
 			// Get well for that barcode sequence from MIDs
 			val midWell = midsBySequence(mid)
+			// If well set specified make sure well in set
+			wells match {
+				case Some(wellSet) => wellSet.contains(midWell) mustBe true
+				case _ =>
+			}
 			// Get tube barcode for well from rack scan
 			val scanBarcode = rackScanByWell(midWell)
 			// Get bsp entry for tube
