@@ -3,6 +3,7 @@ package models
 import java.io.{FileOutputStream, File}
 
 import models.TransferContents.{MergeMid, MergeBsp, MergeResult}
+import models.project.SquidProject
 import org.apache.poi.ss.usermodel.Cell
 import org.broadinstitute.spreadsheets.HeadersToValues
 import play.Play
@@ -199,7 +200,8 @@ object EZPass {
 				val result = results.next()
 				val ezPassResults = result.bsp match {
 					case Some(bsp) =>
-						// Get optional string values (leave out those that are not set)
+						// Get bsp and squid optional values
+						// Put together optional string values (leave out those that are not set)
 						val strOptionFields = getBspFields(bsp).flatMap {
 							case (k, Some(str)) => List(k -> str)
 							case _ => List.empty
@@ -219,8 +221,9 @@ object EZPass {
 			} else (setContext, samplesFound)
 		}
 
-		// Go initialize output and get context for completing writing of data
-		val context = setData.initData(component, headers) // Initiate collecting of data
+		// Go initialize collector and get context for completing output of data
+		val context = setData.initData(component, headers)
+
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Go get contents from transfers into specified component
 		TransferContents.getContents(component).map {
@@ -236,6 +239,8 @@ object EZPass {
 			}
 			// No contents
 			case None => setData.allDone(context, 0, List(s"$component has no contents"))
+		}.recover{
+			case e: Exception => setData.allDone(context, 0, List(s"Exception: ${e.getLocalizedMessage}"))
 		}
 	}
 
@@ -246,6 +251,12 @@ object EZPass {
 	private def getCollabSample(bsp: MergeBsp) = bsp.collabSample
 	private def getIndividual(bsp: MergeBsp) = bsp.individual
 	private def getLibrary(bsp: MergeBsp) = bsp.library
+	// Values from Squid
+	private def getSquidProject(bsp: MergeBsp) = bsp.gssrSample match {
+		case Some(gssr) => SquidProject.findProjNameByBarcode(gssr)
+		case _ => None
+	}
+
 	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
 	// Map of headers to methods to retrieve bsp values
 	private val bspMap : Map[String, (MergeBsp) => Option[String]]=
@@ -254,7 +265,8 @@ object EZPass {
 			"Source Sample GSSR ID" -> getGssrSample,
 			"Collaborator Sample ID" -> getCollabSample,
 			"Individual Name (aka Patient ID, Required for human subject samples)" -> getIndividual,
-			"Library Name (External Collaborator Library ID)" -> getLibrary)
+			"Library Name (External Collaborator Library ID)" -> getLibrary,
+			"SQUID Project" -> getSquidProject)
 
 	/**
 	 * Get bsp fields - go through bsp map and return new map with fetched values
@@ -370,7 +382,6 @@ object EZPass {
 	private val unKnownFields = Map(
 		"Funding Source" -> "Get from Jira parent ticket",
 		"Coverage (# Lanes/Sample)" -> "Get from Jira parent ticket",
-		"SQUID project" -> "Get via SQUID",
 		"Virtual GSSR ID" -> "Assigned via SQUID",
 		"Strain" -> unknown,
 		"Sex (for non-human samples only)" -> unknown,
@@ -387,5 +398,4 @@ object EZPass {
 		"Approved By" -> unknown,
 		"Data Submission (Yes, Yes Later, or No)" -> unknown,
 		"Additional Assembly and Analysis Information" -> unknown)
-
 }
