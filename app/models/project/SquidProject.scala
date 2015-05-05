@@ -9,6 +9,12 @@ import scala.xml.{Elem,XML}
 import scala.io.Source
 
 object SquidProject {
+	// Soap request parameters
+	private val sampleLSID = "sampleLSID"
+	private val projectName = "projectName"
+	private val sampleBarcode = "sampleBarcode"
+	private val sampleProjectStatus = "sampleProjectStatus"
+
 	/**
 	 * Wrap a soap request in a soap envelope returning the entire XML soap request
 	 * @param xml Soap request
@@ -70,14 +76,15 @@ object SquidProject {
 			ret
 		} catch {
 			case e: Exception =>
-				try {
+				val exc = try {
 					val err = "\n" + Source.fromInputStream(conn.getErrorStream).mkString
 					conn.getErrorStream().close()
-					throw new Exception(s"Error posting request to Squid: ${e.getLocalizedMessage}$err")
+					new Exception(s"Error posting request to Squid: ${e.getLocalizedMessage}$err")
 				} catch {
 					case e1: Exception =>
-						throw new Exception(s"Error posting request to Squid: ${e.getLocalizedMessage}")
+						new Exception(s"Error posting request to Squid: ${e.getLocalizedMessage}")
 				}
+				throw exc
 		}
 	}
 
@@ -94,7 +101,7 @@ object SquidProject {
 	 * @param gssrBarcode gssr barcode to base query on
 	 * @return optional response from request (should be something there if no errors and the response isn't blank)
 	 */
-	private def findSampleByBarcode(gssrBarcode: String) = {
+	private def findSampleElemByBarcode(gssrBarcode: String) = {
 		val req =
 			<urn:findSampleDetailsByBarcode>
 				<barcode>{gssrBarcode}</barcode>
@@ -107,7 +114,7 @@ object SquidProject {
 	 * @param sampleLSID lsid to base query on
 	 * @return optional response from request (should be something there if no errors and the response isn't blank)
 	 */
-	private def findProjectByLSID(sampleLSID: String) = {
+	private def findProjectElemByLSID(sampleLSID: String) = {
 		val req =
 			<urn:findSampleProjectStatusByLSID>
 				<samplelsid>
@@ -119,22 +126,74 @@ object SquidProject {
 
 	/**
 	 * Find project information based on a lsid.  We set the lsid parameter and send off the request.
-	 * @param sampleLSID lsid to base query on
+	 * @param sampleLSIDs lsid to base query on
 	 * @return optional response from request (should be something there if no errors and the response isn't blank)
 	 */
-	private def findProjectsByLSIDs(sampleLSID: List[String]) = {
+	private def findProjectsElemByLSIDs(sampleLSIDs: List[String]) = {
 		val req =
 			<urn:findSampleProjectStatusByLSID>
 				<samplelsid>
-					{for (lsid <- sampleLSID) yield (<gssrSampleID>{lsid}</gssrSampleID>)}
+					{for (lsid <- sampleLSIDs) yield (<gssrSampleLSID>{lsid}</gssrSampleLSID>)}
 				</samplelsid>
 			</urn:findSampleProjectStatusByLSID>
 		sendSampleRequest(req)
 	}
 
-	// Soap request parameters
-	private val sampleLSID = "sampleLSID"
-	private val projectName = "projectName"
+	/**
+	 * Find projects for a list of LSIDs.  It's much more efficient to retrieve multiple projects for multiple LSIDs
+	 * as opposed to retrieving one project at a time for each LSID so this method gives you the opportunity to do
+	 * that.
+	 * @param sampleLSIDs LSIDs to find projects for
+	 * @return map containg gssrID->project
+	 */
+	def findProjectsByLSIDs(sampleLSIDs: List[String]) = {
+		findProjectsElemByLSIDs(sampleLSIDs) match {
+			case Some(projects) => {
+				val ret = (projects \\ sampleProjectStatus).flatMap((p) => {
+					val bc = p \\ sampleBarcode
+					if (bc.isEmpty) List.empty else {
+						val proj = p \\ projectName
+						if (proj.isEmpty) List.empty else List(bc.text -> proj.text)
+					}
+				})
+				ret.toMap
+			}
+			case _ => Map.empty[String, String]
+		}
+	}
+
+	/**
+	 * Find LSID associated with a GSSR barcode
+	 * @param gssrBarcode gssr barcode to base query on
+	 * @return optional LSID (should be something there if no errors and the response isn't blank)
+	 */
+	def findSampleByBarcode(gssrBarcode: String) = {
+		// Find LSID using the gssr barcode
+		// If nothing is returned from either query we will not drop into the yield and return None
+		for {sampleData <- findSampleElemByBarcode(gssrBarcode)
+			 lsID = (sampleData \\ sampleLSID).text
+			 if !lsID.isEmpty
+		} yield {
+			lsID
+		}
+	}
+
+	/**
+	 * Find project name associated with a LSID
+	 * @param lsID LSID to base query on
+	 * @return optional project name (should be something there if no errors and the response isn't blank)
+	 */
+	def findProjNameByLSID(lsID: String) = {
+		// Find project name using the LSID
+		// If nothing is returned from either query we will not drop into the yield and return None
+		for {projectData <- findProjectElemByLSID(lsID)
+			 proj = (projectData \\ projectName).text
+			 if !proj.isEmpty
+		} yield {
+			proj
+		}
+	}
+
 	/**
 	 * Find project name associated with a GSSR barcode
 	 * @param gssrBarcode gssr barcode to base query on
@@ -143,10 +202,10 @@ object SquidProject {
 	def findProjNameByBarcode(gssrBarcode: String) = {
 		// First find LSID using the gssr barcode then find project name using the LSID
 		// If nothing is returned from either query we will not drop into the yield and return None
-		for {sampleData <- findSampleByBarcode(gssrBarcode)
+		for {sampleData <- findSampleElemByBarcode(gssrBarcode)
 			 lsID = (sampleData \\ sampleLSID).text
 			 if !lsID.isEmpty
-			 projectData <- findProjectByLSID(lsID)
+			 projectData <- findProjectElemByLSID(lsID)
 			 proj = (projectData \\ projectName).text
 			 if !proj.isEmpty
 		} yield {
