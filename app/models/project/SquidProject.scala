@@ -117,6 +117,21 @@ object SquidProject {
 		sendSampleRequest(req)
 	}
 
+	/**
+	 * Find project information based on a lsid.  We set the lsid parameter and send off the request.
+	 * @param sampleLSID lsid to base query on
+	 * @return optional response from request (should be something there if no errors and the response isn't blank)
+	 */
+	private def findProjectsByLSIDs(sampleLSID: List[String]) = {
+		val req =
+			<urn:findSampleProjectStatusByLSID>
+				<samplelsid>
+					{for (lsid <- sampleLSID) yield (<gssrSampleID>{lsid}</gssrSampleID>)}
+				</samplelsid>
+			</urn:findSampleProjectStatusByLSID>
+		sendSampleRequest(req)
+	}
+
 	// Soap request parameters
 	private val sampleLSID = "sampleLSID"
 	private val projectName = "projectName"
