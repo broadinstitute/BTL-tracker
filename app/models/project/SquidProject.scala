@@ -72,13 +72,13 @@ object SquidProject {
 			conn.getOutputStream.write(outs)
 			conn.getOutputStream.close()
 			val ret = Some(XML.load(conn.getInputStream))
-			conn.getInputStream().close()
+			conn.getInputStream.close()
 			ret
 		} catch {
 			case e: Exception =>
 				val exc = try {
 					val err = "\n" + Source.fromInputStream(conn.getErrorStream).mkString
-					conn.getErrorStream().close()
+					conn.getErrorStream.close()
 					new Exception(s"Error posting request to Squid: ${e.getLocalizedMessage}$err")
 				} catch {
 					case e1: Exception =>
@@ -111,21 +111,6 @@ object SquidProject {
 
 	/**
 	 * Find project information based on a lsid.  We set the lsid parameter and send off the request.
-	 * @param sampleLSID lsid to base query on
-	 * @return optional response from request (should be something there if no errors and the response isn't blank)
-	 */
-	private def findProjectElemByLSID(sampleLSID: String) = {
-		val req =
-			<urn:findSampleProjectStatusByLSID>
-				<samplelsid>
-					<gssrSampleLSID>{sampleLSID}</gssrSampleLSID>
-				</samplelsid>
-			</urn:findSampleProjectStatusByLSID>
-		sendSampleRequest(req)
-	}
-
-	/**
-	 * Find project information based on a lsid.  We set the lsid parameter and send off the request.
 	 * @param sampleLSIDs lsid to base query on
 	 * @return optional response from request (should be something there if no errors and the response isn't blank)
 	 */
@@ -133,7 +118,7 @@ object SquidProject {
 		val req =
 			<urn:findSampleProjectStatusByLSID>
 				<samplelsid>
-					{for (lsid <- sampleLSIDs) yield (<gssrSampleLSID>{lsid}</gssrSampleLSID>)}
+					{for (lsid <- sampleLSIDs) yield <gssrSampleLSID>{lsid}</gssrSampleLSID>}
 				</samplelsid>
 			</urn:findSampleProjectStatusByLSID>
 		sendSampleRequest(req)
@@ -148,7 +133,7 @@ object SquidProject {
 	 */
 	def findProjectsByLSIDs(sampleLSIDs: List[String]) = {
 		findProjectsElemByLSIDs(sampleLSIDs) match {
-			case Some(projects) => {
+			case Some(projects) =>
 				val ret = (projects \\ sampleProjectStatus).flatMap((p) => {
 					val bc = p \\ sampleBarcode
 					if (bc.isEmpty) List.empty else {
@@ -157,7 +142,6 @@ object SquidProject {
 					}
 				})
 				ret.toMap
-			}
 			case _ => Map.empty[String, String]
 		}
 	}
@@ -186,7 +170,7 @@ object SquidProject {
 	def findProjNameByLSID(lsID: String) = {
 		// Find project name using the LSID
 		// If nothing is returned from either query we will not drop into the yield and return None
-		for {projectData <- findProjectElemByLSID(lsID)
+		for {projectData <- findProjectsElemByLSIDs(List(lsID))
 			 proj = (projectData \\ projectName).text
 			 if !proj.isEmpty
 		} yield {
@@ -205,7 +189,7 @@ object SquidProject {
 		for {sampleData <- findSampleElemByBarcode(gssrBarcode)
 			 lsID = (sampleData \\ sampleLSID).text
 			 if !lsID.isEmpty
-			 projectData <- findProjectElemByLSID(lsID)
+			 projectData <- findProjectsElemByLSIDs(List(lsID))
 			 proj = (projectData \\ projectName).text
 			 if !proj.isEmpty
 		} yield {

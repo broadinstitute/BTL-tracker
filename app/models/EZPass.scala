@@ -27,7 +27,6 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * @param libSize library insert size including adapters
  * @param libVol library volume (ul)
  * @param libConcentration library concentration (ng/ul)
- * @return list of errors
  */
 case class EZPass(component: String, libSize: Int, libVol: Int, libConcentration: Float)
 object EZPass {
@@ -73,6 +72,9 @@ object EZPass {
 		def setFields(context: T, strData: Map[String, String], intData: Map[String, Int],
 					  floatData: Map[String, Float], index: Int): T
 
+		//@TODO Need to have allDone return be a type parameter (so SetEZPassData[T, R])
+		// Then we can have makeEZPassWithProject that takes another SetEZPassData and first creates data with project
+		// and then calls given SetEZPassData with project data
 		/**
 		 * All done processing EZPass data.
 		 * @param context context kept for handling EZPass data
@@ -83,6 +85,8 @@ object EZPass {
 		def allDone(context: T,  samplesFound: Int, errs: List[String]): (Option[String], List[String])
 	}
 
+	val gssrBarcodeLabel = "Source Sample GSSR ID"
+	val squidProjectLabel = "Squid Project"
 	/**
 	 * Context information to remember while writing out data to an EZPass spreadsheet.
 	 * @param headersToValues contains locations of headers in spreadsheet and current spreadsheet state
@@ -93,7 +97,7 @@ object EZPass {
 	/**
 	 * Implementation of setEZPassData to write out EZPass data to a new spreadsheet.
 	 */
-	object writeEZPassData extends SetEZPassData[DataSource] {
+	object WriteEZPassData extends SetEZPassData[DataSource] {
 		/**
 		 * Initialize what's needed to write output to a new EZPass spreadsheet.
 		 * @param component ID of component EZPass is being made for
@@ -198,29 +202,48 @@ object EZPass {
 		 * @return (optional conclusion, list of errors)
 		 */
 		def allDone(context: EZPassSaved, samplesFound: Int, errs: List[String]) = {
+			// Get a list of all the futures used to retrieve LSIDs
 			val futures = context.data.map{
 				case (_, _, _, _, fut) => fut
 			}
+			// Fold all the futures together into a map of index->(lsid if found, exception if error)
 			val lsidsFold = Future.fold(futures)(Map.empty[Int, (Option[String], Option[Exception])]) (
-				(soFar, next) => soFar + (next._1 -> (next._2, next._3)))
-			// Duration to wait for async operations to complete
+				(soFar, next) => soFar + (next._1 -> (next._2, next._3))).recover{
+				case e: Exception => Map(0 -> (None, Some(e)))
+			}
+			// Wait for fold to complete (allow 1/2 second per future although it should be much less)
 			import scala.concurrent.duration._
 			val dsecs = Duration(context.data.length * 500, MILLISECONDS)
 			val lsids = Await.result(lsidsFold, dsecs)
+			// Get list of errors
 			val lsidErrs = lsids.values.flatMap{
 				case (_, Some(err)) => List(err.getLocalizedMessage)
 				case _ => List.empty
-			}
+			}.toList
+			// Get list of lsids
 			val projectToGet = lsids.flatMap{
-				case (key, (Some(str), _)) => List(key -> str)
+				case (key, (Some(str), _)) => List(str)
 				case _ => List.empty
 			}
+			// Go find all the projects
 			val projs = try {
-				SquidProject.findProjectsByLSIDs(projectToGet.values.toList)
+				(SquidProject.findProjectsByLSIDs(projectToGet.toList), lsidErrs)
 			} catch {
-				case e: Exception => Map(0 -> e.getLocalizedMessage)
+				case e: Exception => (Map.empty[String, String], lsidErrs :+ e.getLocalizedMessage)
 			}
-			(None, lsidErrs.toList ++ projs.values.toList)
+			// Now make all the entries there include any project info gotten
+			val rows = context.data.map{
+				case (strs, ints, floats, index, _) =>
+					// If gssrBarcode exists and we got a project for it then project to the map of string values found
+					strs.get(gssrBarcodeLabel) match {
+						case Some(bc) => projs._1.get(bc) match {
+							case Some(proj) => (strs + (squidProjectLabel -> proj), ints, floats, index)
+							case _ => (strs, ints, floats, index)
+						}
+						case _ => (strs, ints, floats, index)
+					}
+			}
+			(None, lsidErrs ++ rows.flatMap((r) => r._1.values.toList))
 		}
 
 		/**
@@ -234,15 +257,16 @@ object EZPass {
 		 */
 		def setFields(context: EZPassSaved, strData: Map[String, String], intData: Map[String, Int],
 					  floatData: Map[String, Float], index: Int) = EZPassSaved(context.data :+
-			(strData, intData, floatData, index, (Future {
-				strData.get("Source Sample GSSR ID") match {
+			(strData, intData, floatData, index, Future {
+				strData.get(gssrBarcodeLabel) match {
 					case Some(str) => (index, SquidProject.findSampleByBarcode(str), None)
 					case _ => (index, None, None)
 				}
 			}.recover{
 				case e: Exception => (index, None, Some(e))
-			})))
+			}))
 	}
+	
 	/**
 	 * Make an EZPASS file.
 	 * @param component ID of component to make EZPASS for
@@ -250,7 +274,7 @@ object EZPass {
 	 * @param libVol library volume (ul)
 	 * @param libConcentration library concentration (ng/ul)
 	 * @tparam T type of context kept while setting data
-	 * @return (optional conclusion, list of errors)
+	 * @return (optional output file name, list of errors)
 	 */
 	def makeEZPass[T](setData: SetEZPassData[T], component: String,
 					  libSize: Int, libVol: Int, libConcentration: Float) = {
@@ -319,22 +343,16 @@ object EZPass {
 	private def getCollabSample(bsp: MergeBsp) = bsp.collabSample
 	private def getIndividual(bsp: MergeBsp) = bsp.individual
 	private def getLibrary(bsp: MergeBsp) = bsp.library
-	// Values from Squid
-	private def getSquidProject(bsp: MergeBsp) = bsp.gssrSample match {
-		case Some(gssr) => SquidProject.findProjNameByBarcode(gssr)
-		case _ => None
-	}
 
 	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
 	// Map of headers to methods to retrieve bsp values
 	private val bspMap : Map[String, (MergeBsp) => Option[String]]=
 		Map("Additional Sample Information" -> getProject, // Jira ticket
 			"Project Title Description (e.g. MG1655 Jumping Library Dev.)" -> getProjectDescription, // Ticket summary
-			"Source Sample GSSR ID" -> getGssrSample,
+			gssrBarcodeLabel -> getGssrSample,
 			"Collaborator Sample ID" -> getCollabSample,
 			"Individual Name (aka Patient ID, Required for human subject samples)" -> getIndividual,
-			"Library Name (External Collaborator Library ID)" -> getLibrary,
-			"SQUID Project" -> getSquidProject)
+			"Library Name (External Collaborator Library ID)" -> getLibrary)
 
 	/**
 	 * Get bsp fields - go through bsp map and return new map with fetched values

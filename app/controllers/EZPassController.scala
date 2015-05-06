@@ -35,7 +35,7 @@ object EZPassController extends Controller {
 			},
 			data => {
 				//@TODO update processing to get Squid project.
-				EZPass.makeEZPass(EZPass.writeEZPassData, id, data.libSize, data.libVol, data.libConcentration).map {
+				EZPass.makeEZPass(EZPass.WriteEZPassData, id, data.libSize, data.libVol, data.libConcentration).map {
 					case (Some(file), errs) =>
 						val outFile = new File(file)
 						Ok.sendFile(content = outFile, inline = false,
