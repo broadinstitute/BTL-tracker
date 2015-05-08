@@ -29,11 +29,14 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * @param libConcentration library concentration (ng/ul)
  */
 case class EZPass(component: String, libSize: Int, libVol: Int, libConcentration: Float)
+
 object EZPass {
+	// Form keys
 	val idKey = "id"
 	val libSizeKey = "libSize"
 	val libVolKey = "libVol"
 	val libConcKey = "libConc"
+	// Form with Json mapping
 	val form =
 		Form(mapping(
 			idKey -> nonEmptyText,
@@ -50,8 +53,9 @@ object EZPass {
 	/**
 	 * Interface to use to create an EZPass.
 	 * @tparam T context data passed between calls
+	 * @tparam R result returned by allDone call
 	 */
-	trait SetEZPassData[T] {
+	trait SetEZPassData[T, R] {
 		/**
 		 * Initialize what's needed to handle the output data
 		 * @param component ID of component EZPass is being made for
@@ -72,21 +76,20 @@ object EZPass {
 		def setFields(context: T, strData: Map[String, String], intData: Map[String, Int],
 					  floatData: Map[String, Float], index: Int): T
 
-		//@TODO Need to have allDone return be a type parameter (so SetEZPassData[T, R])
-		// Then we can have makeEZPassWithProject that takes another SetEZPassData and first creates data with project
-		// and then calls given SetEZPassData with project data
 		/**
 		 * All done processing EZPass data.
 		 * @param context context kept for handling EZPass data
 		 * @param samplesFound # of samples found
 		 * @param errs list of errors found
-		 * @return (optional conclusion, list of errors)
+		 * @return (result, list of errors)
 		 */
-		def allDone(context: T,  samplesFound: Int, errs: List[String]): (Option[String], List[String])
+		def allDone(context: T,  samplesFound: Int, errs: List[String]): (R, List[String])
 	}
 
+	// Labels for fields in EZPass
 	val gssrBarcodeLabel = "Source Sample GSSR ID"
-	val squidProjectLabel = "Squid Project"
+	val squidProjectLabel = "SQUID Project"
+
 	/**
 	 * Context information to remember while writing out data to an EZPass spreadsheet.
 	 * @param headersToValues contains locations of headers in spreadsheet and current spreadsheet state
@@ -97,7 +100,7 @@ object EZPass {
 	/**
 	 * Implementation of setEZPassData to write out EZPass data to a new spreadsheet.
 	 */
-	object WriteEZPassData extends SetEZPassData[DataSource] {
+	object WriteEZPassData extends SetEZPassData[DataSource, Option[String]] {
 		/**
 		 * Initialize what's needed to write output to a new EZPass spreadsheet.
 		 * @param component ID of component EZPass is being made for
@@ -181,70 +184,46 @@ object EZPass {
 		}
 	}
 
-	// Type of Data returned for EZPass creation
-	private type FutureLSID = Future[(Int, Option[String], Option[Exception])]
-	private type EZPassData = (Map[String, String], Map[String, Int], Map[String, Float], Int, FutureLSID)
-	case class EZPassSaved(data: List[EZPassData])
-	object WriteEZPassWithProject extends SetEZPassData[EZPassSaved] {
+	// Types of Data returned for EZPass with project creation
+	// Future to obtain LSid - optional lsid and optional exception if future completes with error
+	private type FutureLSID = Future[(Option[String], Option[Exception])]
+	// Data saved row-by-row - All values (maps of headers to strings, integers or floats) and futures to get LSIDs
+	private type EZPassData = (Map[String, String], Map[String, Int], Map[String, Float], FutureLSID)
+	// Final data - Map of values (will include squid project) and row index
+	private type EZPassFinalData = (Map[String, String], Map[String, Int], Map[String, Float])
+
+	/**
+	 * Context saved between calls of preliminary pass when making an EZPass with projects.
+	 * @param fileHeaders headers to set in EZPass
+	 * @param data data collected so far
+	 */
+	case class EZPassSaved(fileHeaders: List[String], data: List[EZPassData])
+
+	/**
+	 * Final output from first pass when making an EZPass with a project.
+	 * @param fileHeaders headers to set in EZPass
+	 * @param data data to set in EZPass
+	 */
+	case class EZPassProjectData(fileHeaders: List[String], data: List[EZPassFinalData])
+
+	/**
+	 * Retrieving EZPASS with project data is a bit convoluted because retrieving squid projects one-by-one is
+	 * extremely slow (about 1 second per retrieval).  To avoid this delay we retrieve all the projects via one squid
+	 * request, which is much faster, after we've gone through all the input.  So here's now it goes:
+	 * For each row (setFields method) we save the data found for that row and start up a future to retrieve the LSID
+	 * for that row.  We need this LSID to retrieve the project for the row later.
+	 * Once all the rows are done (allDone method) we wait for all the LSIDs to be retrieved and then send off one
+	 * request to get all the projects associated with the LSIDs.  After the projects are retrieved we put them into
+	 * the proper rows data and return with all the data set, including the project.
+	 */
+	object WriteEZPassWithProject extends SetEZPassData[EZPassSaved, EZPassProjectData] {
 		/**
 		 * Initialize what's needed to handle the output data
 		 * @param component ID of component EZPass is being made for
 		 * @param fileHeaders headers we want to set data for in EZPass
 		 * @return context to be used in other interface calls
 		 */
-		def initData(component: String, fileHeaders: List[String]) = EZPassSaved(List.empty)
-
-		/**
-		 * All done processing EZPass data.
-		 * @param context context kept for handling EZPass data
-		 * @param samplesFound # of samples found
-		 * @param errs list of errors found
-		 * @return (optional conclusion, list of errors)
-		 */
-		def allDone(context: EZPassSaved, samplesFound: Int, errs: List[String]) = {
-			// Get a list of all the futures used to retrieve LSIDs
-			val futures = context.data.map{
-				case (_, _, _, _, fut) => fut
-			}
-			// Fold all the futures together into a map of index->(lsid if found, exception if error)
-			val lsidsFold = Future.fold(futures)(Map.empty[Int, (Option[String], Option[Exception])]) (
-				(soFar, next) => soFar + (next._1 -> (next._2, next._3))).recover{
-				case e: Exception => Map(0 -> (None, Some(e)))
-			}
-			// Wait for fold to complete (allow 1/2 second per future although it should be much less)
-			import scala.concurrent.duration._
-			val dsecs = Duration(context.data.length * 500, MILLISECONDS)
-			val lsids = Await.result(lsidsFold, dsecs)
-			// Get list of errors
-			val lsidErrs = lsids.values.flatMap{
-				case (_, Some(err)) => List(err.getLocalizedMessage)
-				case _ => List.empty
-			}.toList
-			// Get list of lsids
-			val projectToGet = lsids.flatMap{
-				case (key, (Some(str), _)) => List(str)
-				case _ => List.empty
-			}
-			// Go find all the projects
-			val projs = try {
-				(SquidProject.findProjectsByLSIDs(projectToGet.toList), lsidErrs)
-			} catch {
-				case e: Exception => (Map.empty[String, String], lsidErrs :+ e.getLocalizedMessage)
-			}
-			// Now make all the entries there include any project info gotten
-			val rows = context.data.map{
-				case (strs, ints, floats, index, _) =>
-					// If gssrBarcode exists and we got a project for it then project to the map of string values found
-					strs.get(gssrBarcodeLabel) match {
-						case Some(bc) => projs._1.get(bc) match {
-							case Some(proj) => (strs + (squidProjectLabel -> proj), ints, floats, index)
-							case _ => (strs, ints, floats, index)
-						}
-						case _ => (strs, ints, floats, index)
-					}
-			}
-			(None, lsidErrs ++ rows.flatMap((r) => r._1.values.toList))
-		}
+		def initData(component: String, fileHeaders: List[String]) = EZPassSaved(fileHeaders, List.empty)
 
 		/**
 		 * Set fields for a new row of EZPass data.
@@ -256,28 +235,85 @@ object EZPass {
 		 * @return context to continue operations
 		 */
 		def setFields(context: EZPassSaved, strData: Map[String, String], intData: Map[String, Int],
-					  floatData: Map[String, Float], index: Int) = EZPassSaved(context.data :+
-			(strData, intData, floatData, index, Future {
+					  floatData: Map[String, Float], index: Int) = EZPassSaved(context.fileHeaders, context.data :+
+			(strData, intData, floatData, Future {
 				strData.get(gssrBarcodeLabel) match {
-					case Some(str) => (index, SquidProject.findSampleByBarcode(str), None)
-					case _ => (index, None, None)
+					case Some(str) => (SquidProject.findSampleByBarcode(str), None)
+					case _ => (None, None)
 				}
 			}.recover{
-				case e: Exception => (index, None, Some(e))
+				case e: Exception => (None, Some(e))
 			}))
+
+		/**
+		 * Finish retrieving EZPass values.  Since getting projects one-by-one is so slow we've done the following:
+		 *
+		 * @param context context kept for handling EZPass data
+		 * @param samplesFound # of samples found
+		 * @param errs list of errors found
+		 * @return (EZPassProjectData, list of errors)
+		 */
+		def allDone(context: EZPassSaved, samplesFound: Int, errs: List[String]) = {
+			// Get a list of all the futures used to retrieve LSIDs
+			val futures = context.data.map{
+				case (_, _, _, fut) => fut
+			}
+			// Fold all the futures together into a map of index->(lsid if found, exception if error)
+			val lsidsFold = Future.fold(futures)(List.empty[(Option[String], Option[Exception])]) (
+				(soFar, next) => soFar :+ (next._1 , next._2)).recover{
+				case e: Exception => List[(Option[String], Option[Exception])]((None, Some(e)))
+			}
+			// Wait for fold to complete (allow 1/2 second per future although it should be much less)
+			import scala.concurrent.duration._
+			val dsecs = Duration(context.data.length * 500, MILLISECONDS)
+			val lsids = Await.result(lsidsFold, dsecs)
+			// Get list of errors
+			val lsidErrs = lsids.flatMap{
+				case (_, Some(err)) => List(err.getLocalizedMessage)
+				case _ => List.empty
+			}
+			// Get list of lsids
+			val projectToGet = lsids.flatMap{
+				case (Some(str), _) => List(str)
+				case _ => List.empty
+			}
+			// Go find all the projects
+			val projs = try {
+				(SquidProject.findProjectsByLSIDs(projectToGet.toList), lsidErrs)
+			} catch {
+				case e: Exception => (Map.empty[String, String], lsidErrs :+ e.getLocalizedMessage)
+			}
+			// Now make all the entries there include any project info gotten
+			val rows = context.data.map{
+				case (strs, ints, floats, _) =>
+					// If gssrBarcode exists and we got a project for it then project to the map of string values found
+					strs.get(gssrBarcodeLabel) match {
+						case Some(bc) => projs._1.get(bc) match {
+							case Some(proj) => (strs + (squidProjectLabel -> proj), ints, floats)
+							case _ => (strs, ints, floats)
+						}
+						case _ => (strs, ints, floats)
+					}
+			}
+			// Return all the data we found and errors
+			(EZPassProjectData(context.fileHeaders, rows), lsidErrs)
+		}
+
 	}
 	
 	/**
 	 * Make an EZPASS file.
+	 * @param setData callbacks to use to create EZPass
 	 * @param component ID of component to make EZPASS for
 	 * @param libSize library insert size including adapters
 	 * @param libVol library volume (ul)
 	 * @param libConcentration library concentration (ng/ul)
 	 * @tparam T type of context kept while setting data
-	 * @return (optional output file name, list of errors)
+	 * @tparam R type returned makeEZPass
+	 * @return (R data, list of errors)
 	 */
-	def makeEZPass[T](setData: SetEZPassData[T], component: String,
-					  libSize: Int, libVol: Int, libConcentration: Float) = {
+	def makeEZPass[T, R](setData: SetEZPassData[T, R], component: String,
+						 libSize: Int, libVol: Int, libConcentration: Float) = {
 		/*
 		 * Process the results of looking at transfers into wanted component.
 		 * @param setContext context kept for handling EZpass
@@ -309,7 +345,7 @@ object EZPass {
 					case None => (setContext, 0)
 				}
 				// Go get next sample
-				processResults(ezPassResults._1, index + 1, results, samplesFound + ezPassResults._2)
+				processResults(ezPassResults._1, index + ezPassResults._2, results, samplesFound + ezPassResults._2)
 			} else (setContext, samplesFound)
 		}
 
@@ -336,6 +372,57 @@ object EZPass {
 		}
 	}
 
+	/**
+	 * Make the EZPass with data already calculated
+	 * @param setData callbacks to use to create EZPass
+	 * @param component component EZPass is being created for
+	 * @param data data already found for EZPass
+	 * @param errs errors found during previous calculation of data
+	 * @tparam T context to be used during EZPass creation
+	 * @tparam R result returned by EZPass creation
+	 * @return (R, list of errors)
+	 */
+	private def makeEZPassFromData[T, R](setData: SetEZPassData[T, R], component: String,
+										 data: EZPassProjectData, errs: List[String]) = {
+		// initData to start EZPass creation, setFields once for each row and finish up (allDone)
+		val setContext = setData.initData(component, data.fileHeaders)
+		@tailrec
+		// Recursive fellow to set all the fields till done
+		def setFields(context: T, data: List[EZPassFinalData], index: Int) : T = {
+			data match {
+				case Nil => context
+				case head :: tail =>
+					val next = setData.setFields(context, head._1, head._2, head._3, index)
+					setFields(next, tail, index+1)
+			}
+		}
+		// Set rows
+		val finalContext = setFields(setContext, data.data, 1)
+		// Finish up
+		setData.allDone(finalContext, data.data.size, errs)
+	}
+
+	/**
+	 * Make an EZPass file with project information.
+	 * @param setData callbacks to use when creating EZPass
+	 * @param component ID of component to make EZPass for
+	 * @param libSize library insert size including adapters
+	 * @param libVol library volume (ul)
+	 * @param libConcentration library concentration (ng/ul)
+	 * @tparam T type of context kept while setting data
+	 * @tparam R type returned makeEZPass
+	 * @return (R data, list of errors)
+	 */
+	def makeEZPassWithProject[T, R](setData: SetEZPassData[T, R], component: String,
+									libSize: Int, libVol: Int, libConcentration: Float) = {
+		// First get the EZPass with the project (that requires special handling via WriteEZPassWithProject
+		makeEZPass(WriteEZPassWithProject, component, libSize, libVol, libConcentration).map{
+			// Then map results using input EZPass creator
+			case (projData, errs) =>
+				makeEZPassFromData(setData, component, projData, errs)
+		}
+	}
+
 	// Values from bsp data - methods to retrieve specific values
 	private def getProject(bsp: MergeBsp) = Some(bsp.project)
 	private def getProjectDescription(bsp: MergeBsp) = bsp.projectDescription
@@ -352,7 +439,8 @@ object EZPass {
 			gssrBarcodeLabel -> getGssrSample,
 			"Collaborator Sample ID" -> getCollabSample,
 			"Individual Name (aka Patient ID, Required for human subject samples)" -> getIndividual,
-			"Library Name (External Collaborator Library ID)" -> getLibrary)
+			"Library Name (External Collaborator Library ID)" -> getLibrary,
+			squidProjectLabel -> ((bsp: MergeBsp) => None)) // If project is requested it's picked up later
 
 	/**
 	 * Get bsp fields - go through bsp map and return new map with fetched values

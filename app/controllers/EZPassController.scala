@@ -34,8 +34,8 @@ object EZPassController extends Controller {
 					views.html.ezpass(formWithErrors.withGlobalError(Errors.validationError), id)))
 			},
 			data => {
-				//@TODO update processing to get Squid project.
-				EZPass.makeEZPass(EZPass.WriteEZPassData, id, data.libSize, data.libVol, data.libConcentration).map {
+				EZPass.makeEZPassWithProject(EZPass.WriteEZPassData,
+					id, data.libSize, data.libVol, data.libConcentration).map {
 					case (Some(file), errs) =>
 						val outFile = new File(file)
 						Ok.sendFile(content = outFile, inline = false,

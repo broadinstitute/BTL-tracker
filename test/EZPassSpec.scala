@@ -267,7 +267,7 @@ object EZPassSpec extends TestSpec {
 	private case class TrackEZPass(midsBySequence: Map[String, String],
 					  rackScanByWell: Map[String, Map[String, String]],
 					  bspByTubeBarcode: Map[String, Map[String, String]], numSamples: Int, wells: Option[Set[String]])
-		extends SetEZPassData[EZPassSaved] {
+		extends SetEZPassData[EZPassSaved, Unit] {
 		/**
 		 * Initialize EZPass context
 		 * @param c component EZPass is being created for
@@ -315,13 +315,13 @@ object EZPassSpec extends TestSpec {
 		 * @param context context kept for handling EZPass data
 		 * @param samples # of sample
 		 * @param errs list of errors found
-		 * @return (optional conclusion, list of errors)
+		 * @return (Unit, list of errors)
 		 */
 		def allDone(context: EZPassSaved, samples: Int, errs: List[String]) = {
 			samples mustBe numSamples
 			context.midSet.size mustBe numSamples
 			context.data.size mustBe numSamples
-			(Some("All done"), errs)
+			(Unit, errs)
 		}
 	}
 
