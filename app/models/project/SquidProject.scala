@@ -114,14 +114,16 @@ object SquidProject {
 	 * @param sampleLSIDs lsid to base query on
 	 * @return optional response from request (should be something there if no errors and the response isn't blank)
 	 */
-	private def findProjectsElemByLSIDs(sampleLSIDs: List[String]) = {
-		val req =
-			<urn:findSampleProjectStatusByLSID>
-				<samplelsid>
-					{for (lsid <- sampleLSIDs) yield <gssrSampleLSID>{lsid}</gssrSampleLSID>}
-				</samplelsid>
-			</urn:findSampleProjectStatusByLSID>
-		sendSampleRequest(req)
+	private def findProjectsElemByLSIDs(sampleLSIDs: List[String]) : Option[Elem] = {
+		if (sampleLSIDs.isEmpty) None else {
+			val req =
+				<urn:findSampleProjectStatusByLSID>
+					<samplelsid>
+						{for (lsid <- sampleLSIDs) yield <gssrSampleLSID>{lsid}</gssrSampleLSID>}
+					</samplelsid>
+				</urn:findSampleProjectStatusByLSID>
+			sendSampleRequest(req)
+		}
 	}
 
 	/**
