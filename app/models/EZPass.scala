@@ -186,7 +186,7 @@ object EZPass {
 	private type FutureLSID = Future[(Option[String], Option[Exception])]
 	// Data saved row-by-row - All values (maps of headers to strings, integers or floats) and futures to get LSIDs
 	private type EZPassData = (Map[String, String], Map[String, Int], Map[String, Float], FutureLSID)
-	// Final data - Map of values (will include squid project) and row index
+	// Final data - Map of values (will include squid project)
 	private type EZPassFinalData = (Map[String, String], Map[String, Int], Map[String, Float])
 
 	/**
@@ -209,8 +209,9 @@ object EZPass {
 
 	/**
 	 * Retrieving EZPASS with project data is a bit convoluted because retrieving squid projects one-by-one is
-	 * extremely slow (about 1 second per retrieval).  To avoid this delay all the projects are retrieved via one squid
-	 * request, which is much faster, after an initial pass through all the EZPass data.  So here's how it goes:
+	 * extremely slow (about 1 second per project).  To avoid this delay all the projects are retrieved via one squid
+	 * request, which is much faster (for 96 projects less than 0.1 seconds per project), after an initial pass through
+	 * all the EZPass data.  So here's how it goes:
 	 * 1)For each row (setFields method) save the data found for that row and start up a future to retrieve the LSID
 	 * for that row.  The LSID is needed to retrieve the project for the row later.
 	 * 2)Once all the rows are done (allDone method) wait for all the LSIDs to be retrieved and then send off one
@@ -247,7 +248,7 @@ object EZPass {
 			}))
 
 		/**
-		 * Finish retrieving EZPass values.  Since getting projects one-by-one is so slow they are retreived here in
+		 * Finish retrieving EZPass values.  Since getting projects one-by-one is so slow they are retrieved here in
 		 * one web service call based on the samples' LSIDs fetched.
 		 * @param context context kept for handling EZPass data
 		 * @param samplesFound # of samples found
@@ -256,16 +257,18 @@ object EZPass {
 		 */
 		def allDone(context: EZPassSaved, samplesFound: Int, errs: List[String]) = {
 			// Get a list of all the futures used to retrieve LSIDs
-			val futures = context.data.map{
+			val futures = context.data.map {
 				case (_, _, _, fut) => fut
 			}
 			val lsids : List[(Option[String], Option[Exception])] =
 				if (samplesFound == 0) List.empty else {
-					// Fold all the futures together into a list of (lsid if found, exception if error)
-					val lsidsFold = Future.fold(futures)(List.empty[(Option[String], Option[Exception])])(
-						(soFar, next) => soFar :+(next._1, next._2)).recover {
-						case e: Exception => List[(Option[String], Option[Exception])]((None, Some(e)))
-					}
+					// Fold the futures together into a list of tuples containing (lsid if found, exception if error)
+					val lsidsFold =
+						Future.fold(futures)(List.empty[(Option[String], Option[Exception])])(
+							(soFar, next) => soFar :+(next._1, next._2)).recover
+						{ // If an exception then complete with just that exception
+							case e: Exception => List[(Option[String], Option[Exception])]((None, Some(e)))
+						}
 					// Wait for fold to complete (allow 1/2 second per future although it should be much less)
 					import scala.concurrent.duration._
 					val dsecs = Duration(context.data.length * 500, MILLISECONDS)
@@ -287,7 +290,7 @@ object EZPass {
 			} catch {
 				case e: Exception => (Map.empty[String, String], lsidErrs :+ e.getLocalizedMessage)
 			}
-			// Now make all the entries there include any project info gotten
+			// Now make all the entries include the projects retrieved
 			val rows = context.data.map{
 				case (strs, ints, floats, _) =>
 					// If gssrBarcode exists and we got a project for it then add project to the string values found
@@ -299,7 +302,7 @@ object EZPass {
 						case _ => (strs, ints, floats)
 					}
 			}
-			// Return all the data found and errors
+			// Return all the data found as well as the errors
 			(EZPassProjectData(context.fileHeaders, rows), lsidErrs)
 		}
 
