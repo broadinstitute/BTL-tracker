@@ -13,7 +13,7 @@ import play.api.libs.json.{Format, Json}
 import play.api.data.format.Formats._
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
@@ -84,7 +84,7 @@ object EZPass {
 		 * @param errs list of errors found
 		 * @return (result, list of errors)
 		 */
-		def allDone(context: T,  samplesFound: Int, errs: List[String]): (R, List[String])
+		def allDone(context: T,  samplesFound: Int, errs: List[String]): Future[(R, List[String])]
 	}
 
 	/**
@@ -164,19 +164,21 @@ object EZPass {
 		 * @return (path of output file, list of errors)
 		 */
 		def allDone(context: DataSource, samplesFound: Int, errs: List[String]) = {
-			context.headersToValues.getSheet match {
-				case Some(sheet) =>
-					if (samplesFound != 0) {
-						// Create temporary file and write new EZPASS there
-						val tFile = File.createTempFile("TRACKER_", ".xlsx")
-						val outFile = new FileOutputStream(tFile)
-						sheet.getWorkbook.write(outFile)
-						outFile.close()
-						(Some(tFile.getCanonicalPath), errs)
-					} else
-						(None, List(s"No samples found") ++ errs)
-				case None =>
-					(None, errs)
+			Future {
+				context.headersToValues.getSheet match {
+					case Some(sheet) =>
+						if (samplesFound != 0) {
+							// Create temporary file and write new EZPASS there
+							val tFile = File.createTempFile("TRACKER_", ".xlsx")
+							val outFile = new FileOutputStream(tFile)
+							sheet.getWorkbook.write(outFile)
+							outFile.close()
+							(Some(tFile.getCanonicalPath), errs)
+						} else
+							(None, List(s"No samples found") ++ errs)
+					case None =>
+						(None, errs)
+				}
 			}
 		}
 	}
@@ -237,73 +239,119 @@ object EZPass {
 		 * @return context to continue operations
 		 */
 		def setFields(context: EZPassSaved, strData: Map[String, String], intData: Map[String, Int],
-					  floatData: Map[String, Float], index: Int) = EZPassSaved(context.fileHeaders, context.data :+
-			(strData, intData, floatData, Future {
-				strData.get(gssrBarcodeLabel) match {
-					case Some(str) => (SquidProject.findSampleByBarcode(str), None)
-					case _ => (None, None)
-				}
-			}.recover{
-				case e: Exception => (None, Some(e))
-			}))
+					  floatData: Map[String, Float], index: Int) =
+			EZPassSaved(context.fileHeaders, context.data :+
+				(strData, intData, floatData,
+					Future {
+						strData.get(gssrBarcodeLabel) match {
+							case Some(str) =>
+								try {
+									(SquidProject.findSampleByBarcode(str), None)
+								} catch {
+									case e: Exception => (None, Some(e))
+								}
+							case _ => (None, None)
+						}
+					}.recover{ case e: Exception => (None, Some(e)) }
+					)
+			)
 
 		/**
-		 * Finish retrieving EZPass values.  Since getting projects one-by-one is so slow they are retrieved here in
-		 * one web service call based on the samples' LSIDs fetched.
+		 * Fold together a list of futures into a single future and then wait for the results.
+		 * @param futures futures to complete via fold
+		 * @param errsSoFar list of errors found so far
+		 * @param getErr callback to set error message from an exception
+		 * @param emptyResult callback to set empty result if global exception occurs
+		 * @tparam T type of data being collected
+		 * @return lists of results from completion of futures and any exceptions that occurred
+		 */
+		private def doFold[T](futures: List[Future[(T, Option[Exception])]],
+							  errsSoFar: List[String],
+							  getErr: (Exception) => String,
+							  emptyResult: () => T) : Future[(List[T], List[String])]= {
+			if (futures.isEmpty) Future.successful((List.empty, errsSoFar)) else {
+				// Fold the futures together into a list of tuples containing (T if found, exception if error)
+				val futFold = Future.fold(futures)(List.empty[(T, Option[Exception])])(
+					(soFar, next) => soFar :+ (next._1, next._2)
+				).recover { case e: Exception => List((emptyResult(), Some(e))) }
+				// Now take result of fold and separate out results list and errors
+				futFold.map((result) => {
+					result.foldLeft((List.empty[T], errsSoFar)){
+						case ((soFarTs, soFarErrs), (nextT, nextErr)) =>
+							// Add error if there was one
+							val errs = nextErr match {
+								case Some(e) => soFarErrs :+ getErr(e)
+								case None => soFarErrs
+							}
+							// Add to results and return errors
+							(soFarTs :+ nextT, errs)
+					}
+				})
+			}
+		}
+
+		/**
+		 * Finish retrieving EZPass values.  Since getting projects one-by-one is very slow they are retrieved here in
+		 * batches.  The batch size is determined by the number of requests Squid can handle simultaneously.  Given that
+		 * number each of the requests query for approximately the same number of projects, using the LSIDs previously
+		 * retrieved as input.
 		 * @param context context kept for handling EZPass data
 		 * @param samplesFound # of samples found
 		 * @param errs list of errors found
 		 * @return (EZPassProjectData, list of errors)
 		 */
 		def allDone(context: EZPassSaved, samplesFound: Int, errs: List[String]) = {
+			val numRequests = 4 // Number of project request to do simultaneously
 			// Get a list of all the futures used to retrieve LSIDs
 			val futures = context.data.map {
 				case (_, _, _, fut) => fut
 			}
-			val lsids : List[(Option[String], Option[Exception])] =
-				if (samplesFound == 0) List.empty else {
-					// Fold the futures together into a list of tuples containing (lsid if found, exception if error)
-					val lsidsFold =
-						Future.fold(futures)(List.empty[(Option[String], Option[Exception])])(
-							(soFar, next) => soFar :+(next._1, next._2)).recover
-						{ // If an exception then complete with just that exception
-							case e: Exception => List[(Option[String], Option[Exception])]((None, Some(e)))
+			// First get all the lsids (from slew of futures).  Once that completes use the LSIDs to get the projects
+			val lsidFutures = doFold[Option[String]](futures, errs,
+				(e) => s"Error retrieving LSIDs: ${e.getLocalizedMessage}", () => None)
+			val futureResults = lsidFutures.flatMap {
+				case (lsidList, lsidErrs) =>
+					// Get project names
+					val projectToGet = lsidList.flatten
+					// Find slice size to retrieve projects in groups
+					val sliceSize = projectToGet.size / numRequests +
+						(if (projectToGet.size % numRequests != 0) 1 else 0)
+					// Start up fetching of projects in futures (empty check needed because grouped doesn't like 0)
+					val projFutures =
+						if (projectToGet.isEmpty) List(Future.successful(Map.empty[String, String], None))
+						else {
+							(for (projs <- projectToGet.grouped(sliceSize))
+								yield Future {
+									try {
+										(SquidProject.findProjectsByLSIDs(projs), None)
+									} catch {
+										case e: Exception =>
+											(Map.empty[String, String], Some(e))
+									}
+								}).toList
 						}
-					// Wait for fold to complete (allow 1/2 second per future although it should be much less)
-					import scala.concurrent.duration._
-					val dsecs = Duration(context.data.length * 500, MILLISECONDS)
-					Await.result(lsidsFold, dsecs)
-				}
-			// Get list of errors
-			val lsidErrs = errs ++ lsids.flatMap{
-				case (_, Some(err)) => List(err.getLocalizedMessage)
-				case _ => List.empty
+					// Fold the project gathering futures together and wait for the results
+					doFold[Map[String, String]](projFutures, lsidErrs,
+						(e) => s"Error retrieving project: ${e.getLocalizedMessage}", () => Map.empty[String, String])
 			}
-			// Get list of lsids
-			val projectToGet = lsids.flatMap{
-				case (Some(str), _) => List(str)
-				case _ => List.empty
-			}
-			// Go find all the projects
-			val projs = try {
-				(SquidProject.findProjectsByLSIDs(projectToGet.toList), lsidErrs)
-			} catch {
-				case e: Exception => (Map.empty[String, String], lsidErrs :+ e.getLocalizedMessage)
-			}
-			// Now make all the entries include the projects retrieved
-			val rows = context.data.map{
-				case (strs, ints, floats, _) =>
-					// If gssrBarcode exists and we got a project for it then add project to the string values found
-					strs.get(gssrBarcodeLabel) match {
-						case Some(bc) => projs._1.get(bc) match {
-							case Some(proj) => (strs + (squidProjectLabel -> proj), ints, floats)
-							case _ => (strs, ints, floats)
-						}
-						case _ => (strs, ints, floats)
+			futureResults.map{
+				case (projsList, projErrs) =>
+					val projs = projsList.reduce(_ ++ _)
+					// Now make all the entries include the projects retrieved
+					val rows = context.data.map {
+						case (strs, ints, floats, _) =>
+							// If gssrBarcode exists and we got a project for it then add project to the string values found
+							strs.get(gssrBarcodeLabel) match {
+								case Some(bc) => projs.get(bc) match {
+									case Some(proj) => (strs + (squidProjectLabel -> proj), ints, floats)
+									case _ => (strs, ints, floats)
+								}
+								case _ => (strs, ints, floats)
+							}
 					}
+					// Return all the data found as well as the errors
+					(EZPassProjectData(context.fileHeaders, rows), projErrs)
 			}
-			// Return all the data found as well as the errors
-			(EZPassProjectData(context.fileHeaders, rows), lsidErrs)
 		}
 
 	}
@@ -322,7 +370,7 @@ object EZPass {
 	 * @return (R data, list of errors)
 	 */
 	def makeEZPass[T, R](setData: SetEZPassData[T, R], component: String,
-						 libSize: Int, libVol: Int, libConcentration: Float) = {
+						 libSize: Int, libVol: Int, libConcentration: Float) : Future[(R, List[String])] = {
 		/*
 		 * Process the results of looking at transfers into wanted component.
 		 * @param setContext context kept for handling EZpass
@@ -366,7 +414,7 @@ object EZPass {
 
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Go get contents from transfers into specified component
-		TransferContents.getContents(component).map {
+		TransferContents.getContents(component).flatMap {
 			// Should just be one well (i.e., tube) of contents
 			case Some(contents) => contents.wells.get(TransferContents.oneWell) match {
 				case Some(resultSet) =>
@@ -379,8 +427,9 @@ object EZPass {
 			}
 			// No contents
 			case None => setData.allDone(context, 0, List(s"$component has no contents"))
-		}.recover{
-			case e: Exception => setData.allDone(context, 0, List(s"Exception: ${e.getLocalizedMessage}"))
+		}.recoverWith{
+			case e: Exception =>
+				setData.allDone(context, 0, List(s"Exception: ${e.getLocalizedMessage}"))
 		}
 	}
 
@@ -431,7 +480,7 @@ object EZPass {
 	def makeEZPassWithProject[T, R](setData: SetEZPassData[T, R], component: String,
 									libSize: Int, libVol: Int, libConcentration: Float) = {
 		// First get the EZPass with the project data
-		makeEZPass(WriteEZPassWithProject, component, libSize, libVol, libConcentration).map{
+		makeEZPass(WriteEZPassWithProject, component, libSize, libVol, libConcentration).flatMap{
 			// Then map results using input EZPass creator
 			case (projData, errs) =>
 				makeEZPassFromData(setData, component, projData, errs)
@@ -567,6 +616,7 @@ object EZPass {
 			calcIntFields.keys ++ calcFloatFields.keys ++ calcStrFields.keys).toList
 
 	// EZPASS fields we don't know how to fill in yet
+	/*
 	private val unknown = "Unknown"
 	private val unKnownFields = Map(
 		"Funding Source" -> "Get from Jira parent ticket",
@@ -587,4 +637,5 @@ object EZPass {
 		"Approved By" -> unknown,
 		"Data Submission (Yes, Yes Later, or No)" -> unknown,
 		"Additional Assembly and Analysis Information" -> unknown)
+	*/
 }

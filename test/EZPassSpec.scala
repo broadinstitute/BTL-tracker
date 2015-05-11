@@ -20,6 +20,8 @@ import play.api.libs.json.Format
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import EZPassSpec._
 
+import scala.concurrent.Future
+
 @RunWith(classOf[JUnitRunner])
 class EZPassSpec extends TestSpec with TestConfig {
 	"The rackscan" must {
@@ -321,7 +323,7 @@ object EZPassSpec extends TestSpec {
 			samples mustBe numSamples
 			context.midSet.size mustBe numSamples
 			context.data.size mustBe numSamples
-			(Unit, errs)
+			Future.successful((Unit, errs))
 		}
 	}
 
