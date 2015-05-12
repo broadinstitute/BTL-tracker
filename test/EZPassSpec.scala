@@ -19,13 +19,14 @@ import org.scalatest.junit.JUnitRunner
 import play.api.libs.json.Format
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import EZPassSpec._
+import reactivemongo.core.commands.LastError
 
 import scala.concurrent.Future
 
 @RunWith(classOf[JUnitRunner])
 class EZPassSpec extends TestSpec with TestConfig {
 	"The rackscan" must {
-		"be input" in {
+		"make EZPass" in {
 			// Make rack scan file from set data
 			val scanFileName = makeRackScanFile(TestData.rackScan)
 			val rackSize = TestData.rackScanSize
@@ -53,62 +54,76 @@ class EZPassSpec extends TestSpec with TestConfig {
 			// Create bsp scan entry and check it out
 			makeBspScan(bspFileName, rackSize)
 
-			// Startup insert of components we'll be using and wait for them to complete
+			// Get MID contents for set we'll be using by well and by sequence
+			val midsByWell = MolecularBarcodes.mbSetA.contents
+			val midsBySequence = midsByWell.map((mid) => mid._2.getSeq -> mid._1)
+
+			// Startup insert of components we'll be using for all tests and wait for them to complete
 			val rack = insertComponent(Rack(fakeRack, None, None, List.empty,
 				None, None, ContainerDivisions.Division.DIM8x12))
 			val atmPlate = insertComponent(Plate("ATM", None, None, List.empty,
 				None, None, ContainerDivisions.Division.DIM8x12))
 			val midPlate = insertComponent(Plate("MID", None, None, List.empty,
 				None, Some(InitialContents.ContentType.NexteraSetA), ContainerDivisions.Division.DIM8x12))
-			val midsByWell = MolecularBarcodes.mbSetA.contents
-			val midsBySequence = midsByWell.map((mid) => mid._2.getSeq -> mid._1)
 			val tube = insertComponent(Tube("T", None, None, List.empty, None, None))
+			val plate384 = insertComponent(Plate("P384", None, None, List.empty, None, None,
+				ContainerDivisions.Division.DIM16x24))
 			val inserts = for {
 				r <- rack
 				ap <- atmPlate
 				mp <- midPlate
 				t <- tube
-			} yield {(r, ap, mp, t)}
+				p384 <- plate384
+			} yield {(r, ap, mp, t, p384)}
 			import scala.concurrent.Await
-			Await.result(inserts, d3secs) mustBe (None, None, None, None)
+			Await.result(inserts, d3secs) mustBe (None, None, None, None, None)
 
-			// Startup insert of needed transfers and wait for them to complete
-			val rackToAtm = insertTransfer(Transfer(fakeRack, "ATM", None, None, None, None))
-			val atmToT = insertTransfer(Transfer("ATM", "T", None, None, None, None))
-			val midToAtm = insertTransfer(Transfer("MID", "ATM", None, None, None, None))
-			val transfers = for {
-				ra <- rackToAtm
-				at <- atmToT
-				ma <- midToAtm
-			} yield {(ra, at, ma)}
-			Await.result(transfers, d3secs)
+			/*
+			 * Do test of transfers and resultant EZPass
+			 * @param transfers transfers to be inserted into DB for test
+			 * @param numWells number of wells that should be in resultant EZPass
+			 * @param wellSet wells that should be in resultant EZPass
+			 * @return
+			 */
+			def doTest(transfers: List[Transfer],
+					   numWells: Int, wellSet: Option[Set[String]]) = {
+				// Start up all the transfer inserts
+				val tFutures = transfers.map(insertTransfer(_))
+				// Wait for the result of a fold of the inserts
+				Await.result(Future.fold(tFutures)(List.empty[LastError])((soFar, next) => soFar :+ next), d3secs)
+				// Setup to make EZPass and check it out
+				val trackEZPass = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode, numWells, wellSet)
+				// Go make the EZPass and check out the results
+				Await.result(EZPass.makeEZPass(trackEZPass, "T", 10, 20, 15.0f), d3secs)
+				// Cleanup transfers
+				TestDB.cleanupTestTransferCollection
+			}
 
-			// Setup to make EZPass and check it out
-			val trackEZPass = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode, rackSize, None)
+			// Test of combining rack of samples and plate of MIDs into a plate
+			doTest(List(
+				Transfer(fakeRack, "ATM", None, None, None, None),
+				Transfer("ATM", "T", None, None, None, None),
+				Transfer("MID", "ATM", None, None, None, None)),
+				rackSize, None
+			)
 
-			// Go make the EZPass and check out the results
-			Await.result(EZPass.makeEZPass(trackEZPass, "T", 10, 20, 15.0f), d3secs)
 
-			TestDB.cleanupTestTransferCollection
-
-			// Startup insert of needed transfers and wait for them to complete
-			val rackToAtmS = insertTransfer(Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1)))
-			val atmToTS = insertTransfer(Transfer("ATM", "T", None, None, None, Some(Slice.S1)))
-			val midToAtmS = insertTransfer(Transfer("MID", "ATM", None, None, None, Some(Slice.S1)))
-			val transfersS = for {
-				ra <- rackToAtmS
-				at <- atmToTS
-				ma <- midToAtmS
-			} yield {(ra, at, ma)}
-			Await.result(transfersS, d3secs)
-
-			// Setup to make EZPass and check it out
+			// Test of combining slice of rack of samples and plate of MIDs into a plate
 			val sliceWells = slice96to96map(Slice.S1).keySet
-			val trackEZPassS = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode,
-				sliceWells.size, Some(sliceWells))
+			doTest(List(
+				Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1)),
+				Transfer("ATM", "T", None, None, None, Some(Slice.S1)),
+				Transfer("MID", "ATM", None, None, None, Some(Slice.S1))),
+				sliceWells.size, Some(sliceWells)
+			)
 
-			// Go make the EZPass and check out the results
-			Await.result(EZPass.makeEZPass(trackEZPassS, "T", 10, 20, 15.0f), d3secs)
+			// Test of transfer of rack and MIDs to and from 384 well plate with a slice of final plate sent to the tube
+			val sliceWellsQS = slice96to96map(Slice.S2).keySet
+			doTest(List(Transfer(fakeRack, "P384", None, Some(Transfer.Quad.Q1), None, None),
+				Transfer("MID", "P384", None, Some(Transfer.Quad.Q1), None, None),
+				Transfer("P384", "ATM", Some(Transfer.Quad.Q1), None, None, None),
+				Transfer("ATM", "T", None, None, None, Some(Slice.S2))),
+				sliceWellsQS.size, Some(sliceWellsQS))
 		}
 	}
 }
