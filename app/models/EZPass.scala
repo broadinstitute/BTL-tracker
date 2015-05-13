@@ -257,7 +257,7 @@ object EZPass {
 			)
 
 		/**
-		 * Fold together a list of futures into a single future and then wait for the results.
+		 * Fold together a list of futures into a single future.  When that completes make lists of results and errors.
 		 * @param futures futures to complete via fold
 		 * @param errsSoFar list of errors found so far
 		 * @param getErr callback to set error message from an exception
@@ -334,13 +334,16 @@ object EZPass {
 					doFold[Map[String, String]](projFutures, lsidErrs,
 						(e) => s"Error retrieving project: ${e.getLocalizedMessage}", () => Map.empty[String, String])
 			}
-			futureResults.map{
+			// Once project requests complete put the maps from each request together into one map and put the results
+			// into EZPass data being collected
+			futureResults.map {
 				case (projsList, projErrs) =>
+					// Combine project maps
 					val projs = projsList.reduce(_ ++ _)
 					// Now make all the entries include the projects retrieved
 					val rows = context.data.map {
 						case (strs, ints, floats, _) =>
-							// If gssrBarcode exists and we got a project for it then add project to the string values found
+							// If gssrBarcode exists and we got a project for it then add project to string values found
 							strs.get(gssrBarcodeLabel) match {
 								case Some(bc) => projs.get(bc) match {
 									case Some(proj) => (strs + (squidProjectLabel -> proj), ints, floats)
@@ -466,7 +469,7 @@ object EZPass {
 	/**
 	 * Make an EZPass file with project information.  This requires a few passes - first get all the data except
 	 * the project information.  This first pass also starts up asynchronous activity to fetch the LSIDs for samples.
-	 * The next pass retrieves the projects (as one Squid call) based on the LSIDs retrieved.  Finally, after the
+	 * The next pass retrieves the projects (as a few Squid calls) based on the LSIDs retrieved.  Finally, after the
 	 * project data is retrieved, call back to the caller with the data retrieved.
 	 * @param setData callbacks to use when creating EZPass
 	 * @param component ID of component to make EZPass for
@@ -480,7 +483,7 @@ object EZPass {
 	def makeEZPassWithProject[T, R](setData: SetEZPassData[T, R], component: String,
 									libSize: Int, libVol: Int, libConcentration: Float) = {
 		// First get the EZPass with the project data
-		makeEZPass(WriteEZPassWithProject, component, libSize, libVol, libConcentration).flatMap{
+		makeEZPass(WriteEZPassWithProject, component, libSize, libVol, libConcentration).flatMap {
 			// Then map results using input EZPass creator
 			case (projData, errs) =>
 				makeEZPassFromData(setData, component, projData, errs)
@@ -494,7 +497,6 @@ object EZPass {
 	private def getCollabSample(bsp: MergeBsp) = bsp.collabSample
 	private def getIndividual(bsp: MergeBsp) = bsp.individual
 	private def getLibrary(bsp: MergeBsp) = bsp.library
-
 	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
 	// Map of headers to methods to retrieve bsp values
 	private val bspMap : Map[String, (MergeBsp) => Option[String]]=
@@ -511,7 +513,7 @@ object EZPass {
 	 * @param bsp bsp data
 	 * @return map of headers to values
 	 */
-	private def getBspFields(bsp: MergeBsp) = bspMap.map{
+	private def getBspFields(bsp: MergeBsp) = bspMap.map {
 		case (k, v) => k -> v(bsp)
 	}
 
