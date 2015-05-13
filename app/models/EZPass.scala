@@ -17,7 +17,7 @@ import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
- * Module to use for form to create an EZPass.
+ * Module for creating an EZPass.
  * Created by nnovod on 3/20/15.
  */
 
@@ -30,6 +30,9 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  */
 case class EZPass(component: String, libSize: Int, libVol: Int, libConcentration: Float)
 
+/**
+ * EZPass creation logic
+ */
 object EZPass {
 	// Form keys
 	val idKey = "id"
@@ -210,15 +213,16 @@ object EZPass {
 	private val squidProjectLabel = "SQUID Project"
 
 	/**
-	 * Retrieving EZPASS with project data is a bit convoluted because retrieving squid projects one-by-one is
-	 * extremely slow (about 1 second per project).  To avoid this delay all the projects are retrieved via one squid
-	 * request, which is much faster (for 96 projects less than 0.1 seconds per project), after an initial pass through
-	 * all the EZPass data.  So here's how it goes:
+	 * Retrieving EZPASS with project data is a bit convoluted because retrieving squid project names one-by-one is
+	 * extremely slow (about 1 second per project).  To avoid this delay the project names are retrieved via squid in
+	 * batches, which is much faster (4 parallel requests for 24 projects each complete in about 3 seconds), after an
+	 * initial pass through all the EZPass data.  So here's how it goes:
 	 * 1)For each row (setFields method) save the data found for that row and start up a future to retrieve the LSID
-	 * for that row.  The LSID is needed to retrieve the project for the row later.
-	 * 2)Once all the rows are done (allDone method) wait for all the LSIDs to be retrieved and then send off one
-	 * request to get all the projects associated with the LSIDs.  After the projects are retrieved put them into
-	 * the proper rows data and return with all the data set, including the project.
+	 * for that row.  The LSID is needed to retrieve the project name for the row later.
+	 * 2)Once all the rows are done (allDone method) wait for all the LSIDs to be retrieved and then send off a small
+	 * number of parallel requests to get the project names associated with the LSIDs.
+	 * 3)After the projects are retrieved put them into the proper rows data and return with all the data set,
+	 * including the project.
 	 */
 	object WriteEZPassWithProject extends SetEZPassData[EZPassSaved, EZPassProjectData] {
 		/**
@@ -230,7 +234,8 @@ object EZPass {
 		def initData(component: String, fileHeaders: List[String]) = EZPassSaved(fileHeaders, List.empty)
 
 		/**
-		 * Set fields for a new row of EZPass data.
+		 * Set fields for a new row of EZPass data.  Data passed in is saved and a future is started up to request
+		 * from Squid the LSID for the sample.
 		 * @param context context being kept for setting EZPass data
 		 * @param strData strings to be set for next spreadsheet entry (fieldName -> data)
 		 * @param intData integers to be set for next spreadsheet entry (fieldName -> data)
@@ -291,17 +296,16 @@ object EZPass {
 		}
 
 		/**
-		 * Finish retrieving EZPass values.  Since getting projects one-by-one is very slow they are retrieved here in
-		 * batches.  The batch size is determined by the number of requests Squid can handle simultaneously.  Given that
-		 * number each of the requests query for approximately the same number of projects, using the LSIDs previously
-		 * retrieved as input.
+		 * Finish retrieving EZPass values.  Project names are retrieved here in batches.  The batch size is
+		 * determined by the number of requests Squid can handle simultaneously.  Given that number each of the
+		 * requests query for approximately the same number of projects, using the LSIDs previously retrieved as input.
 		 * @param context context kept for handling EZPass data
 		 * @param samplesFound # of samples found
 		 * @param errs list of errors found
 		 * @return (EZPassProjectData, list of errors)
 		 */
 		def allDone(context: EZPassSaved, samplesFound: Int, errs: List[String]) = {
-			val numRequests = 4 // Number of project request to do simultaneously
+			val numRequests = 4 // Number of project request to do in parallel
 			// Get a list of all the futures used to retrieve LSIDs
 			val futures = context.data.map {
 				case (_, _, _, fut) => fut
@@ -612,7 +616,7 @@ object EZPass {
 			case (k, v) => k -> v(id)
 		}
 
-	// All the headers we want to set
+	// All the headers to be set in the EZPass
 	private val headers =
 		(bspMap.keys ++ midFields.keys ++ constantFields.keys ++
 			calcIntFields.keys ++ calcFloatFields.keys ++ calcStrFields.keys).toList
