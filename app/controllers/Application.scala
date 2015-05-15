@@ -32,8 +32,10 @@ object Application extends Controller {
 	 * Just a test form
 	 */
 	// @TODO Add register for multiple IDs
-	def test(id: String) = Action {
-		Ok(s"Test of $id")
+	def test(id: String) = Action.async {
+		models.db.TrackerCollection.getTags.map((tags) =>
+			Ok(tags.toString())
+		)
 	}
 
 	/**

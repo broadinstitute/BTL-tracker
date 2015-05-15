@@ -12,6 +12,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import reactivemongo.core.commands.LastError
 
 import scala.concurrent.Future
+import scala.util.{Success, Failure}
 
 
 /**
@@ -147,5 +148,24 @@ object TrackerCollection extends Controller with MongoController {
 			// Problems - callback to report error
 			case err => onFailure(err)
 		}
+	}
+
+	/**
+	 * Get the set of tag values.  Unfortunately reactive mongo doesn't have a distinct command for a collection so
+	 * we have to do a "raw" command to find the tag values.
+	 * @return set of tags found
+	 */
+	def getTags = {
+		import reactivemongo.core.commands.RawCommand
+		val command = RawCommand(BSONDocument("distinct" -> trackerCollectionName, "key" -> "tags.tag"))
+		// Execute command and map the results into a list (it's actually a set but list is more efficient and
+		// uniqueness is already guaranteed by distinct command
+		db.command(command).map((doc) => {
+			// "values" appears to be the key used in the document when it is returning a set of values
+			doc.getAs[List[String]]("values") match {
+				case Some(nextVal) => nextVal
+				case None => List.empty[String]
+			}
+		})
 	}
 }
