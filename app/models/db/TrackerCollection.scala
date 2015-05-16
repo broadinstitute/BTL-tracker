@@ -159,13 +159,15 @@ object TrackerCollection extends Controller with MongoController {
 		import reactivemongo.core.commands.RawCommand
 		val command = RawCommand(BSONDocument("distinct" -> trackerCollectionName, "key" -> "tags.tag"))
 		// Execute command and map the results into a list (it's actually a set but list is more efficient and
-		// uniqueness is already guaranteed by distinct command
+		// uniqueness is already guaranteed by distinct command)
 		db.command(command).map((doc) => {
-			// "values" appears to be the key used in the document when it is returning a set of values
+			// "values" is the key used in the document when it is returning a set of values
 			doc.getAs[List[String]]("values") match {
-				case Some(nextVal) => nextVal
-				case None => List.empty[String]
+				case Some(nextVal) => (None, nextVal)
+				case None => (None, List.empty[String])
 			}
-		})
+		}).recover{
+			case e: Exception => (Some(s"Exception during tag retrieval: ${e.getLocalizedMessage}"), List.empty[String])
+		}
 	}
 }
