@@ -3,88 +3,94 @@
 # ~~~~
 
 # Home page
-GET         /                                        controllers.Application.index
+GET         /                                           controllers.Application.index
 
 # Test page
-GET         /test/:id                                controllers.Application.test(id)
+GET         /test/:id                                   controllers.Application.test(id)
 #To get play introduction
-GET         /playDoc                                 controllers.Application.playDoc
+GET         /playDoc                                    controllers.Application.playDoc
 
 # Get settings to add a new item
-GET         /add/:id                                 controllers.Application.add(id: String)
+GET         /add/:id                                    controllers.Application.add(id: String)
 # Post request to add a new item (posted data specified id and item type)
-POST        /add                                     controllers.Application.addFromForm
+POST        /add                                        controllers.Application.addFromForm
 
 # Delete confirm and actual delete from get parameter
-GET         /deleteConfirm/:id                       controllers.Application.deleteCheck(id: String)
-GET         /delete/:id                              controllers.Application.deleteByID(id: String)
+GET         /deleteConfirm/:id                          controllers.Application.deleteCheck(id: String)
+GET         /delete/:id                                 controllers.Application.deleteByID(id: String)
 
 # Retrieve item
-GET         /find                                    controllers.FindController.find
+GET         /find                                       controllers.FindController.find
 # Find from posted data
-POST        /search                                  controllers.FindController.findFromForm
+POST        /search                                     controllers.FindController.findFromForm
 # Find from get parameter
-GET         /find/:id                                controllers.Application.findByID(id: String)
+GET         /find/:id                                   controllers.Application.findByID(id: String)
 
 # Get new tube settings
-GET         /tube/add/:id                            controllers.TubeController.addTube(id: String)
+GET         /tube/add/:id                               controllers.TubeController.addTube(id: String)
 # Create tube from posted data
-POST        /tube/addForm/:id                        controllers.TubeController.createTubeFromForm(id: String)
+POST        /tube/addForm/:id                           controllers.TubeController.createTubeFromForm(id: String)
 # Display to edit existing tube settings
-GET         /tube/:id                                controllers.TubeController.findTubeByID(id: String)
+GET         /tube/:id                                   controllers.TubeController.findTubeByID(id: String)
 # Update tube from posted data
-POST        /tube/update/:id                         controllers.TubeController.updateTubeFromForm(id: String)
+POST        /tube/update/:id                            controllers.TubeController.updateTubeFromForm(id: String)
 
 # Get new plate settings
-GET         /plate/add/:id                           controllers.PlateController.addPlate(id: String)
+GET         /plate/add/:id                              controllers.PlateController.addPlate(id: String)
 # Create plate from posted data
-POST        /plate/addForm/:id                       controllers.PlateController.createPlateFromForm(id: String)
+POST        /plate/addForm/:id                          controllers.PlateController.createPlateFromForm(id: String)
 # Display to edit existing plate settings
-GET         /plate/:id                               controllers.PlateController.findPlateByID(id: String)
+GET         /plate/:id                                  controllers.PlateController.findPlateByID(id: String)
 # Update plate from posted data
-POST        /plate/update/:id                        controllers.PlateController.updatePlateFromForm(id: String)
+POST        /plate/update/:id                           controllers.PlateController.updatePlateFromForm(id: String)
 
 # Get new rack settings
-GET         /rack/add/:id                            controllers.RackController.addRack(id: String)
+GET         /rack/add/:id                               controllers.RackController.addRack(id: String)
 # Create rack from posted data
-POST        /rack/addForm/:id                        controllers.RackController.createRackFromForm(id: String)
+POST        /rack/addForm/:id                           controllers.RackController.createRackFromForm(id: String)
 # Display to edit existing rack settings
-GET         /rack/:id                                controllers.RackController.findRackByID(id: String)
+GET         /rack/:id                                   controllers.RackController.findRackByID(id: String)
 # Update rack from posted data
-POST        /rack/update/:id                         controllers.RackController.updateRackFromForm(id: String)
+POST        /rack/update/:id                            controllers.RackController.updateRackFromForm(id: String)
 
 # Get new freezer settings
-GET         /freezer/add/:id                         controllers.FreezerController.addFreezer(id: String)
+GET         /freezer/add/:id                            controllers.FreezerController.addFreezer(id: String)
 # Create freezer from posted data
-POST        /freezer/addForm/:id                     controllers.FreezerController.createFreezerFromForm(id: String)
+POST        /freezer/addForm/:id                        controllers.FreezerController.createFreezerFromForm(id: String)
 # Display to edit existing freezer settings
-GET         /freezer/:id                             controllers.FreezerController.findFreezerByID(id: String)
+GET         /freezer/:id                                controllers.FreezerController.findFreezerByID(id: String)
 # Update freezer from posted data
-POST        /freezer/update/:id                      controllers.FreezerController.updateFreezerFromForm(id: String)
+POST        /freezer/update/:id                         controllers.FreezerController.updateFreezerFromForm(id: String)
 
 # Do BSP report for specified rack
-GET         /rack/BSPreport/:id                      controllers.RackController.doBSPReport(id: String)
+GET         /rack/BSPreport/:id                         controllers.RackController.doBSPReport(id: String)
 
 # Initial transfer requests - first one with just ids, other with all parameters
-GET         /transfer                                controllers.TransferController.transfer(fromID: Option[String], toID: Option[String], project: Option[String])
-GET         /transferWithParams/:fromID/:toID        controllers.TransferController.transferWithParams(fromID: String, toID: String, project: Option[String], fromQuad: Boolean, toQuad: Boolean, dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean)
+GET         /transfer                                   controllers.TransferController.transfer(fromID: Option[String], toID: Option[String], project: Option[String])
+GET         /transferWithParams/:fromID/:toID           controllers.TransferController.transferWithParams(fromID: String, toID: String, project: Option[String], fromQuad: Boolean, toQuad: Boolean, dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean)
 # Transfer using input from form that includes just IDs - may be enough to do transfer or we may need to get quadrants
-POST        /transferIDs                             controllers.TransferController.transferIDs
+POST        /transferIDs                                controllers.TransferController.transferIDs
 # Transfer using input from form that includes IDs and quadrants
-POST        /transfer                                controllers.TransferController.transferFromForm
+POST        /transfer                                   controllers.TransferController.transferFromForm
 
 # Initial transfer delete
-GET         /transferDelete/:id                      controllers.TransferDeleteController.deleteTransfer(id: String)
-POST        /transferDeleteFromForm/:id              controllers.TransferDeleteController.deleteTransferFromForm(id: String)
-GET         /transferDeleteWithIDs/:fromID/:toID     controllers.TransferDeleteController.deleteTransferByIDs(fromID: String, toID: String)
+GET         /transferDelete/:id                         controllers.TransferDeleteController.deleteTransfer(id: String)
+POST        /transferDeleteFromForm/:id                 controllers.TransferDeleteController.deleteTransferFromForm(id: String)
+GET         /transferDeleteWithIDs/:fromID/:toID        controllers.TransferDeleteController.deleteTransferByIDs(fromID: String, toID: String)
 
 # Initial EZPASS request
-GET         /EZPASS/:id                              controllers.EZPassController.ezpass(id: String)
+GET         /EZPASS/:id                                 controllers.EZPassController.ezpass(id: String)
 # Post from form with parameters needed (e.g., dilution) to create EZPASS
-POST        /EZPASS/create/:id                       controllers.EZPassController.createEZPass(id: String)
+POST        /EZPASS/create/:id                          controllers.EZPassController.createEZPass(id: String)
 
 # Make a display of the graph of transfers into and out of a component
-GET         /display/:id                             controllers.Application.graphDisplay(id: String)
+GET         /display/:id                                controllers.Application.graphDisplay(id: String)
 
 # Map static resources from the /public folder to the /assets URL path
-GET         /assets/*file                            controllers.Assets.at(path="/public", file)
+GET         /assets/*file                               controllers.Assets.at(path="/public", file)
+
+# Retrieve tags - typically called as an ajax function
+GET         /tags                                       controllers.Application.tags
+# Routes that can be called from javascript (e.g., ajax)
+GET         /javascriptRoutes                           controllers.Application.javascriptRoutes
+

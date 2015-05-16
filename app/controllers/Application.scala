@@ -2,6 +2,7 @@ package controllers
 
 import models.Component.ComponentType
 import models.db.TransferCollection
+import play.api.Routes
 import play.api.libs.json._
 import play.api.mvc._
 import models._
@@ -32,10 +33,8 @@ object Application extends Controller {
 	 * Just a test form
 	 */
 	// @TODO Add register for multiple IDs
-	def test(id: String) = Action.async {
-		models.db.TrackerCollection.getTags.map((tags) =>
-			Ok(tags.toString())
-		)
+	def test(id: String) = Action {
+		Ok(views.html.index(Component.blankForm.withGlobalError(id)))
 	}
 
 	/**
@@ -142,4 +141,30 @@ object Application extends Controller {
 	 */
 	def doUpdateRedirect(id: String, ct: ComponentType.ComponentType, json: JsObject, request: Request[_]) =
 		Redirect(ComponentController.actions(ct).updateRoute(id))
+
+	/**
+	 * Get the list of tags - this is typically invoked as an ajax function
+	 */
+	//@TODO Add other... and need to use selected="selected" option when putting in existing component tags
+	def tags = Action.async {
+		models.db.TrackerCollection.getTags.map {
+			// Return error if there is one
+			case (Some(e), _) => BadRequest(Json.toJson(e))
+			// Return list found
+			case (_, found) => Ok(Json.toJson(found))
+		}
+	}
+
+	/**
+	 * Make javascript script with ajax routes map.  Within javascript this can be invoked as follows:
+	 * <script type="text/javascript" src="@routes.Application.javascriptRoutes"></script>
+	 * @return script containing calls to listed http functions
+	 */
+	def javascriptRoutes = Action { implicit request =>
+		Ok(
+			Routes.javascriptRouter("jsRoutes")(
+				routes.javascript.Application.tags
+			)
+		).as("text/javascript")
+	}
 }
