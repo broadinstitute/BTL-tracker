@@ -259,7 +259,7 @@ object ComponentController extends Controller {
 		val bForm = form.bindFromRequest()(request)
 		bForm.fold(
 			formWithErrors => Future.successful(
-				BadRequest(onFailure(formWithErrors.withGlobalError(Errors.validationError)))),
+				BadRequest(onFailure(Errors.formGlobalError(formWithErrors, Errors.validationError)))),
 			data =>
 				// Check if data is valid (it's done via a future) and then map result
 				// Validity checker returns a map with fieldName->errorMessages with fieldName left out for global

@@ -169,4 +169,24 @@ object Errors {
 	def fillAndSetFailureMsgs[I](msgs: Map[Option[String],String], form: Form[I], data: I) = {
 		setFailureMsgs(msgs, form.fill(data))
 	}
+
+	/**
+	 * Set new global error and convert any errors not associated with a data field to be global as well.  Needed for
+	 * nested mappings where errors can occur on one of the inner maps - a multifield error assigned to an inner
+	 * mapping will not appear in a form unless it is converted to a global error.
+	 * @param form form with errors
+	 * @param err new global error to add to form
+	 * @tparam I type of form
+	 * @return form with specified err added and any nested mapping errors converted to global errors
+	 */
+	def formGlobalError[I](form: Form[I], err: String) = {
+		// Get errors that don't have an associated data field
+		val errsWithoutFields = form.errors.filter{
+			case f => form.data.get(f.key).isEmpty
+		}
+		// Set the non-associated errors to be global (and set error as parameter first)
+		errsWithoutFields.foldLeft(form.withGlobalError(err)){
+			case (soFar, next) => soFar.withGlobalError(next.message, next.args)
+		}
+	}
 }

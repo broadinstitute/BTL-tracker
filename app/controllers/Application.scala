@@ -65,7 +65,8 @@ object Application extends Controller {
 	def addFromForm() = Action { request =>
 		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
-				BadRequest(views.html.add(formWithErrors.withGlobalError(Errors.validationError), formWithErrors.get.id)),
+				BadRequest(views.html.add(Errors.formGlobalError(formWithErrors, Errors.validationError),
+					formWithErrors.get.id)),
 			data =>
 				Redirect(ComponentController.actions(data.t).addRoute(data.id))
 		)

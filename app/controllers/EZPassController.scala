@@ -31,7 +31,7 @@ object EZPassController extends Controller {
 		EZPass.form.bindFromRequest()(request).fold(
 			formWithErrors => {
 				Future.successful(BadRequest(
-					views.html.ezpass(formWithErrors.withGlobalError(Errors.validationError), id)))
+					views.html.ezpass(Errors.formGlobalError(formWithErrors, Errors.validationError), id)))
 			},
 			data => {
 				EZPass.makeEZPassWithProject(EZPass.WriteEZPassData,

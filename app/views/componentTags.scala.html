@@ -1,0 +1,20 @@
+@(componentForm: Form[_])
+@import helper._
+@import models.Component
+
+@* Put in tags already there - tags can be added or removed via remNew and addNew javascript function
+Note it's crucial that the div id here (addinput) agree with what's in javascript *@
+<div id=@Component.inputDiv>
+	@repeat(componentForm(Component.formKey + "." + Component.tagsKey), min = 0) { tag =>
+		<div>
+			@inputText(tag(ComponentTag.tagKey), '_label -> "Tag")
+			@textarea(tag(ComponentTag.valueKey), '_label -> "Value")
+			<a href="#" class="@Component.remTag">Remove Tag</a>
+		</div>
+	}
+</div>
+<div>
+	<p> </p>
+	<a href="#" id="@Component.addTag">Add Tag</a>
+	<p> </p>
+</div>

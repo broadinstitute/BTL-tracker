@@ -74,14 +74,30 @@ object ComponentTag {
 	 */
 	val tagKey = "tag"
 	val valueKey = "value"
+	val hiddenTagKey = "otherTag"
+	val other = "other..."
+
+	private case class ComponentTagWithOther(tag: String, value: Option[String], otherTag: Option[String])
 	/**
-	 * Form mapping for a tag
+	 * Form mapping for a tag - we use the form with "other..." to see if a new tag has been specified.  As part of
+	 * mapping verification we check that other... is not specified without there being a new tag specified and if
+	 * that is not a problem then transform the mapping into a regular component tag.
 	 */
 	val tagsForm = Form(
 		mapping(
 			tagKey -> nonEmptyText,
-			valueKey -> optional(text)
-		)(ComponentTag.apply)(ComponentTag.unapply))
+			valueKey -> optional(text),
+			hiddenTagKey -> optional(text)
+		)(ComponentTagWithOther.apply)(ComponentTagWithOther.unapply)
+			.verifying(
+				s"New tag must be specified if ${other} tag chosen",
+				c => (c.tag != other || (c.otherTag.isDefined && !c.otherTag.get.isEmpty)))
+			.transform(
+				(c: ComponentTagWithOther) =>
+					if (c.tag == other && c.otherTag.isDefined) ComponentTag(c.otherTag.get, c.value)
+					else ComponentTag(c.tag, c.value),
+				(c: ComponentTag) => ComponentTagWithOther(c.tag, c.value, None)
+		))
 
 	// Formatting to go to/from json
 	implicit val instanceTagFormat = Json.format[ComponentTag]

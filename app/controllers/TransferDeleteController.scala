@@ -29,7 +29,7 @@ object TransferDeleteController extends Controller {
 		TransferDelete.transferDeleteForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(views.html.transferDelete(
-					formWithErrors.withGlobalError(Errors.validationError), id))),
+					Errors.formGlobalError(formWithErrors, Errors.validationError), id))),
 			data => {
 				TransferCollection.countBetweenTransfers(data.from, data.to).map ((count) =>
 					Ok(views.html.transferDeleteConfirm(data.from, data.to, count))

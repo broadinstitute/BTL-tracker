@@ -207,8 +207,8 @@ object TransferController extends Controller {
 	 */
 	def transferIDs = Action.async { request =>
 		Transfer.startForm.bindFromRequest()(request).fold(
-			formWithErrors =>
-				Future.successful(transferStartFormErrorResult(formWithErrors.withGlobalError(Errors.validationError),
+			formWithErrors => Future.successful(
+				transferStartFormErrorResult(Errors.formGlobalError(formWithErrors, Errors.validationError),
 					None, None, None)),
 			data => doTransfer(data)
 		).recover {
@@ -382,10 +382,10 @@ object TransferController extends Controller {
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors => Transfer.formWithoutVerify.bindFromRequest()(request).fold(
 				errors => Future.successful(// If still error then must go back to start
-					transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.validationError),
+					transferStartFormErrorResult(Errors.formGlobalError(Transfer.startForm, Errors.validationError),
 						None, None, None)),
 				formData => Future.successful(
-					transferFormErrorResult(formWithErrors.withGlobalError(Errors.validationError), formData))),
+					transferFormErrorResult(Errors.formGlobalError(formWithErrors, Errors.validationError), formData))),
 			data =>	insertTransfer(data)
 		).recover {
 			case err =>

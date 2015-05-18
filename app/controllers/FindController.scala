@@ -62,8 +62,8 @@ object FindController extends Controller {
 	 */
 	def findFromForm = Action.async { request =>
 		Find.form.bindFromRequest()(request).fold(
-			formWithErrors =>
-				Future.successful(BadRequest(views.html.find(formWithErrors.withGlobalError(Errors.validationError)))),
+			formWithErrors => Future.successful(BadRequest(
+					views.html.find(Errors.formGlobalError(formWithErrors, Errors.validationError)))),
 			data => {
 				// Get find query from what was set in form
 				val findQuery = BSON.writeDocument[Find](data)
