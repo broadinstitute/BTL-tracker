@@ -39,7 +39,7 @@ object Find {
 		Component.idKey -> optional(text),
 		Component.descriptionKey -> optional(text),
 		Component.projectKey -> optional(text),
-		tagsKey -> list(ComponentTag.tagsForm.mapping),
+		tagsKey -> list(ComponentTag.tagsNoOtherForm.mapping),
 		Component.typeKey -> optional(enum(ComponentType)),
 		Container.contentKey -> optional(enum(ContentType)),
 		ContainerDivisions.divisionKey -> optional(enum(Division)),

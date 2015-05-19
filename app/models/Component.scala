@@ -90,14 +90,24 @@ object ComponentTag {
 			hiddenTagKey -> optional(text)
 		)(ComponentTagWithOther.apply)(ComponentTagWithOther.unapply)
 			.verifying(
-				s"New tag must be specified if ${other} tag chosen",
-				c => (c.tag != other || (c.otherTag.isDefined && !c.otherTag.get.isEmpty)))
+				s"New tag must be specified if '${other}' chosen and new tag can not be '${other}'",
+				c => (c.tag != other || (c.otherTag.isDefined && !c.otherTag.get.isEmpty && c.otherTag.get != other)))
 			.transform(
 				(c: ComponentTagWithOther) =>
 					if (c.tag == other && c.otherTag.isDefined) ComponentTag(c.otherTag.get, c.value)
 					else ComponentTag(c.tag, c.value),
 				(c: ComponentTag) => ComponentTagWithOther(c.tag, c.value, None)
 		))
+
+	/**
+	 * Form for mapping without allowing other (new) tag.
+	 */
+	val tagsNoOtherForm = Form(
+		mapping(
+			tagKey -> nonEmptyText,
+			valueKey -> optional(text)
+		)(ComponentTag.apply)(ComponentTag.unapply)
+	)
 
 	// Formatting to go to/from json
 	implicit val instanceTagFormat = Json.format[ComponentTag]
