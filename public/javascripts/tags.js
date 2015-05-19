@@ -7,8 +7,8 @@ function getTags(tagsTag, selectedValue) {
         .done(function(data) {
             var ds = data.sort();
             for (tag in ds) {
-                var sel = (selectedValue && selectedValue == data[tag]) ? " selected=\"selected\"" : "";
-                $('<option value="' + data[tag] + sel + '">' + data[tag] + '</option>').appendTo('#' + tagsTag)
+                var sel = (selectedValue && selectedValue == ds[tag]) ? " selected=\"selected\"" : "";
+                $('<option value="' + ds[tag] + sel + '">' + ds[tag] + '</option>').appendTo('#' + tagsTag)
             }
             $('<option value="other...">other...</option>').appendTo('#' + tagsTag);
         })
