@@ -1,4 +1,4 @@
-@(componentForm: Form[_])
+@(componentForm: Form[_], other: Boolean)
 @import helper._
 @import models.Component
 
@@ -7,7 +7,11 @@ Note it's crucial that the div id here (addinput) agree with what's in javascrip
 <div id=@Component.inputDiv>
 	@repeat(componentForm(Component.formKey + "." + Component.tagsKey), min = 0) { tag =>
 		<div>
-			@inputText(tag(ComponentTag.tagKey), '_label -> "Tag")
+		<script type='text/javascript'>makeTagDiv("", "", "@Component.inputDiv", "@tag(ComponentTag.tagKey).id",
+			"@tag(ComponentTag.tagKey).name",
+			"@tag(ComponentTag.tagKey).value.getOrElse("")",
+			"@tag(ComponentTag.hiddenTagKey).id", "@tag(ComponentTag.hiddenTagKey).name", @other)
+		</script>
 			@textarea(tag(ComponentTag.valueKey), '_label -> "Value")
 			<a href="#" class="@Component.remTag">Remove Tag</a>
 		</div>

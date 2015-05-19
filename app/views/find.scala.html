@@ -11,7 +11,7 @@
 		@select(field = findForm(Component.typeKey),
 			options = options("" +: Component.componentTypes), '_label -> "Component type")
 		@textarea(findForm(Component.descriptionKey), '_label -> "Description")
-		@componentTags(findForm)
+		@componentTags(findForm, false)
 		@inputText(findForm(Component.projectKey), '_label -> "Project ID", 'style -> "display:inline;")
 		@* Blank in front of options allows None to be returned for these optional enum values *@
 		@select(field = findForm(Container.contentKey),
