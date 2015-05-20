@@ -17,7 +17,7 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
             if (other) {
                 var selO = "";
                 if (selectedValue && selectedValue == "other...") {
-                    selO = ' selected="selected"';
+                    selO = sel;
                     document.getElementById(otherTagID).type = 'text';
                 }
                 $('<option value="other..."' + selO + '>other...</option>').appendTo('#' + tagsTag);
