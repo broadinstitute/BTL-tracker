@@ -20,7 +20,7 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
                     selO = ' selected="selected"';
                     document.getElementById(otherTagID).type = 'text';
                 }
-                $('<option value="other..."' +selO + '>other...</option>').appendTo('#' + tagsTag);
+                $('<option value="other..."' + selO + '>other...</option>').appendTo('#' + tagsTag);
                 $('#' + tagsTag).on('change',function(){
                     onChangeToOther($(this).val(), otherTagID);
                 });
