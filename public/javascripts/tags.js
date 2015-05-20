@@ -137,15 +137,12 @@ function makeTags(inputDiv, tagPrefix, addTag, tagKey, valueKey, remTag, otherTa
                 var re = /(\d+)$/.exec(lastDivId);
                 i = parseInt(re[re.length-1]) + 1;
             }
+            // Put in a new tag div
             var iIdPrefix = idPrefix + '_' + i + '_';
             var iNamePrefix = tagPrefix + '[' + i + '].';
-            // Make sure we include all divs - can miss initial setting if redisplay after error
-            var ctValue = iIdPrefix + valueKey;
-            var value = makeTagValue(iNamePrefix + valueKey, ctValue, remTag, "");
-            var tagsTag = iIdPrefix + tagKey;
-            var hiddenTagID = iIdPrefix + otherTag;
-            makeTagDiv(i, value, inputDiv, tagsTag, iNamePrefix + tagKey, "",
-                hiddenTagID, iNamePrefix + otherTag, "", other);
+            var value = makeTagValue(iNamePrefix + valueKey, iIdPrefix + valueKey, remTag, "");
+            makeTagDiv(i, value, inputDiv, iIdPrefix + tagKey, iNamePrefix + tagKey, "",
+                iIdPrefix + otherTag, iNamePrefix + otherTag, "", other);
             return false;
         });
         // Remove tag handler for link placed within division containing tag to be removed
