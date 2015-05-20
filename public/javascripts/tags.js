@@ -32,7 +32,7 @@ function onChangeToOther(val, hiddenTag) {
     else document.getElementById(hiddenTag).type = 'hidden';
 }
 
-function makeTagDiv(pre, post, addDiv, tagsID, tagsName, tagValue, otherTagID, otherTagName, other) {
+function makeTagDiv(post, addDiv, tagsID, tagsName, tagValue, otherTagID, otherTagName, other) {
     $(function() {
         var tagDL = '<dl id="' + tagsID + '_field">' +
         '<dt><label for="' + tagsID + '">Tag</label></dt>' +
@@ -40,7 +40,7 @@ function makeTagDiv(pre, post, addDiv, tagsID, tagsName, tagValue, otherTagID, o
             '<input type="hidden" id="' + otherTagID +
             '" name="' + otherTagName + '" value="" placeholder="new tag"/>' +
         '<dd class="info">Required</dd></dl>';
-        $(pre + tagDL + post).appendTo($('#' + addDiv));
+        $('<div>' + tagDL + post + '</div>').appendTo($('#' + addDiv));
         getTags(tagsID, tagValue, other, otherTagID);
     });
 }
@@ -49,7 +49,7 @@ function makeTagValue(ctName, ctValue, remTag, initValue) {
     return '<dl id="' + ctValue + '_field">' +
         '<dt><label for="' + ctValue + '">Value</label></dt>' +
         '<dd><textarea id="' + ctValue +
-        '" name="' + ctName + '" value="' + initValue + '"></textarea></dd>' +
+        '" name="' + ctName + '">' + initValue + '</textarea></dd>' +
         '</dl><a href="#" class="' + remTag + '">Remove Tag</a>';
 
 }
@@ -60,11 +60,11 @@ function makeTags(inputDiv, componentTags, addTag, tagKey, valueKey, remTag, oth
         var i = $('#' + inpDiv + ' div').size();
         var ctName = componentTags.replace(".", "_");
         var ctValue = ctName + '_' + i + '_' + valueKey
-        var value = makeTagValue(componentTags + '[' + i + '].' + valueKey, ctValue, remTag, "") + '</div>'
+        var value = makeTagValue(componentTags + '[' + i + '].' + valueKey, ctValue, remTag, "")
         $('#' + addTag).click(function () {
             var tagsTag = ctName + "_" + i + "_tag";
             var hiddenTagID = ctName + "_" + i + "_" + otherTag;
-            makeTagDiv('<div>', value, inpDiv, tagsTag, componentTags + '[' + i + '].' + tagKey, "",
+            makeTagDiv(value, inpDiv, tagsTag, componentTags + '[' + i + '].' + tagKey, "",
                 hiddenTagID, componentTags + '[' + i + '].' + otherTag, true);
             i++;
             return false;

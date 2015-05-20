@@ -6,15 +6,13 @@
 Note it's crucial that the div id here (addinput) agree with what's in javascript *@
 <div id=@Component.inputDiv>
 	@repeat(componentForm(Component.formKey + "." + Component.tagsKey), min = 0) { tag =>
-		<div>
-		<script type='text/javascript'>makeTagDiv("", "", "@Component.inputDiv", "@tag(ComponentTag.tagKey).id",
-			"@tag(ComponentTag.tagKey).name",
-			"@tag(ComponentTag.tagKey).value.getOrElse("")",
-			"@tag(ComponentTag.hiddenTagKey).id", "@tag(ComponentTag.hiddenTagKey).name", @other)
+		<script type='text/javascript'>makeTagDiv(
+		makeTagValue("@tag(ComponentTag.valueKey).name", "@tag(ComponentTag.valueKey).id",
+		"@Component.remTag", "@tag(ComponentTag.valueKey).value.getOrElse("")"),
+		"@Component.inputDiv", "@tag(ComponentTag.tagKey).id", "@tag(ComponentTag.tagKey).name",
+		"@tag(ComponentTag.tagKey).value.getOrElse("")",
+		"@tag(ComponentTag.hiddenTagKey).id", "@tag(ComponentTag.hiddenTagKey).name", @other)
 		</script>
-			@textarea(tag(ComponentTag.valueKey), '_label -> "Value")
-			<a href="#" class="@Component.remTag">Remove Tag</a>
-		</div>
 	}
 </div>
 <div>
