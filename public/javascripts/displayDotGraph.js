@@ -25,7 +25,7 @@ function displayDot(graph)
         // Resize the window based on the contents.
         var svgDoc = document.querySelector('#graphContainer');
         var bbox = svgDoc.getBBox();
-        window.resizeTo(bbox.width + 60, bbox.height + 120)
+        window.resizeTo(bbox.width + 60, bbox.height + 120);
         return false;
     }
 }

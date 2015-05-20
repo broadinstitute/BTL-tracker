@@ -18,7 +18,7 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
             var sel = ' selected="selected"';
             var ot = 'other...';
             // Put in all the options, selecting one that matches selected value
-            for (tag in ds) {
+            for (var tag in ds) {
                 var selT = "";
                 if (selectedValue && selectedValue == ds[tag]) {
                     selT = sel;
@@ -35,7 +35,7 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
                 }
                 $('<option value="' + ot + '"' + selO + '>' + ot + '</option>').appendTo('#' + tagsTag);
                 $('#' + tagsTag).on('change',function(){
-                    onChangeToOther($(this).val(), otherTagID);
+                    onChangeToOther($(this).val(), otherTagID, ot);
                 });
             }
         })
@@ -49,9 +49,10 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
  * the text box is made visible to allow the new tag to be entered.  Otherwise the text box is hidden.
  * @param val value set in select
  * @param hiddenTag id of hidden/text used to input new tag value
+ * @param otherVal string constant for tag to pick "other..." to specify a new tag
  */
-function onChangeToOther(val, hiddenTag) {
-    if (val == 'other...') {
+function onChangeToOther(val, hiddenTag, otherVal) {
+    if (val == otherVal) {
         document.getElementById(hiddenTag).type = 'text';
     }
     else document.getElementById(hiddenTag).type = 'hidden';
@@ -60,25 +61,27 @@ function onChangeToOther(val, hiddenTag) {
 /**
  * Function to make the entire div for a tag.  The associated value is usually included here as well as the "post"
  * input argument.  The values for the tag select list are filled in asynchronously via the getTags function.
+ * @param divIndex integer index for the div being created inside the addDiv div
  * @param post html to set within div after tag html
- * @param addDiv div to include all tags (each tag/value pair is set as its own div within the inputDiv
+ * @param addDiv id of div to include all tags (each tag/value pair is set as its own div within addDiv)
  * @param tagsID html id
  * @param tagsName html name
  * @param tagValue value for tag
  * @param otherTagID html id of hidden/text used to input new tag value
  * @param otherTagName html name of hidden/text used to input new tag value
+ * @param otherValue value for new tag associated with other choice
  * @param other true if new tags can be added (tags select list should include "other...")
  */
-function makeTagDiv(post, addDiv, tagsID, tagsName, tagValue, otherTagID, otherTagName, other) {
+function makeTagDiv(divIndex, post, addDiv, tagsID, tagsName, tagValue, otherTagID, otherTagName, otherValue, other) {
     $(function() {
         var tagDL = '<dl id="' + tagsID + '_field">' +
         '<dt><label for="' + tagsID + '">Tag</label></dt>' +
         '<dd><select id="' + tagsID + '" name="' + tagsName + '"></select>' +
             '<input type="hidden" id="' + otherTagID +
-            '" name="' + otherTagName + '" value="" placeholder="new tag"/>' +
+            '" name="' + otherTagName + '" value="' + otherValue + '" placeholder="new tag"/>' +
         '<dd class="info">Required</dd></dl>';
-        // var divID = addDiv + "_" + divIndex;
-        $('<div>' + tagDL + post + '</div>').appendTo($('#' + addDiv));
+        var divID = addDiv + "_" + divIndex;
+        $('<div id="' + divID + '">' + tagDL + post + '</div>').appendTo($('#' + addDiv));
         getTags(tagsID, tagValue, other, otherTagID);
     });
 }
@@ -102,12 +105,12 @@ function makeTagValue(valName, valId, remTag, initValue) {
 
 /**
  * This function does not actually add/remove tags.  Instead it sets up on click functions to add (when addTag is
- * selected) or remove (when remTag is selected) tags.  The tags are differentiated from each other by a global
- * (within this function) index (i) that is put into the ids and names.  This index will only increase, as tags are
- * added, thus leaving gaps if tags are removed.  That's should not be a problem since the gaps are removed when the
+ * selected) or remove (when remTag is selected) tags.  The tags are differentiated from each other by an index
+ * computed within this function) that is put into the ids and names.  This index will only increase, as tags are
+ * added, thus leaving gaps if tags are removed.  That should not be a problem since the gaps are removed when the
  * array is put back together on the server side.
  * @param inputDiv div to include all tags (each tag/value pair is set as its own div within the inputDiv
- * @param componentTags prefix for all tag/value ids/names for html
+ * @param tagPrefix prefix for all tag/value ids/names for html
  * @param addTag id of link to add a new tag/value
  * @param tagKey postfix of id/name for select used to choose tag
  * @param valueKey postfix of id/name for textbox used for value
@@ -116,40 +119,33 @@ function makeTagValue(valName, valId, remTag, initValue) {
  * @param other true if new tags can be added (tags select list should include "other...")
  * @returns {boolean}
  */
-function makeTags(inputDiv, componentTags, addTag, tagKey, valueKey, remTag, otherTag, other) {
+function makeTags(inputDiv, tagPrefix, addTag, tagKey, valueKey, remTag, otherTag, other) {
     $(function() {
-        // Get initial index past tags already there
-        var i = $('#' + inputDiv + ' div').size();
         // ids use "_" inplace of "." in names
-        var ctId = componentTags.replace(".", "_");
+        var idPrefix = tagPrefix.replace(".", "_");
         // Add tag handler for link placed at end of existing tags
         $('#' + addTag).click(function () {
-            // Best to get next number by having divisions have IDs with _x at end - then just use that id instead of
-            // this mess which relies on div/dl/dd/select struction
-            var xx = $('div > dl > dd > select', '#' + inputDiv);
-            var xxx = 0;
-            if (xx && xx.size()) {
-                var xxs = xx.size();
-                xx = xx[xxs-1].getAttribute("id");
-                var re = /_(\d+)_/;
-                var xx = re.exec(xx);
-                var xxl = xx.length;
-                xx = parseInt(xx[xxl-1]) + 1;
-                // Look for _x_ to find last number used
-            } else {
-                xx = 0;
+            // Get next number looking for highest number division used so far.  In makeTagDiv the tag div id is set to
+            // inputDiv_x where x is an integer.  We now scan all the divs looking for the maximum number used so far.
+            // We need to go through this process so we don't have to worry about tags deleted or forms redisplayed
+            // after an error (in that case the divisions aren't remade so we can't keep a count).
+            var tagDivs = $('div', '#' + inputDiv);
+            var i = 0;
+            // Set our index to largest used so far + 1
+            if (tagDivs && tagDivs.size()) {
+                var lastDivId = tagDivs[tagDivs.size()-1].getAttribute("id");
+                var re = /(\d+)$/.exec(lastDivId);
+                i = parseInt(re[re.length-1]) + 1;
             }
+            var iIdPrefix = idPrefix + '_' + i + '_';
+            var iNamePrefix = tagPrefix + '[' + i + '].';
             // Make sure we include all divs - can miss initial setting if redisplay after error
-            var ii = $('#' + inputDiv + ' div').size();
-            i = Math.max(ii, i);
-            var ctValue = ctId + '_' + i + '_' + valueKey;
-            var value = makeTagValue(componentTags + '[' + i + '].' + valueKey, ctValue, remTag, "");
-            var tagsTag = ctId + "_" + i + "_" + tagKey;
-            var hiddenTagID = ctId + "_" + i + "_" + otherTag;
-            makeTagDiv(value, inputDiv, tagsTag, componentTags + '[' + i + '].' + tagKey, "",
-                hiddenTagID, componentTags + '[' + i + '].' + otherTag, other);
-            // Set index for next time
-            i++;
+            var ctValue = iIdPrefix + valueKey;
+            var value = makeTagValue(iNamePrefix + valueKey, ctValue, remTag, "");
+            var tagsTag = iIdPrefix + tagKey;
+            var hiddenTagID = iIdPrefix + otherTag;
+            makeTagDiv(i, value, inputDiv, tagsTag, iNamePrefix + tagKey, "",
+                hiddenTagID, iNamePrefix + otherTag, "", other);
             return false;
         });
         // Remove tag handler for link placed within division containing tag to be removed

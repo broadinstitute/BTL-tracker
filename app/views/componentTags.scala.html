@@ -2,16 +2,23 @@
 @import helper._
 @import models.Component
 
-@* Put in tags already there - tags can be added or removed via remNew and addNew javascript function
-Note it's crucial that the div id here (addinput) agree with what's in javascript *@
+@*
+Put in tags already there - tags can be added or removed via remNew and addNew javascript function
+Note it's crucial that the div id here (addinput) agree with what's in javascript.  Also the code below
+to get the division # via the tag id relies on the id being of the form ..._x where x is a unique integer
+for the tag id
+*@
 <div id=@Component.inputDiv>
 	@repeat(componentForm(Component.formKey + "." + Component.tagsKey), min = 0) { tag =>
-		<script type='text/javascript'>makeTagDiv(
+		<script type='text/javascript'>
+		@* Make division for tag to include tag dropdown and value textfield *@
+		makeTagDiv(@{"""(\d+)$""".r.findFirstIn(tag.id)},
 		makeTagValue("@tag(ComponentTag.valueKey).name", "@tag(ComponentTag.valueKey).id",
-		"@Component.remTag", "@tag(ComponentTag.valueKey).value.getOrElse("")"),
-		"@Component.inputDiv", "@tag(ComponentTag.tagKey).id", "@tag(ComponentTag.tagKey).name",
+		"@Component.remTag", "@tag(ComponentTag.valueKey).value.getOrElse("")"
+		),"@Component.inputDiv", "@tag(ComponentTag.tagKey).id", "@tag(ComponentTag.tagKey).name",
 		"@tag(ComponentTag.tagKey).value.getOrElse("")",
-		"@tag(ComponentTag.hiddenTagKey).id", "@tag(ComponentTag.hiddenTagKey).name", @other)
+		"@tag(ComponentTag.hiddenTagKey).id", "@tag(ComponentTag.hiddenTagKey).name",
+		"@tag(ComponentTag.hiddenTagKey).value.getOrElse("")", @other)
 		</script>
 	}
 </div>
