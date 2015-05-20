@@ -90,7 +90,7 @@ object ComponentTag {
 			hiddenTagKey -> optional(text)
 		)(ComponentTagWithOther.apply)(ComponentTagWithOther.unapply)
 			.verifying(
-				s"New tag must be specified if '${other}' chosen and new tag can not be '${other}'",
+				s"If '${other}' chosen new tag can be neither blank nor '${other}'",
 				c => (c.tag != other || (c.otherTag.isDefined && !c.otherTag.get.isEmpty && c.otherTag.get != other)))
 			.transform(
 				(c: ComponentTagWithOther) =>
