@@ -1,16 +1,8 @@
 @(title: String)(content: Html)
-@import models.Component
-@import models.ComponentTag
 
 @main(title) {
-	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
-	<script type="text/javascript" src="@routes.Application.javascriptRoutes"></script>
-	<script type='text/javascript' src="@routes.Assets.at("javascripts/tags.js")"></script>
-	<script type='text/javascript'>makeTags("@Component.inputDiv",
-	"@{Component.formKey + "." + Component.tagsKey}",
-	"@Component.addTag", "@ComponentTag.tagKey", "@ComponentTag.valueKey",
-	"@Component.remTag", "@ComponentTag.hiddenTagKey")
-	</script>
-	<script type='text/javascript' src="@routes.Assets.at("javascripts/popitup.js")"></script>
+	@componentsInclude()
+	@* Setup so tags can be added *@
+	@makeTags(true)
 }{@content}
 

@@ -3,7 +3,11 @@
 @import models.{Component, Find}
 @import models.initialContents.InitialContents
 
-@mainComponent("Search") {
+@main("Search") {
+	@componentsInclude()
+	@* Setup so tags can be added *@
+	@makeTags(false)
+}{
 	@componentIntro("Search", findForm)
 	@form(routes.FindController.findFromForm(), 'style -> "display:inline;") {
 		@inputText(findForm(Component.idKey),

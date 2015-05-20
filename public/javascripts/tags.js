@@ -6,15 +6,21 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
     $.ajax(jsRoutes.controllers.Application.tags())
         .done(function(data) {
             var ds = data.sort();
+            var sel = ' selected="selected"';
             for (tag in ds) {
-                var sel = "";
+                var selT = "";
                 if (selectedValue && selectedValue == ds[tag]) {
-                    sel = ' selected="selected"'
+                    selT = sel;
                 }
-                $('<option value="' + ds[tag] + '"' + sel + '>' + ds[tag] + '</option>').appendTo('#' + tagsTag)
+                $('<option value="' + ds[tag] + '"' + selT + '>' + ds[tag] + '</option>').appendTo('#' + tagsTag)
             }
             if (other) {
-                $('<option value="other...">other...</option>').appendTo('#' + tagsTag);
+                var selO = "";
+                if (selectedValue && selectedValue == "other...") {
+                    selO = ' selected="selected"';
+                    document.getElementById(otherTagID).type = 'text';
+                }
+                $('<option value="other..."' +selO + '>other...</option>').appendTo('#' + tagsTag);
                 $('#' + tagsTag).on('change',function(){
                     onChangeToOther($(this).val(), otherTagID);
                 });
@@ -54,19 +60,17 @@ function makeTagValue(ctName, ctValue, remTag, initValue) {
 
 }
 
-function makeTags(inputDiv, componentTags, addTag, tagKey, valueKey, remTag, otherTag) {
+function makeTags(inputDiv, componentTags, addTag, tagKey, valueKey, remTag, otherTag, other) {
     $(function() {
-        var inpDiv = inputDiv;
-        var i = $('#' + inpDiv + ' div').size();
-        var ctName = componentTags.replace(".", "_");
-        var ctValue = ctName + '_' + i + '_' + valueKey
-        var value = makeTagValue(componentTags + '[' + i + '].' + valueKey, ctValue, remTag, "")
         $('#' + addTag).click(function () {
+            var i = $('#' + inputDiv + ' div').size();
+            var ctName = componentTags.replace(".", "_");
+            var ctValue = ctName + '_' + i + '_' + valueKey
+            var value = makeTagValue(componentTags + '[' + i + '].' + valueKey, ctValue, remTag, "")
             var tagsTag = ctName + "_" + i + "_tag";
             var hiddenTagID = ctName + "_" + i + "_" + otherTag;
-            makeTagDiv(value, inpDiv, tagsTag, componentTags + '[' + i + '].' + tagKey, "",
-                hiddenTagID, componentTags + '[' + i + '].' + otherTag, true);
-            i++;
+            makeTagDiv(value, inputDiv, tagsTag, componentTags + '[' + i + '].' + tagKey, "",
+                hiddenTagID, componentTags + '[' + i + '].' + otherTag, other);
             return false;
         });
         $(document).on('click', '.' + remTag, function () {
