@@ -146,7 +146,6 @@ object Application extends Controller {
 	/**
 	 * Get the list of tags - this is typically invoked as an ajax function
 	 */
-	//@TODO Add other... and need to use selected="selected" option when putting in existing component tags
 	def tags = Action.async {
 		models.db.TrackerCollection.getTags.map {
 			// Return error if there is one

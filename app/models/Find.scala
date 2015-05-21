@@ -51,9 +51,6 @@ object Find {
 	 */
 	val findCriteria = findMap.mappings.flatMap {
 		case FieldMapping(key, _) => List(key)
-		case ObjectMapping2(_, _, (tag,_),(value,_), _, _)
-			if tag == ComponentTag.tagKey && value == ComponentTag.valueKey =>
-			List(tagsKey)
 		case _ => List.empty
 	}
 
@@ -118,7 +115,7 @@ object Find {
 							// $or: [ {tags: {$elemMatch : {tag: tagWanted, value: /valueWanted/i } } }, ... ]
 							// $or is needed since $in can not have within it the $elemMatch.  $elemMatch is need to
 							// say that if any element in the array matches our criteria we want it.
-							case Find.tagsKey if find.tags.size != 0 =>
+							case ComponentTag.tagKey if find.tags.size != 0 =>
 								def getTagTuple(tag: String) = ComponentTag.tagKey -> BSONString(tag)
 								def getValueTuple(value: String) = ComponentTag.valueKey -> BSONRegex(value, "i")
 								def getBsonElemDoc(query: BSONDocument) =
