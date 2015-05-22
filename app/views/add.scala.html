@@ -1,7 +1,12 @@
+@***********************************
+* Register a single component      *
+* addForm form to gather data      *
+* id Component ID                  *
+***********************************@
 @(addForm: Form[Component.ComponentIDandTypeClass], id: String)
 
 @main("Register Component") {
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
-	@addCommon(addForm, id, "Register Component", routes.Application.addFromForm())
+	@addCommon(addForm, Some(id), "Register Component", routes.Application.addFromForm, false)
 }

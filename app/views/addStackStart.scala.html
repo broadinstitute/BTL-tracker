@@ -1,0 +1,12 @@
+@***********************************************************
+* Start of registration of multiple components             *
+* idForm form to gather data                               *
+***********************************************************@
+@(idForm: Form[Component.ComponentIDandTypeClass])
+
+@* Call main template with title and html to display *@
+@main("Register Stack"){
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@addCommon(idForm, None, "Register Stack", controllers.routes.Application.getStackIDs, true)
+}

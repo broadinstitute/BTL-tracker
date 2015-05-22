@@ -1,13 +1,27 @@
-@(addForm: Form[Component.ComponentIDandTypeClass], id: String, intro: String, formCompletion: Call)
+@***********************************************************
+* Start of registration of a single or multiple components *
+* addForm form to gather data                              *
+* id optional id or list of ids                            *
+* intro heading for page                                   *
+* formCompletion callback when form is submitted           *
+* ids true if a stack registration with list of ids        *
+***********************************************************@
+@(addForm: Form[Component.ComponentIDandTypeClass], id: Option[String],
+	intro: String, formCompletion: Call, ids: Boolean)
 @import helper._
 
-@componentIntro("Register Component", addForm)
-@form(routes.Application.addFromForm(), 'style -> "display:inline;") {
-	@inputText(addForm(Component.idKey).copy(value=Some(id)), '_label -> "ID", 'readonly -> "readonly",
-		'_showConstraints -> false)
+@componentIntro(intro, addForm)
+@form(formCompletion, 'style -> "display:inline;") {
+	@defining(if (id.isDefined) List('readonly -> "readonly", '_showConstraints -> false) else List()) { ro =>
+		@if(ids) {
+			@textarea(addForm(Component.idKey).copy(value = id), List('_label -> "IDs",
+				'_help -> "Separate multiple IDs with commas, spaces or carriage returns") ++ ro: _*)
+		} else {
+			@inputText(addForm(Component.idKey).copy(value = id), List('_label -> "ID") ++ ro: _*)
+		}
+	}
 	@select(field = addForm(Component.typeKey),
 		options = options(Component.componentTypes), '_label -> "Component type")
 	<input type="submit" value="Continue" style="display:inline;">
 }
 @homeOption(Seq.empty)
-

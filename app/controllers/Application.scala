@@ -14,7 +14,6 @@ object Application extends Controller {
 
 	/**
 	 * Original play default action - brings up play documentation
-	 *
 	 * @return action to show play documentation
 	 */
 	def playDoc = Action {
@@ -51,11 +50,35 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Initial request to add - we just put up the form to get initial data for the form
+	 * Initial request to add.  We put up the form to get initial data for the add.
+	 * @param id component id
 	 * @return action to execute to initiate add of component
 	 */
 	def add(id: String) = Action { request =>
 		Ok(views.html.add(Errors.addStatusFlash(request,Component.idAndTypeForm), id))
+	}
+
+	/**
+	 * Initial request to get ids for a stack of components.  We put up the form to get the ids and type.
+	 * @return handler to bring up view to get stack IDs
+	 */
+	def addStack() = Action { request =>
+		Ok(views.html.addStackStart(Errors.addStatusFlash(request,Component.idAndTypeForm)))
+	}
+
+	/**
+	 * Request to add a stack of IDs.  We get the IDs and type and redirect to get detailed type information.
+	 * @return handler for stack of IDs
+	 */
+	def getStackIDs = Action { request =>
+		Component.idAndTypeForm.bindFromRequest()(request).fold(
+			formWithErrors =>
+				BadRequest(views.html.addStackStart(Errors.formGlobalError(formWithErrors, Errors.validationError))),
+			data => {
+				val ids = Utils.getIDs(data.id)
+				Ok(s"IDs: ${ids.mkString(" ")}; type: ${data.t}")
+			}
+		)
 	}
 
 	/**

@@ -69,18 +69,6 @@ object Find {
 	 */
 	implicit object FindWriter extends BSONDocumentWriter[Find] {
 		/**
-		 * Regular expression to use to split around white space or commas
-		 */
-		private val splitRegExp = """[\s,\n]""".r
-
-		/**
-		 * Get list of IDs.  IDs can be separated by white space (space, tab, carriage return) or commas.
-		 * @param inp one or more IDs
-		 * @return array of IDs found
-		 */
-		private def getIDs(inp: String) = splitRegExp.split(inp).filter(_.length != 0)
-
-		/**
 		 * Create a BSONDocument from a find object.
 		 * @param find find object to be converted to BSONDocument
 		 * @return document that can be used to query for Find object request
@@ -93,7 +81,7 @@ object Find {
 							// Get all ids specified into an array of possible IDs
 							case Component.idKey => find.id match {
 								case Some(ids) =>
-									val idsFound = getIDs(ids)
+									val idsFound = Utils.getIDs(ids)
 									if (idsFound.isEmpty) soFar
 									else (Component.idKey -> BSONDocument("$in" -> idsFound)) :: soFar
 								case _ => soFar

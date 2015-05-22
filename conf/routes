@@ -15,6 +15,11 @@ GET         /add/:id                                    controllers.Application.
 # Post request to add a new item (posted data specified id and item type)
 POST        /add                                        controllers.Application.addFromForm
 
+# Get settings to add a new item
+GET         /addStack                                   controllers.Application.addStack
+# Post request to add a new item (posted data specified id and item type)
+POST        /stackIDs                                   controllers.Application.getStackIDs
+
 # Delete confirm and actual delete from get parameter
 GET         /deleteConfirm/:id                          controllers.Application.deleteCheck(id: String)
 GET         /delete/:id                                 controllers.Application.deleteByID(id: String)

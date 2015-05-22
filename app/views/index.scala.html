@@ -13,8 +13,10 @@
 	<img src="@routes.Assets.at("images/lab.jpg")" width="600" height="396" />
 	<br>
 	@form(controllers.routes.FindController.find(), 'style -> "display:inline;") {
-
 		<input type="submit" value="Search" style="display:inline;">
+	}
+	@form(controllers.routes.Application.addStack(), 'style -> "display:inline;") {
+		<input type="submit" value="Register Stack" style="display:inline;">
 	}
 	<br><br>
 	<div id="footer">
