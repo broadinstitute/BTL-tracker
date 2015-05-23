@@ -22,6 +22,9 @@ object RackController extends ComponentController[Rack] {
 	// Play html view to create rack
 	def htmlForCreate(id: String) = views.html.rackCreateForm(_: Form[Rack], id)
 
+	// Play html view to create stack of racks
+	def htmlForCreateStack = views.html.rackCreateStackForm(_: Form[Rack])
+
 	// Play html view to update rack
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.rackUpdateForm(_: Form[Rack], id, hiddenFields)
@@ -52,6 +55,35 @@ object RackController extends ComponentController[Rack] {
 	 * @return responds to request with message and form with errors or home page
 	 */
 	def createRackFromForm(id: String) = Action.async { implicit request => create(id, request)}
+
+	/**
+	 * Get a form filled in with specified ID
+	 * @param id id to set in form
+	 * @return rack form filled in with id
+	 */
+	private def makeIdForm(id: String) = form.fill(Rack(id,
+		None, None, List.empty, None, None, ContainerDivisions.Division.DIM8x12))
+
+	/**
+	 * Create html to be sent back to get parameters to make a stack.  First create the form filled in with IDs and
+	 * then output the html based on the created form.
+	 * @param id ids for stack
+	 * @param completionStr completion status to set as global message in form
+	 * @return html to create stack of racks
+	 */
+	def makeStackHtml(id: String, completionStr: String) = {
+		val idForm = makeIdForm(id)
+		val formWithStatus = Errors.formGlobalError(idForm, completionStr)
+		htmlForCreateStack(formWithStatus)
+	}
+
+	/**
+	 * Request to add a stack of racks
+	 * @return response with completion status of rack insertions
+	 */
+	def addRackStack = Action.async { request =>
+		addStack(request)
+	}
 
 	/**
 	 * Do BSP report for a Rack.  We show how the scan done of the rack being used compares with what BSP reported

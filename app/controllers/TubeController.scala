@@ -20,6 +20,9 @@ object TubeController extends ComponentController[Tube] {
 	// Play html view to create tube
 	def htmlForCreate(id: String) = views.html.tubeCreateForm(_: Form[Tube], id)
 
+	// Play html view to create stack of tubes
+	def htmlForCreateStack = views.html.tubeCreateStackForm(_: Form[Tube])
+
 	// Play html view to update tube
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]) =
 		views.html.tubeUpdateForm(_: Form[Tube], id, hiddenFields)
@@ -35,6 +38,34 @@ object TubeController extends ComponentController[Tube] {
 	 * @return responds to request with html form to get tube input
 	 */
 	def addTube(id: String) = Action { add(id) }
+
+	/**
+	 * Get a form filled in with specified ID
+	 * @param id id to set in form
+	 * @return tube form filled in with id
+	 */
+	private def makeIdForm(id: String) = form.fill(Tube(id, None, None, List.empty, None, None))
+
+	/**
+	 * Create html to be sent back to get parameters to make a stack.  First create the form filled in with IDs and
+	 * then output the html based on the created form.
+	 * @param id ids for stack
+	 * @param completionStr completion status to set as global message in form
+	 * @return html to create stack of tubes
+	 */
+	def makeStackHtml(id: String, completionStr: String) = {
+		val idForm = makeIdForm(id)
+		val formWithStatus = Errors.formGlobalError(idForm, completionStr)
+		htmlForCreateStack(formWithStatus)
+	}
+
+	/**
+	 * Request to add a stack of tubes
+	 * @return response with completion status of tube insertions
+	 */
+	def addTubeStack = Action.async { request =>
+		addStack(request)
+	}
 
 	/**
 	 * Request to find a tube, identified by an ID.  We find the tube (or return an error if it can’t be found) and

@@ -1,0 +1,12 @@
+@**********************************************************
+* Screen to create a stack of racks                       *
+* @param rackForm form to use to gather values for rack   *
+**********************************************************@
+@(rackForm: Form[Rack])
+@import models.Rack
+@import models.Component
+
+@createStackForm("Register Racks", rackForm, routes.RackController.addRackStack, Component.ComponentType.Rack,
+	Some(Rack.validContents), true) {
+	@play.twirl.api.HtmlFormat.empty
+}

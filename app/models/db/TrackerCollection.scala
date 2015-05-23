@@ -12,8 +12,6 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import reactivemongo.core.commands.LastError
 
 import scala.concurrent.Future
-import scala.util.{Success, Failure}
-
 
 /**
  * MondgoDB tracker collection operations
@@ -109,6 +107,27 @@ object TrackerCollection extends Controller with MongoController {
 	 */
 	def insertComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) =
 		doComponentDBOperation(trackerCollection.insert(_: C), "inserted", data, onSuccess, onFailure)
+
+	/**
+	 * Insert components, via reactive mongo, into the tracker DB
+	 * @param data components to insert
+	 * @tparam C component type
+	 * @return future with two lists, one of success messages, one of failure messages
+	 */
+	def insertComponents[C <: Component : Format](data: List[C]) = {
+		val okPrefix = "OK:"
+		val notOkPrefix = "NOK:"
+		val inserts = for (d <- data) yield {
+			doComponentDBOperation(trackerCollection.insert(_: C), "inserted", d,
+				(s: String) => s"${okPrefix}${s}", (t: Throwable) => s"${notOkPrefix}${t.getLocalizedMessage}")
+		}
+		Future.fold(inserts)((List.empty[String], List.empty[String])){
+			case ((ok: List[String], bad: List[String]), next: String) =>
+				if (next.startsWith(okPrefix)) (ok :+ next.substring(okPrefix.size), bad)
+				else if (next.startsWith(notOkPrefix)) (ok, bad :+ next.substring(notOkPrefix.size))
+				else (ok, bad)
+		}
+	}
 
 	/**
 	 * Update a component, via reactive mongo, into the tracker DB

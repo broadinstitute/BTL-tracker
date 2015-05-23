@@ -5,8 +5,8 @@
 @(idForm: Form[Component.ComponentIDandTypeClass])
 
 @* Call main template with title and html to display *@
-@main("Register Stack"){
+@main("Register Component Stack"){
 	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
-	@addCommon(idForm, None, "Register Stack", controllers.routes.Application.getStackIDs, true)
+	@addCommon(idForm, None, "Register Component Stack", controllers.routes.Application.getStackIDs, true)
 }

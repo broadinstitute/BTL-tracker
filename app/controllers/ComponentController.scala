@@ -1,6 +1,6 @@
 package controllers
 
-import models.Component
+import models._
 import models.db.{TransferCollection, TrackerCollection}
 import models.Component.{HiddenFields,ComponentType}
 import play.api.data.Form
@@ -48,6 +48,13 @@ trait ComponentController[C <: Component] extends Controller {
 	def htmlForCreate(id: String): (Form[C]) => Html
 
 	/**
+	 * Method to use to take a form filled with data and return the html to be displayed after a create of a stack
+	 * of components - supplied by component type inheriting trait.
+	 * @return method that converts a form to html to display (typically a Play template view)
+	 */
+	def htmlForCreateStack: (Form[C]) => Html
+
+	/**
 	 * Component type, supplied by component inheriting trait (maybe someday make a macro to get this based on C type?)
 	 */
 	val componentType: ComponentType.ComponentType
@@ -66,6 +73,21 @@ trait ComponentController[C <: Component] extends Controller {
 	def add(id: String) = {
 		Ok(htmlForCreate(id)(form))
 	}
+
+	/**
+	 * Add a stack of components
+	 * @param request request containing component ids and data
+	 * @return
+	 */
+	def addStack(request: Request[AnyContent]) =
+		form.bindFromRequest()(request).fold(
+			formWithErrors =>
+				Future.successful(BadRequest(htmlForCreateStack(
+					Errors.formGlobalError(formWithErrors, Errors.validationError)))),
+			data => {
+				Future.successful(Ok(Utils.getIDs(data.id).mkString(" ")))
+			}
+		)
 
 	/**
 	 * Return result with message(s):
@@ -282,8 +304,10 @@ object ComponentController extends Controller {
 	 * Class to hold redirect calls and json conversions
 	 * @param updateRoute Method to get call to redirect updates to
 	 * @param addRoute Method to get call to redirect adds to
+	 * @param createStackView Method to create html to be used to add stack of components
 	 */
-	case class ControllerActions(updateRoute: (String) => Call, addRoute: (String) => Call)
+	case class ControllerActions(updateRoute: (String) => Call, addRoute: (String) => Call,
+								 createStackView: (String, String) => Html)
 
 	/**
 	 * Map of calls to use for redirects to find (by id) or add a component and json to component conversions
@@ -292,16 +316,20 @@ object ComponentController extends Controller {
 		Map(
 			ComponentType.Freezer ->
 				ControllerActions(routes.FreezerController.findFreezerByID(_: String),
-					routes.FreezerController.addFreezer(_: String)),
+					routes.FreezerController.addFreezer(_: String),
+					FreezerController.makeStackHtml(_: String, _: String)),
 			ComponentType.Plate ->
 				ControllerActions(routes.PlateController.findPlateByID(_: String),
-					routes.PlateController.addPlate(_: String)),
+					routes.PlateController.addPlate(_: String),
+					PlateController.makeStackHtml(_: String, _: String)),
 			ComponentType.Rack ->
 				ControllerActions(routes.RackController.findRackByID(_: String),
-					routes.RackController.addRack(_: String)),
+					routes.RackController.addRack(_: String),
+					RackController.makeStackHtml(_: String, _: String)),
 			ComponentType.Tube ->
 				ControllerActions(routes.TubeController.findTubeByID(_: String),
-					routes.TubeController.addTube(_: String))
+					routes.TubeController.addTube(_: String),
+					TubeController.makeStackHtml(_: String, _: String))
 		)
 
 	/**

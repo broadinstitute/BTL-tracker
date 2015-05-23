@@ -76,7 +76,16 @@ object Application extends Controller {
 				BadRequest(views.html.addStackStart(Errors.formGlobalError(formWithErrors, Errors.validationError))),
 			data => {
 				val ids = Utils.getIDs(data.id)
-				Ok(s"IDs: ${ids.mkString(" ")}; type: ${data.t}")
+				val idSet = ids.toSet
+				val idPlural = if (idSet.size == 1) "" else "s"
+				val repeats = ids.length - idSet.size
+				val repeatPlural = if (repeats == 1) "" else "s"
+				val repeatStr = if (repeats == 0) "" else s" ($repeats duplicate$repeatPlural eliminated)"
+				val completionView =
+					ComponentController.actions(data.t).createStackView(idSet.mkString("\n"),
+						s"Submit to complete registration of " +
+							s"${idSet.size} ${data.t.toString.toLowerCase}$idPlural$repeatStr")
+				Ok(completionView)
 			}
 		)
 	}

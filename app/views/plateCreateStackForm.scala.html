@@ -1,0 +1,12 @@
+@**********************************************************
+* Screen to create a stack of plates                      *
+* @param plateForm form to use to gather values for plate *
+**********************************************************@
+@(plateForm: Form[Plate])
+@import models.Plate
+@import models.Component
+
+@createStackForm("Register Plates", plateForm, routes.PlateController.addPlateStack, Component.ComponentType.Plate,
+	Some(Plate.validContents), true) {
+	@play.twirl.api.HtmlFormat.empty
+}

@@ -1,0 +1,14 @@
+@****************************************************************
+* Screen to create a stack of freezers                          *
+* @param freezerForm form to use to gather values for freezer   *
+****************************************************************@
+@(freezerForm: Form[Freezer])
+@import models.Freezer
+@import models.Component
+@import helper._
+
+@createStackForm("Register Freezers", freezerForm, routes.FreezerController.addFreezerStack,
+	Component.ComponentType.Freezer, None, false) {
+	@inputText(freezerForm(Freezer.addressKey), '_label -> "Address")
+	@inputText(freezerForm(Freezer.temperatureKey), '_label -> "Temperature (Celsius)")
+}

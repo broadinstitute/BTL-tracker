@@ -1,6 +1,6 @@
 @***************************************************************
 * Base contents of items                                       *
-* @param itemForm form with item's fields                      *
+* @param componentForm form with item's fields                 *
 * @param id optional preset id for component                   *
 * @param componentType type of component (e.g., plate)         *
 * @param hiddenFields optional hidden fields to set in form    *
@@ -9,20 +9,9 @@
 		hiddenFields: Option[Component.HiddenFields] = None)
 @import helper._
 @import models.Component
-@import models.ComponentTag
 
 @* defining variables to be used within scope  - in this case a list of input text options for id *@
 @defining(if (id.isDefined) List('readonly -> "readonly", '_showConstraints -> false) else List()) { ro =>
     @inputText(componentForm(Component.formKey + "." + Component.idKey).copy(value = id), List('_label -> "ID") ++ ro: _*)
-    @* Supply component type needed - it's a mandatory field we already know but don't need to display *@
-    <input type="hidden" id="@{Component.formKey + "_" + Component.typeKey}" name="@{Component.formKey + "." + Component.typeKey}" value="@componentType" />
-    @textarea(componentForm(Component.formKey + "." + Component.descriptionKey), '_label -> "Description")
-	@componentTags(componentForm, true)
-	@inputText(componentForm(Component.formKey + "." + Component.projectKey), '_label -> "Project ID", 'style -> "display:inline;")
-	@jiraLink(componentForm)
-	@if(hiddenFields.isDefined) {
-		@if(hiddenFields.get.project.isDefined) {
-			<input type="hidden" id="@{Component.formKey + "." + Component.hiddenProjectKey}" name="@{Component.formKey + "." + Component.hiddenProjectKey}" value="@hiddenFields.get.project.get" />
-		}
-	}
+	@componentCommon(componentForm, componentType, hiddenFields)
 }
