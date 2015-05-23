@@ -74,6 +74,7 @@ trait ComponentController[C <: Component] extends Controller {
 		Ok(htmlForCreate(id)(form))
 	}
 
+	//@TODO need to check project (use an updated do doRequestFromForm)
 	/**
 	 * Add a stack of components
 	 * @param request request containing component ids and data
@@ -85,18 +86,21 @@ trait ComponentController[C <: Component] extends Controller {
 			formWithErrors =>
 				Future.successful(BadRequest(htmlForCreateStack(
 					Errors.formGlobalError(formWithErrors, Errors.validationError)))),
-			data =>
-				data match {
-					case cl: ComponentList[C] => TrackerCollection.insertComponents(cl.makeList).map {
-						case (ok: List[String], nok: List[String]) =>
-							Ok(s"ok: ${ok.mkString("\n")}\nnok: ${nok.mkString("\n")}")
-					}
-					case _ => TrackerCollection.insertComponent(data,
-						onSuccess = (status) => Errors.homeRedirect(status),
-						// Recover from exception - return form with errors
-						onFailure =
-							(err) => BadRequest(htmlForCreateStack(form.withGlobalError(Errors.exceptionMessage(err)))))
+			{
+				case cl: ComponentList[C] => TrackerCollection.insertComponents(cl.makeList).map {
+					case (ok: List[String], nok: List[String]) =>
+						def plural(x: Int) = if (x == 1) "" else "s"
+						val summary = s"${ok.size} component${plural(ok.size)} succcessfully inserted, " +
+							s"${nok.size} insertion${plural(nok.size)} failed" +
+							(if (nok.size == 0) "" else ":\n" + nok.mkString(";\n"))
+						Errors.homeRedirect(summary)
 				}
+				case data => TrackerCollection.insertComponent(data,
+					onSuccess = (status) => Errors.homeRedirect(status),
+					// Recover from exception - return form with errors
+					onFailure =
+						(err) => BadRequest(htmlForCreateStack(form.withGlobalError(Errors.exceptionMessage(err)))))
+			}
 		)
 	}
 

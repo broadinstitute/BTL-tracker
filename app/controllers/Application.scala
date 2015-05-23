@@ -31,7 +31,6 @@ object Application extends Controller {
 	/**
 	 * Just a test form
 	 */
-	// @TODO Add register for multiple IDs
 	def test(id: String) = Action {
 		Ok(views.html.index(Component.blankForm.withGlobalError(id)))
 	}

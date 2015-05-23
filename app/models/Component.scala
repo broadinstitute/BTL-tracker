@@ -186,11 +186,16 @@ trait Component {
 	def hiddenFields = HiddenFields(project)
 }
 
+/**
+ * Trait to indicate that component can have a list of ids, separated by white space or commas, in it's id attribute.
+ * ComponentList is used for implementing registration of stacked components.
+ * @tparam C component type
+ */
 trait ComponentList[+C] {
 	/**
 	 * Give a component that has multiple IDs make a list of components where each component has one of the IDs in the
 	 * original component.
-	 * @return component, each with one of the IDs in the input component
+	 * @return components, each with one of the IDs in the input component
 	 */
 	def makeList : List[C]
 }

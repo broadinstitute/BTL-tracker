@@ -1,5 +1,6 @@
 package models.db
 
+import controllers.Errors
 import models.Component
 import play.api.{Play, Logger}
 import play.api.libs.json._
@@ -119,12 +120,12 @@ object TrackerCollection extends Controller with MongoController {
 		val notOkPrefix = "NOK:"
 		val inserts = for (d <- data) yield {
 			doComponentDBOperation(trackerCollection.insert(_: C), "inserted", d,
-				(s: String) => s"${okPrefix}${s}", (t: Throwable) => s"${notOkPrefix}${t.getLocalizedMessage}")
+				(s: String) => s"$okPrefix$s", (t: Throwable) => s"$notOkPrefix${Errors.exceptionMessage(t)}")
 		}
 		Future.fold(inserts)((List.empty[String], List.empty[String])){
 			case ((ok: List[String], bad: List[String]), next: String) =>
-				if (next.startsWith(okPrefix)) (ok :+ next.substring(okPrefix.size), bad)
-				else if (next.startsWith(notOkPrefix)) (ok, bad :+ next.substring(notOkPrefix.size))
+				if (next.startsWith(okPrefix)) (ok :+ next.substring(okPrefix.length), bad)
+				else if (next.startsWith(notOkPrefix)) (ok, bad :+ next.substring(notOkPrefix.length))
 				else (ok, bad)
 		}
 	}
@@ -186,7 +187,8 @@ object TrackerCollection extends Controller with MongoController {
 				case None => (None, List.empty[String])
 			}
 		}).recover{
-			case e: Exception => (Some(s"Exception during tag retrieval: ${e.getLocalizedMessage}"), List.empty[String])
+			case e: Exception => (Some(s"Exception during tag retrieval: ${Errors.exceptionMessage(e)}"),
+				List.empty[String])
 		}
 	}
 }
