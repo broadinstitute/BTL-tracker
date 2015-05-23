@@ -33,7 +33,8 @@ case class Rack(override val id: String,override val description: Option[String]
                 override val tags: List[ComponentTag],
                 override val locationID: Option[String], override val initialContent: Option[ContentType.ContentType],
                 override val layout: Division.Division)
-	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions {
+	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
+	with ComponentList[Rack] {
 	override val component = Rack.componentType
 	override val validLocations = Rack.validLocations
 	override val validTransfers = Rack.validTransfers
@@ -45,6 +46,13 @@ case class Rack(override val id: String,override val description: Option[String]
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
 	override protected def isValid(request: Request[AnyContent]) = isProjectValid(getHiddenField(request,_.project))
+
+	/**
+	 * Give a rack that has multiple IDs make a list of racks where each rack has one of the IDs in the input rack.
+	 * @return racks, each with one of the IDs in the input rack
+	 */
+	def makeList =
+		Utils.getIDs(id).toList.map(Rack(_, description, project, tags, locationID, initialContent, layout))
 }
 
 object Rack extends ComponentObject[Rack](ComponentType.Rack) {
@@ -140,7 +148,5 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 			}
 		}
 	}
-
-
 }
 

@@ -34,7 +34,8 @@ case class Plate(override val id: String,override val description: Option[String
                  override val tags: List[ComponentTag],
                  override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType],
                  override val layout: Division.Division)
-	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions {
+	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
+	with ComponentList[Plate] {
 	override val component = Plate.componentType
 	override val validLocations = Plate.validLocations
 	override val validTransfers = Plate.validTransfers
@@ -51,10 +52,17 @@ case class Plate(override val id: String,override val description: Option[String
 		isProjectValid(getHiddenField(request,_.project)).map((errMap) => {
 			initialContent match {
 				case Some(content) if !InitialContents.isContentValidForDivision(content, layout) =>
-					errMap + (Some(Container.contentKey) -> s"${content} is invalid for plate with ${layout}")
+					errMap + (Some(Container.contentKey) -> s"$content is invalid for plate with $layout")
 				case _ => errMap
 			}
 		})
+
+	/**
+	 * Give a plate that has multiple IDs make a list of plates where each plate has one of the IDs in the input plate.
+	 * @return plates, each with one of the IDs in the input plate
+	 */
+	def makeList =
+		Utils.getIDs(id).toList.map(Plate(_, description, project, tags, locationID, initialContent, layout))
 }
 
 object Plate extends ComponentObject[Plate](ComponentType.Plate) {

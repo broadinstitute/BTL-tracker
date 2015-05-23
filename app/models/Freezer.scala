@@ -22,9 +22,18 @@ import play.api.data.format.Formats._
  * @param address where the freezer is
  * @param temperature degrees celsius inside freezer
  */
-case class Freezer(override val id: String,override val description: Option[String],override val project: Option[String],
-                   override val tags: List[ComponentTag],address: String,temperature: Float) extends Component {
+case class Freezer(override val id: String,override val description: Option[String],
+				   override val project: Option[String], override val tags: List[ComponentTag],
+				   address: String,temperature: Float)
+	extends Component with ComponentList[Freezer] {
 	override val component = Freezer.componentType
+
+	/**
+	 * Give a tube that has multiple IDs make a list of tubes where each tube has one of the IDs in the input tube.
+	 * @return tubes, each with one of the IDs in the input tube
+	 */
+	def makeList =
+		Utils.getIDs(id).toList.map(Freezer(_, description, project, tags, address, temperature))
 }
 
 object Freezer extends ComponentObject[Freezer](ComponentType.Freezer) {

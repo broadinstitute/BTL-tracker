@@ -186,6 +186,15 @@ trait Component {
 	def hiddenFields = HiddenFields(project)
 }
 
+trait ComponentList[+C] {
+	/**
+	 * Give a component that has multiple IDs make a list of components where each component has one of the IDs in the
+	 * original component.
+	 * @return component, each with one of the IDs in the input component
+	 */
+	def makeList : List[C]
+}
+
 object Component {
 	/**
 	 * Apply for a component - it creates an anonymous class with the specific data.  We need this to create the form

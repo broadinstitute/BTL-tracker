@@ -77,17 +77,28 @@ trait ComponentController[C <: Component] extends Controller {
 	/**
 	 * Add a stack of components
 	 * @param request request containing component ids and data
-	 * @return
+	 * @return result from inserts
 	 */
-	def addStack(request: Request[AnyContent]) =
+	def addStack(request: Request[AnyContent]) = {
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		form.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(htmlForCreateStack(
 					Errors.formGlobalError(formWithErrors, Errors.validationError)))),
-			data => {
-				Future.successful(Ok(Utils.getIDs(data.id).mkString(" ")))
-			}
+			data =>
+				data match {
+					case cl: ComponentList[C] => TrackerCollection.insertComponents(cl.makeList).map {
+						case (ok: List[String], nok: List[String]) =>
+							Ok(s"ok: ${ok.mkString("\n")}\nnok: ${nok.mkString("\n")}")
+					}
+					case _ => TrackerCollection.insertComponent(data,
+						onSuccess = (status) => Errors.homeRedirect(status),
+						// Recover from exception - return form with errors
+						onFailure =
+							(err) => BadRequest(htmlForCreateStack(form.withGlobalError(Errors.exceptionMessage(err)))))
+				}
 		)
+	}
 
 	/**
 	 * Return result with message(s):
