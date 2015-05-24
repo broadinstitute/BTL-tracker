@@ -33,7 +33,7 @@ case class Freezer(override val id: String,override val description: Option[Stri
 	 * @return tubes, each with one of the IDs in the input tube
 	 */
 	def makeList =
-		Utils.getIDs(id).toList.map(Freezer(_, description, project, tags, address, temperature))
+		Utils.getIDs(id).toList.map((nextId) => this.copy(id = nextId))
 }
 
 object Freezer extends ComponentObject[Freezer](ComponentType.Freezer) {

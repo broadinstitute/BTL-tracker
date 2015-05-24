@@ -191,13 +191,13 @@ trait Component {
  * ComponentList is used for implementing registration of stacked components.
  * @tparam C component type
  */
-trait ComponentList[+C] {
+trait ComponentList[C <: Component] {
 	/**
 	 * Give a component that has multiple IDs make a list of components where each component has one of the IDs in the
 	 * original component.
 	 * @return components, each with one of the IDs in the input component
 	 */
-	def makeList : List[C]
+	def makeList: List[C]
 }
 
 object Component {

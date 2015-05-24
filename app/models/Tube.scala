@@ -37,7 +37,7 @@ case class Tube(override val id: String,override val description: Option[String]
 	 * @return tubes, each with one of the IDs in the input tube
 	 */
 	def makeList =
-		Utils.getIDs(id).toList.map(Tube(_, description, project, tags, locationID, initialContent))
+		Utils.getIDs(id).toList.map((nextId) => this.copy(id = nextId))
 }
 
 /**

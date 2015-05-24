@@ -52,7 +52,7 @@ case class Rack(override val id: String,override val description: Option[String]
 	 * @return racks, each with one of the IDs in the input rack
 	 */
 	def makeList =
-		Utils.getIDs(id).toList.map(Rack(_, description, project, tags, locationID, initialContent, layout))
+		Utils.getIDs(id).toList.map((nextId) => this.copy(id = nextId))
 }
 
 object Rack extends ComponentObject[Rack](ComponentType.Rack) {

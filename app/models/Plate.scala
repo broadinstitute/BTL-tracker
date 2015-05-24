@@ -62,7 +62,7 @@ case class Plate(override val id: String,override val description: Option[String
 	 * @return plates, each with one of the IDs in the input plate
 	 */
 	def makeList =
-		Utils.getIDs(id).toList.map(Plate(_, description, project, tags, locationID, initialContent, layout))
+		Utils.getIDs(id).toList.map((nextId) => this.copy(id = nextId))
 }
 
 object Plate extends ComponentObject[Plate](ComponentType.Plate) {
