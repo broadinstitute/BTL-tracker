@@ -90,8 +90,8 @@ object ComponentTag {
 			hiddenTagKey -> optional(text)
 		)(ComponentTagWithOther.apply)(ComponentTagWithOther.unapply)
 			.verifying(
-				s"If '${other}' chosen new tag can be neither blank nor '${other}'",
-				c => (c.tag != other || (c.otherTag.isDefined && !c.otherTag.get.isEmpty && c.otherTag.get != other)))
+				s"If '$other' chosen new tag can be neither blank nor '$other'",
+				c => c.tag != other || (c.otherTag.isDefined && !c.otherTag.get.isEmpty && c.otherTag.get != other))
 			.transform(
 				(c: ComponentTagWithOther) =>
 					if (c.tag == other && c.otherTag.isDefined) ComponentTag(c.otherTag.get, c.value)
