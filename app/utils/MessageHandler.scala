@@ -1,5 +1,6 @@
-package controllers
+package utils
 
+import controllers.routes
 import models.Component.ComponentType
 import play.api.Play
 import play.api.data.Form
@@ -7,9 +8,10 @@ import play.api.mvc.{Request, Result}
 import play.api.mvc.Results.Redirect
 
 /**
- * Created 2/13/15.
+ * Message, mostly error, handling.
+ * Created by nnovod on 5/24/15.
  */
-object Errors {
+object MessageHandler {
 
 	/**
 	 * Validation error report
@@ -165,7 +167,7 @@ object Errors {
 	 * @param msgs map of error messages in form of fieldName->errorMessage
 	 * @param data data to fill in form
 	 * @return form to display, filled with data and set with errors
- 	 */
+	 */
 	def fillAndSetFailureMsgs[I](msgs: Map[Option[String],String], form: Form[I], data: I) = {
 		setFailureMsgs(msgs, form.fill(data))
 	}

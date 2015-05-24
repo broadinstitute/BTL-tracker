@@ -3,6 +3,7 @@ package controllers
 import models.{Component, TransferDelete}
 import models.db.TransferCollection
 import play.api.mvc.{Action, Controller}
+import utils.MessageHandler
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -18,7 +19,7 @@ object TransferDeleteController extends Controller {
 	 * @return action to get id of wanted component
 	 */
 	def deleteTransfer(id: String) = Action { request =>
-		Ok(views.html.transferDelete(Errors.addStatusFlash(request,TransferDelete.transferDeleteForm), id))
+		Ok(views.html.transferDelete(MessageHandler.addStatusFlash(request,TransferDelete.transferDeleteForm), id))
 	}
 
 	/**
@@ -29,13 +30,13 @@ object TransferDeleteController extends Controller {
 		TransferDelete.transferDeleteForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(views.html.transferDelete(
-					Errors.formGlobalError(formWithErrors, Errors.validationError), id))),
+					MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError), id))),
 			data => {
 				TransferCollection.countBetweenTransfers(data.from, data.to).map ((count) =>
 					Ok(views.html.transferDeleteConfirm(data.from, data.to, count))
 				).recover {
 					case err => BadRequest(
-						views.html.index(Component.blankForm.withGlobalError(Errors.exceptionMessage(err))))
+						views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
 				}
 			}
 		)
@@ -49,8 +50,8 @@ object TransferDeleteController extends Controller {
 	 */
 	def deleteTransferByIDs(fromID: String, toID: String) = Action.async { request =>
 		TransferCollection.removeBetweenTransfers(fromID, toID).map {
-			case Some(err) => Errors.homeRedirect(s"Delete failed: ${err.getLocalizedMessage}")
-			case None => Errors.homeRedirect(s"Transfer from $fromID to $toID successfully deleted")
+			case Some(err) => MessageHandler.homeRedirect(s"Delete failed: ${err.getLocalizedMessage}")
+			case None => MessageHandler.homeRedirect(s"Transfer from $fromID to $toID successfully deleted")
 		}
 	}
 }

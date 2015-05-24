@@ -7,7 +7,8 @@ import play.api.data.Form
 import play.api.libs.Files
 import play.api.libs.json.JsObject
 import play.api.mvc.{MultipartFormData, Action}
-import Errors.FlashingKeys
+import utils.MessageHandler
+import utils.MessageHandler.FlashingKeys
 
 /**
  * Rack of other containers.
@@ -73,7 +74,7 @@ object RackController extends ComponentController[Rack] {
 	 */
 	def makeStackHtml(id: String, completionStr: String) = {
 		val idForm = makeIdForm(id)
-		val formWithStatus = Errors.formGlobalError(idForm, completionStr)
+		val formWithStatus = MessageHandler.formGlobalError(idForm, completionStr)
 		htmlForCreateStack(formWithStatus)
 	}
 

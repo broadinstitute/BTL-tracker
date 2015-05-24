@@ -4,6 +4,7 @@ import java.io.File
 
 import models.EZPass
 import play.api.mvc.{Action, Controller}
+import utils.MessageHandler
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -19,7 +20,7 @@ object EZPassController extends Controller {
 	 * @return form to get ezpass parameters
 	 */
 	def ezpass(id: String) = Action { request =>
-		Ok(views.html.ezpass(Errors.addStatusFlash(request, EZPass.form), id))
+		Ok(views.html.ezpass(MessageHandler.addStatusFlash(request, EZPass.form), id))
 	}
 
 	/**
@@ -30,8 +31,8 @@ object EZPassController extends Controller {
 	def createEZPass(id: String) = Action.async { request =>
 		EZPass.form.bindFromRequest()(request).fold(
 			formWithErrors => {
-				Future.successful(BadRequest(
-					views.html.ezpass(Errors.formGlobalError(formWithErrors, Errors.validationError), id)))
+				Future.successful(BadRequest(views.html.ezpass(
+					MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError), id)))
 			},
 			data => {
 				EZPass.makeEZPassWithProject(EZPass.WriteEZPassData,
@@ -42,11 +43,11 @@ object EZPassController extends Controller {
 							fileName = (_) => s"${id}_EZPASS.xlsx", onClose = () => outFile.delete())
 					case (None, errs) =>
 						val filledForm = EZPass.form.fill(data)
-						BadRequest(views.html.ezpass(Errors.setGlobalErrors(errs, filledForm), id))
+						BadRequest(views.html.ezpass(MessageHandler.setGlobalErrors(errs, filledForm), id))
 				}
 			}.recover {
 				case err => BadRequest(
-					views.html.ezpass(EZPass.form.fill(data).withGlobalError(Errors.exceptionMessage(err)), id))
+					views.html.ezpass(EZPass.form.fill(data).withGlobalError(MessageHandler.exceptionMessage(err)), id))
 			}
 		)
 	}

@@ -7,6 +7,7 @@ import play.api.data.Form
 import play.api.libs.json._
 import play.api.mvc._
 import play.twirl.api.{HtmlFormat,Html}
+import utils.MessageHandler
 
 import scala.concurrent.Future
 
@@ -85,7 +86,7 @@ trait ComponentController[C <: Component] extends Controller {
 		form.bindFromRequest()(request).fold(
 			formWithErrors =>
 				Future.successful(BadRequest(htmlForCreateStack(
-					Errors.formGlobalError(formWithErrors, Errors.validationError)))),
+					MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError)))),
 			{
 				case cl: ComponentList[C] => TrackerCollection.insertComponents(cl.makeList).map {
 					case (ok: List[String], nok: List[String]) =>
@@ -93,13 +94,14 @@ trait ComponentController[C <: Component] extends Controller {
 						val summary = s"${ok.size} component${plural(ok.size)} succcessfully inserted, " +
 							s"${nok.size} insertion${plural(nok.size)} failed" +
 							(if (nok.size == 0) "" else ":\n" + nok.mkString(";\n"))
-						Errors.homeRedirect(summary)
+						MessageHandler.homeRedirect(summary)
 				}
 				case data => TrackerCollection.insertComponent(data,
-					onSuccess = (status) => Errors.homeRedirect(status),
+					onSuccess = (status) => MessageHandler.homeRedirect(status),
 					// Recover from exception - return form with errors
 					onFailure =
-						(err) => BadRequest(htmlForCreateStack(form.withGlobalError(Errors.exceptionMessage(err)))))
+						(err) => BadRequest(htmlForCreateStack(
+							form.withGlobalError(MessageHandler.exceptionMessage(err)))))
 			}
 		)
 	}
@@ -122,7 +124,7 @@ trait ComponentController[C <: Component] extends Controller {
 	private def viewData(status: Status, c: C, request: Request[AnyContent], html: (Form[C]) => Html,
 	                     msgs: Map[Option[String], String],
 	                     messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) = {
-		val filledForm = Errors.addStatusFlash(request, form.fill(c))
+		val filledForm = MessageHandler.addStatusFlash(request, form.fill(c))
 		val formWithMsgs = messageSetter(msgs, filledForm)
 		status(html(formWithMsgs))
 	}
@@ -139,11 +141,12 @@ trait ComponentController[C <: Component] extends Controller {
 		findByID[C,Result](id,List(componentType),
 			// Found wanted component
 			found = (c) => viewData(Ok, c, request,	htmlForUpdate(id, Some(c.hiddenFields)),
-				Map.empty, Errors.setMessages),
+				Map.empty, MessageHandler.setMessages),
 			// NotFound - just redirect to not found view
-			notFound = Errors.notFoundRedirect
+			notFound = MessageHandler.notFoundRedirect
 		).recover {
-			case err => BadRequest(views.html.index(Component.blankForm.withGlobalError(Errors.exceptionMessage(err))))
+			case err => BadRequest(views.html.index(
+				Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
 		}
 	}
 
@@ -159,10 +162,11 @@ trait ComponentController[C <: Component] extends Controller {
 			afterBind = (data: C) => {
 				TrackerCollection.insertComponent(data,
 					// Go home and tell everyone what we've done
-					onSuccess = (status) => Errors.homeRedirect(status),
+					onSuccess = (status) => MessageHandler.homeRedirect(status),
 					// Recover from exception - return form with errors
 					onFailure =
-						(err) => BadRequest(htmlForCreate(id)(form.withGlobalError(Errors.exceptionMessage(err)))))
+						(err) => BadRequest(htmlForCreate(id)(
+							form.withGlobalError(MessageHandler.exceptionMessage(err)))))
 			},
 			// if trouble then show form that should be updated with error messages
 			onFailure = (f: Form[C]) => htmlForCreate(id)(f)
@@ -187,17 +191,17 @@ trait ComponentController[C <: Component] extends Controller {
 					// Binding was successful - now go update the wanted item with data from the form
 					TrackerCollection.updateComponent(data,
 						// Go home and tell everyone what we've done
-						onSuccess = (msg) => Errors.homeRedirect(msg),
+						onSuccess = (msg) => MessageHandler.homeRedirect(msg),
 						// Recover from exception - return form with errors
 						onFailure = (err) => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
-							(form.withGlobalError(Errors.exceptionMessage(err))))
+							(form.withGlobalError(MessageHandler.exceptionMessage(err))))
 					)
 				} else {
 					// If pre-update returned errors then return form with those errors - remember original
 					// hidden fields so any changes made to them are ignored for now
 					Future.successful(
 						viewData(BadRequest, data, request,
-							htmlForUpdate(id, Component.getHiddenFields(request)), errs, Errors.setFailureMsgs))
+							htmlForUpdate(id, Component.getHiddenFields(request)), errs, MessageHandler.setFailureMsgs))
 				}
 			},
 			// if trouble then show form that should be updated with error messages
@@ -272,7 +276,7 @@ object ComponentController extends Controller {
 			case Some(id) => findByID[JsObject,Option[String]](id,validComponents,
 				found = (_) => None,
 				notFound = (_,_) =>
-					Some(Errors.notFoundComponentMessage(id,validComponents) +
+					Some(MessageHandler.notFoundComponentMessage(id,validComponents) +
 						" - change " + idType + " set or register " + idType + " " + id))
 			case None => Future.successful(None)
 		}
@@ -296,7 +300,7 @@ object ComponentController extends Controller {
 		val bForm = form.bindFromRequest()(request)
 		bForm.fold(
 			formWithErrors => Future.successful(
-				BadRequest(onFailure(Errors.formGlobalError(formWithErrors, Errors.validationError)))),
+				BadRequest(onFailure(MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError)))),
 			data =>
 				// Check if data is valid (it's done via a future) and then map result
 				// Validity checker returns a map with fieldName->errorMessages with fieldName left out for global
@@ -304,14 +308,14 @@ object ComponentController extends Controller {
 				data.isRequestValid(request).flatMap {
 					case e: Map[Option[String],String] if e.nonEmpty =>
 						// Return complete future with form set with errors
-						val formWithErrors = Errors.setFailureMsgs(e, form.fill(data))
+						val formWithErrors = MessageHandler.setFailureMsgs(e, form.fill(data))
 						Future.successful(BadRequest(onFailure(formWithErrors)))
 					// If all went well then callback to process data
 					case _ => afterBind(data)
 				}
 		).recover {
 			// On exception return bad request with html filled by call back
-			case err => BadRequest(onFailure(bForm.withGlobalError(Errors.exceptionMessage(err))))
+			case err => BadRequest(onFailure(bForm.withGlobalError(MessageHandler.exceptionMessage(err))))
 		}
 	}
 

@@ -5,6 +5,7 @@ import models.Freezer
 import play.api.data.Form
 import play.api.libs.json.JsObject
 import play.api.mvc.Action
+import utils.MessageHandler
 
 /**
  * @author Nathaniel Novod
@@ -70,7 +71,7 @@ object FreezerController extends ComponentController[Freezer] {
 	 */
 	def makeStackHtml(id: String, completionStr: String) = {
 		val idForm = makeIdForm(id)
-		val formWithStatus = Errors.formGlobalError(idForm, completionStr)
+		val formWithStatus = MessageHandler.formGlobalError(idForm, completionStr)
 		htmlForCreateStack(formWithStatus)
 	}
 

@@ -1,5 +1,6 @@
 package controllers
 
+import _root_.utils.MessageHandler
 import models.Find._
 import models.db.TrackerCollection
 import models.TransferHistory
@@ -22,7 +23,7 @@ object FindController extends Controller {
 	 * @return action to get id of wanted component
 	 */
 	def find = Action { request =>
-		Ok(views.html.find(Errors.addStatusFlash(request,Find.form)))
+		Ok(views.html.find(MessageHandler.addStatusFlash(request,Find.form)))
 	}
 
 	// Get a Found object from a BSONDocument
@@ -63,7 +64,7 @@ object FindController extends Controller {
 	def findFromForm = Action.async { request =>
 		Find.form.bindFromRequest()(request).fold(
 			formWithErrors => Future.successful(BadRequest(
-					views.html.find(Errors.formGlobalError(formWithErrors, Errors.validationError)))),
+					views.html.find(MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError)))),
 			data => {
 				// Get find query from what was set in form
 				val findQuery = BSON.writeDocument[Find](data)
@@ -88,7 +89,7 @@ object FindController extends Controller {
 			}
 		).recover {
 			case err => BadRequest(
-				views.html.find(Find.form.withGlobalError(Errors.exceptionMessage(err))))
+				views.html.find(Find.form.withGlobalError(MessageHandler.exceptionMessage(err))))
 		}
 	}
 }

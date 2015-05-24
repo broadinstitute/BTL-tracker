@@ -1,6 +1,6 @@
 package models.db
 
-import controllers.Errors
+import utils.MessageHandler
 import models.Component
 import play.api.{Play, Logger}
 import play.api.libs.json._
@@ -120,7 +120,7 @@ object TrackerCollection extends Controller with MongoController {
 		val notOkPrefix = "NOK:"
 		val inserts = for (d <- data) yield {
 			doComponentDBOperation(trackerCollection.insert(_: C), "inserted", d,
-				(s: String) => s"$okPrefix$s", (t: Throwable) => s"$notOkPrefix${Errors.exceptionMessage(t)}")
+				(s: String) => s"$okPrefix$s", (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}")
 		}
 		Future.fold(inserts)((List.empty[String], List.empty[String])){
 			case ((ok: List[String], bad: List[String]), next: String) =>
@@ -187,7 +187,7 @@ object TrackerCollection extends Controller with MongoController {
 				case None => (None, List.empty[String])
 			}
 		}).recover{
-			case e: Exception => (Some(s"Exception during tag retrieval: ${Errors.exceptionMessage(e)}"),
+			case e: Exception => (Some(s"Exception during tag retrieval: ${MessageHandler.exceptionMessage(e)}"),
 				List.empty[String])
 		}
 	}

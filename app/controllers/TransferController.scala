@@ -1,11 +1,12 @@
 package controllers
 
-import controllers.Errors.FlashingKeys
 import models._
 import models.db.{TrackerCollection, TransferCollection}
 import play.api.data.Form
 import play.api.mvc.{Result, Action, Controller}
 import play.api.libs.json._
+import utils.MessageHandler
+import MessageHandler.FlashingKeys
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -36,7 +37,7 @@ object TransferController extends Controller {
 		if (fromID.isDefined && toID.isDefined)
 			doTransfer(TransferStart(fromID.get, toID.get, project))
 		else
-			Future.successful(Ok(views.html.transferStart(Errors.addStatusFlash(request, Transfer.startForm),
+			Future.successful(Ok(views.html.transferStart(MessageHandler.addStatusFlash(request, Transfer.startForm),
 				fromID, toID, project, true)))
 	}
 
@@ -57,7 +58,7 @@ object TransferController extends Controller {
 	                       fromQuad: Boolean, toQuad: Boolean,
 						   dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean) = {
 		Action { request =>
-			Ok(views.html.transfer(Errors.addStatusFlash(request, Transfer.form), fromID, toID, project,
+			Ok(views.html.transfer(MessageHandler.addStatusFlash(request, Transfer.form), fromID, toID, project,
 				fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube))
 		}
 	}
@@ -80,7 +81,7 @@ object TransferController extends Controller {
 			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
 				val notFoundErrs: Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
-				Errors.fillAndSetFailureMsgs(notFoundErrs, Transfer.startForm, data)
+				MessageHandler.fillAndSetFailureMsgs(notFoundErrs, Transfer.startForm, data)
 			}
 			// Check out results from DB queries
 			(from, to) match {
@@ -189,7 +190,7 @@ object TransferController extends Controller {
 	 * @return BadRequest to transferStart with form set with errors
 	 */
 	private def transferStartErrorResult(data: TransferStart, errs: Map[Option[String], String]) =
-		transferStartFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.startForm, data),
+		transferStartFormErrorResult(MessageHandler.fillAndSetFailureMsgs(errs, Transfer.startForm, data),
 			Some(data.from), Some(data.to), data.project)
 
 	/**
@@ -207,13 +208,12 @@ object TransferController extends Controller {
 	 */
 	def transferIDs = Action.async { request =>
 		Transfer.startForm.bindFromRequest()(request).fold(
-			formWithErrors => Future.successful(
-				transferStartFormErrorResult(Errors.formGlobalError(formWithErrors, Errors.validationError),
-					None, None, None)),
+			formWithErrors => Future.successful(transferStartFormErrorResult(
+				MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError), None, None, None)),
 			data => doTransfer(data)
 		).recover {
-			case err => transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)),
-				None, None, None)
+			case err => transferStartFormErrorResult(
+				Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)), None, None, None)
 		}
 	}
 
@@ -285,7 +285,7 @@ object TransferController extends Controller {
 				FlashingKeys.Status, "Internal error: Failure during transferIDs"))
 		}
 	}.recover {
-		case err => transferStartErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
+		case err => transferStartErrorResult(data, Map(None -> MessageHandler.exceptionMessage(err)))
 	}
 
 	/**
@@ -334,7 +334,7 @@ object TransferController extends Controller {
 					}
 			}
 		}).recover {
-			case err => Some(Errors.exceptionMessage(err))
+			case err => Some(MessageHandler.exceptionMessage(err))
 		}
 	}
 
@@ -358,7 +358,7 @@ object TransferController extends Controller {
 	 * @return BadRequest to transfer with form set with errors
 	 */
 	private def transferErrorResult(data: TransferForm, errs: Map[Option[String], String]) =
-		transferFormErrorResult(Errors.fillAndSetFailureMsgs(errs, Transfer.form, data), data)
+		transferFormErrorResult(MessageHandler.fillAndSetFailureMsgs(errs, Transfer.form, data), data)
 
 	/**
 	 * Insert transfer into DB and return Result.
@@ -369,7 +369,7 @@ object TransferController extends Controller {
 		TransferCollection.insert(data.transfer).map {
 			(lastError) => transferComplete(() => "Completed " + data.transfer.quadDesc)
 		}.recover {
-			case err => transferErrorResult(data, Map(None -> Errors.exceptionMessage(err)))
+			case err => transferErrorResult(data, Map(None -> MessageHandler.exceptionMessage(err)))
 		}
 	}
 
@@ -381,15 +381,16 @@ object TransferController extends Controller {
 	def transferFromForm = Action.async { request =>
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors => Transfer.formWithoutVerify.bindFromRequest()(request).fold(
-				errors => Future.successful(// If still error then must go back to start
-					transferStartFormErrorResult(Errors.formGlobalError(Transfer.startForm, Errors.validationError),
+				// If still error then must go back to start
+				errors => Future.successful(transferStartFormErrorResult(MessageHandler.formGlobalError(
+					Transfer.startForm, MessageHandler.validationError),
 						None, None, None)),
-				formData => Future.successful(
-					transferFormErrorResult(Errors.formGlobalError(formWithErrors, Errors.validationError), formData))),
+				formData => Future.successful(transferFormErrorResult(MessageHandler.formGlobalError(
+					formWithErrors, MessageHandler.validationError), formData))),
 			data =>	insertTransfer(data)
 		).recover {
 			case err =>
-				transferStartFormErrorResult(Transfer.startForm.withGlobalError(Errors.exceptionMessage(err)),
+				transferStartFormErrorResult(Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)),
 					None, None, None)
 		}
 	}

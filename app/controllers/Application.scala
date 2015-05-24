@@ -7,6 +7,7 @@ import play.api.libs.json._
 import play.api.mvc._
 import models._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import utils.MessageHandler
 
 import scala.concurrent.Future
 
@@ -25,7 +26,7 @@ object Application extends Controller {
 	 * @return action to show initial choices on home page
 	 */
 	def index = Action { request =>
-		Ok(views.html.index(Errors.addStatusFlash(request,Component.blankForm)))
+		Ok(views.html.index(MessageHandler.addStatusFlash(request,Component.blankForm)))
 	}
 
 	/**
@@ -54,7 +55,7 @@ object Application extends Controller {
 	 * @return action to execute to initiate add of component
 	 */
 	def add(id: String) = Action { request =>
-		Ok(views.html.add(Errors.addStatusFlash(request,Component.idAndTypeForm), id))
+		Ok(views.html.add(MessageHandler.addStatusFlash(request,Component.idAndTypeForm), id))
 	}
 
 	/**
@@ -62,7 +63,7 @@ object Application extends Controller {
 	 * @return handler to bring up view to get stack IDs
 	 */
 	def addStack() = Action { request =>
-		Ok(views.html.addStackStart(Errors.addStatusFlash(request,Component.idAndTypeForm)))
+		Ok(views.html.addStackStart(MessageHandler.addStatusFlash(request,Component.idAndTypeForm)))
 	}
 
 	/**
@@ -72,7 +73,8 @@ object Application extends Controller {
 	def getStackIDs = Action { request =>
 		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
-				BadRequest(views.html.addStackStart(Errors.formGlobalError(formWithErrors, Errors.validationError))),
+				BadRequest(views.html.addStackStart(MessageHandler.formGlobalError(formWithErrors,
+					MessageHandler.validationError))),
 			data => {
 				val ids = Utils.getIDs(data.id)
 				val idSet = ids.toSet
@@ -96,8 +98,8 @@ object Application extends Controller {
 	def addFromForm() = Action { request =>
 		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
-				BadRequest(views.html.add(Errors.formGlobalError(formWithErrors, Errors.validationError),
-					formWithErrors.get.id)),
+				BadRequest(views.html.add(MessageHandler.formGlobalError(formWithErrors,
+					MessageHandler.validationError), formWithErrors.get.id)),
 			data =>
 				Redirect(ComponentController.actions(data.t).addRoute(data.id))
 		)
@@ -113,7 +115,7 @@ object Application extends Controller {
 			Ok(views.html.deleteConfirm(id, count))
 		}).recover {
 			case err => BadRequest(
-				views.html.index(Component.blankForm.withGlobalError(Errors.exceptionMessage(err))))
+				views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
 		}
 	}
 
@@ -125,9 +127,7 @@ object Application extends Controller {
 	def deleteByID(id: String) = Action.async { request =>
 		// Make result - redirect to home page and set flashing value (to be set as global error) to be picked up
 		// on home page
-		def getResult(msg: String) = {
-			Errors.homeRedirect(msg)
-		}
+		def getResult(msg: String) = MessageHandler.homeRedirect(msg)
 		// Do delete
 		ComponentController.delete(id,
 			deleted = () => getResult(id + " successfully deleted"),
@@ -144,7 +144,7 @@ object Application extends Controller {
 	def findByID(id: String) = Action.async { request =>
 		findRequestUsingID(id,request)(doUpdateRedirect(id,_,_,_)).recover {
 			case err => BadRequest(
-				views.html.index(Component.blankForm.withGlobalError(Errors.exceptionMessage(err))))
+				views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
 		}
 	}
 
@@ -160,7 +160,7 @@ object Application extends Controller {
 				val cType = (json \ Component.typeKey).as[String]
 				getResult(ComponentType.withName(cType),json,request)
 			},
-			notFound = Errors.notFoundRedirect)
+			notFound = MessageHandler.notFoundRedirect)
 	}
 
 	/**
