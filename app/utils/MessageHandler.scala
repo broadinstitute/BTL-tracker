@@ -141,8 +141,8 @@ object MessageHandler {
 	def setFailureMsgs[I](msgs: Map[Option[String],String], form: Form[I]) = {
 		// Make form with data filled in and errors set with fields
 		val formWithFieldErrors = setMessages(msgs, form)
-		// See if global error already exists
-		val isGlobalErrors = msgs.exists(_._1 == None)
+		// See if global error already exists (fieldname is None)
+		val isGlobalErrors = msgs.exists(_._1.isEmpty)
 		// Add global error in form - if other errors set are not global they will be field specific later in form
 		formWithFieldErrors.withGlobalError("Operation unsuccessful - fix errors" +
 			(if (!isGlobalErrors) " below" else ""))
