@@ -10,6 +10,7 @@ import play.twirl.api.{HtmlFormat,Html}
 import utils.MessageHandler
 
 import scala.concurrent.Future
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
  * @author Nathaniel Novod
@@ -81,30 +82,7 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @param request request containing component ids and data
 	 * @return result from inserts
 	 */
-	def addStack(request: Request[AnyContent]) = {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		form.bindFromRequest()(request).fold(
-			formWithErrors =>
-				Future.successful(BadRequest(htmlForCreateStack(
-					MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError)))),
-			{
-				case cl: ComponentList[C] => TrackerCollection.insertComponents(cl.makeList).map {
-					case (ok: List[String], nok: List[String]) =>
-						def plural(x: Int) = if (x == 1) "" else "s"
-						val summary = s"${ok.size} component${plural(ok.size)} succcessfully inserted, " +
-							s"${nok.size} insertion${plural(nok.size)} failed" +
-							(if (nok.size == 0) "" else ":\n" + nok.mkString(";\n"))
-						MessageHandler.homeRedirect(summary)
-				}
-				case data => TrackerCollection.insertComponent(data,
-					onSuccess = (status) => MessageHandler.homeRedirect(status),
-					// Recover from exception - return form with errors
-					onFailure =
-						(err) => BadRequest(htmlForCreateStack(
-							form.withGlobalError(MessageHandler.exceptionMessage(err)))))
-			}
-		)
-	}
+	def addStack(request: Request[AnyContent]) = create("", request, isStack = true)
 
 	/**
 	 * Return result with message(s):
@@ -137,7 +115,6 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @return resulting html to display wanted component
 	 */
 	def find(id: String, request: Request[AnyContent]) = {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		findByID[C,Result](id,List(componentType),
 			// Found wanted component
 			found = (c) => viewData(Ok, c, request,	htmlForUpdate(id, Some(c.hiddenFields)),
@@ -151,25 +128,40 @@ trait ComponentController[C <: Component] extends Controller {
 	}
 
 	/**
-	 * Create using data returned in the request form - if all goes well insert component into db and go home.
-	 * @param id Component ID
+	 * Create using data returned in the request form - if all goes well insert component(s) into db and go home.
+	 * @param id Component ID (ignored if a stack)
 	 * @param request http request
-	 * @return future to create component (on error displays form with errors)
+	 * @param isStack creating a stack of components
+	 * @return future to create component(s) (on error displays form with errors)
 	 */
-	def create(id: String, request: Request[AnyContent]) = {
+	def create(id: String, request: Request[AnyContent], isStack: Boolean = false) = {
 		doRequestFromForm(form,
-			// Note that afterbind returns a future
-			afterBind = (data: C) => {
-				TrackerCollection.insertComponent(data,
-					// Go home and tell everyone what we've done
-					onSuccess = (status) => MessageHandler.homeRedirect(status),
-					// Recover from exception - return form with errors
-					onFailure =
-						(err) => BadRequest(htmlForCreate(id)(
-							form.withGlobalError(MessageHandler.exceptionMessage(err)))))
+			afterBind = (c: C) => c match {
+				case cl: ComponentCanBeList[C] if isStack => cl.toComponentList
+				case _ => c
+			},
+			// Note that onSuccess returns a future via insertComponent(s)
+			onSuccess = (c: C) => c match {
+				case cl: ComponentList[C] =>
+					TrackerCollection.insertComponents(cl.makeList).map {
+						case (ok: List[String], nok: List[String]) =>
+							def plural(x: Int) = if (x == 1) "" else "s"
+							val summary = s"${ok.size} component${plural(ok.size)} succcessfully inserted, " +
+								s"${nok.size} insertion${plural(nok.size)} failed" +
+								(if (nok.isEmpty) "" else ":\n" + nok.mkString(";\n"))
+							MessageHandler.homeRedirect(summary)
+					}
+				case data =>
+					TrackerCollection.insertComponent(data,
+						// Go home and tell everyone what we've done
+						onSuccess = (status) => MessageHandler.homeRedirect(status),
+						// Recover from exception - return form with errors
+						onFailure =
+							(err) => BadRequest(htmlForCreate(id)(
+								form.withGlobalError(MessageHandler.exceptionMessage(err)))))
 			},
 			// if trouble then show form that should be updated with error messages
-			onFailure = (f: Form[C]) => htmlForCreate(id)(f)
+			onFailure = (f: Form[C]) => if (isStack) htmlForCreateStack(f) else htmlForCreate(id)(f)
 		)(request)
 	}
 
@@ -183,8 +175,9 @@ trait ComponentController[C <: Component] extends Controller {
 	def update(id: String, request: Request[AnyContent],
 	           preUpdate: (C) => Map[Option[String], String] = (_) => Map.empty) = {
 		doRequestFromForm(form,
-			// Note that afterbind returns a future
-			afterBind = (data: C) => {
+			afterBind = (c: C) => c,
+			// Note that onSuccess returns a future
+			onSuccess = (data: C) => {
 				// Allow caller to do some pre update checking
 				val errs = preUpdate(data)
 				if (errs.isEmpty) {
@@ -218,7 +211,6 @@ object ComponentController extends Controller {
 	 * @param error callback if error during delete
 	 */
 	def delete[R](id: String, deleted: () => R, error: (Throwable) => R) = {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Start up deletes of component as well as associated transfers
 		val componentRemove = TrackerCollection.remove(id)
 		val transferRemove = TransferCollection.removeTransfers(id)
@@ -254,7 +246,6 @@ object ComponentController extends Controller {
 				Json.obj(Component.idKey -> id)
 			else
 				Json.obj(Component.idKey -> id,Component.typeKey -> Json.obj("$in" -> componentType.map(_.toString)))
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Using implicit reader and execution context
 		val item = TrackerCollection.findOneWithJsonQuery(Json.toJson(findMap))
 		// First map for future (returns new future that will map original future results into new results)
@@ -285,14 +276,16 @@ object ComponentController extends Controller {
 	 * Complete request (e.g., create or update) for a tracker item in our mongo db collection using a form.
 	 *
 	 * @param form form used to retrieve input
-	 * @param afterBind action to take after a successful binding to the object from the form (returns a future)
-	 * @param onFailure callback to get html to display upon verification failure (input contains form with invalid data)
+	 * @param afterBind callback after successful bind from form
+	 * @param onSuccess action to take after a successful verification of object
+	 * @param onFailure callback to get html to display if verification failure (input contains form with invalid data)
 	 * @param request request that contains form data
 	 * @tparam I type of component being requested
 	 * @return future to return request results
 	 */
 	private def doRequestFromForm[I <: Component : Writes](form: Form[I],
-	                                                       afterBind: (I) => Future[Result],
+														   afterBind: (I) => I,
+	                                                       onSuccess: (I) => Future[Result],
 	                                                       onFailure: Form[I] => HtmlFormat.Appendable)
 	                                                      (request: Request[AnyContent]): Future[Result] = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -301,18 +294,21 @@ object ComponentController extends Controller {
 		bForm.fold(
 			formWithErrors => Future.successful(
 				BadRequest(onFailure(MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError)))),
-			data =>
+			data => {
+				// Allow data to be modified (used for stack requests)
+				val newData = afterBind(data)
 				// Check if data is valid (it's done via a future) and then map result
 				// Validity checker returns a map with fieldName->errorMessages with fieldName left out for global
 				// (non field specific) errors - if data is valid the map is empty
-				data.isRequestValid(request).flatMap {
-					case e: Map[Option[String],String] if e.nonEmpty =>
+				newData.isRequestValid(request).flatMap {
+					case e: Map[Option[String], String] if e.nonEmpty =>
 						// Return complete future with form set with errors
-						val formWithErrors = MessageHandler.setFailureMsgs(e, form.fill(data))
+						val formWithErrors = MessageHandler.setFailureMsgs(e, form.fill(newData))
 						Future.successful(BadRequest(onFailure(formWithErrors)))
 					// If all went well then callback to process data
-					case _ => afterBind(data)
+					case _ => onSuccess(newData)
 				}
+			}
 		).recover {
 			// On exception return bad request with html filled by call back
 			case err => BadRequest(onFailure(bForm.withGlobalError(MessageHandler.exceptionMessage(err))))

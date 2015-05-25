@@ -67,7 +67,7 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Request to add a stack of IDs.  We get the IDs and type and redirect to get detailed type information.
+	 * Request to add a stack of IDs.  We get the IDs and type and request to get detailed type information.
 	 * @return handler for stack of IDs
 	 */
 	def getStackIDs = Action { request =>
@@ -76,16 +76,15 @@ object Application extends Controller {
 				BadRequest(views.html.addStackStart(MessageHandler.formGlobalError(formWithErrors,
 					MessageHandler.validationError))),
 			data => {
+				def plural(s: String, i: Int) = s"$i $s${if (i == 1) "" else "s"}"
 				val ids = Utils.getIDs(data.id)
 				val idSet = ids.toSet
-				val idPlural = if (idSet.size == 1) "" else "s"
 				val repeats = ids.length - idSet.size
-				val repeatPlural = if (repeats == 1) "" else "s"
-				val repeatStr = if (repeats == 0) "" else s" ($repeats duplicate$repeatPlural eliminated)"
+				val repeatStr = if (repeats == 0) "" else s" (${plural("duplicate", repeats)} eliminated)"
 				val completionView =
 					ComponentController.actions(data.t).createStackView(idSet.mkString("\n"),
 						s"Submit to complete registration of " +
-							s"${idSet.size} ${data.t.toString.toLowerCase}$idPlural$repeatStr")
+							s"${plural(data.t.toString.toLowerCase, idSet.size)}$repeatStr")
 				Ok(completionView)
 			}
 		)

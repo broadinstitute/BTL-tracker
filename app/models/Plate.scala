@@ -35,7 +35,7 @@ case class Plate(override val id: String,override val description: Option[String
                  override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType],
                  override val layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
-	with ComponentList[Plate] {
+	with ComponentCanBeList[Plate] {
 	override val component = Plate.componentType
 	override val validLocations = Plate.validLocations
 	override val validTransfers = Plate.validTransfers
@@ -58,11 +58,17 @@ case class Plate(override val id: String,override val description: Option[String
 		})
 
 	/**
-	 * Give a plate that has multiple IDs make a list of plates where each plate has one of the IDs in the input plate.
-	 * @return plates, each with one of the IDs in the input plate
+	 * Make a new component that includes the ability to make a list of individual components from the ID list.
 	 */
-	def makeList =
-		Utils.getIDs(id).toList.map((nextId) => this.copy(id = nextId))
+	def toComponentList =
+		new Plate(id, description, project, tags, locationID, initialContent, layout) with ComponentList[Plate] {
+			/**
+			 * Make a copy of this component with a new ID
+			 * @param newId new ID to set in component copy
+			 * @return component that's a copy of this one except with a new ID
+			 */
+			def idCopy(newId: String) = this.copy(id = newId)
+		}
 }
 
 object Plate extends ComponentObject[Plate](ComponentType.Plate) {

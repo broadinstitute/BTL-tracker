@@ -64,9 +64,7 @@ object TubeController extends ComponentController[Tube] {
 	 * Request to add a stack of tubes
 	 * @return response with completion status of tube insertions
 	 */
-	def addTubeStack = Action.async { request =>
-		addStack(request)
-	}
+	def addTubeStack = Action.async { request => addStack(request) }
 
 	/**
 	 * Request to find a tube, identified by an ID.  We find the tube (or return an error if it can’t be found) and
@@ -74,18 +72,18 @@ object TubeController extends ComponentController[Tube] {
 	 * @param id tube ID
 	 * @return responds to request with html form to view/update tube
 	 */
-	def findTubeByID(id: String) = Action.async { request => find(id,request)}
+	def findTubeByID(id: String) = Action.async { request => find(id,request) }
 
 	/**
 	 * Go create a tube.  If all goes well the tube is created in the DB and the user is redirected home.
 	 * @param id tube ID
 	 * @return responds to request with message and form with errors or home page
 	 */
-	def createTubeFromForm(id: String) = Action.async { request => create(id, request)}
+	def createTubeFromForm(id: String) = Action.async { request => create(id, request) }
 
 	/**
 	 * Go update a tube.  If all goes well the tube is updated in the DB and the user is redirected home.
 	 * @return responds to request with message and form with errors or home page
 	 */
-	def updateTubeFromForm(id: String) = Action.async { request => update(id, request)}
+	def updateTubeFromForm(id: String) = Action.async { request => update(id, request) }
 }

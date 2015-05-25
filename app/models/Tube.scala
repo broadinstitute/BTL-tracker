@@ -26,18 +26,24 @@ import initialContents.InitialContents.ContentType
 case class Tube(override val id: String,override val description: Option[String],override val project: Option[String],
                 override val tags: List[ComponentTag],
                 override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType])
-	extends Component with Location with Container with Transferrable with ComponentList[Tube] {
+	extends Component with Location with Container with Transferrable with ComponentCanBeList[Tube] {
 	override val component = Tube.componentType
 	override val validLocations = Tube.validLocations
 	override val validTransfers = Tube.validTransfers
 	override val validContents = Tube.validContents
 
 	/**
-	 * Give a tube that has multiple IDs make a list of tubes where each tube has one of the IDs in the input tube.
-	 * @return tubes, each with one of the IDs in the input tube
+	 * Make a new component that includes the ability to make a list of individual components from the ID list.
 	 */
-	def makeList =
-		Utils.getIDs(id).toList.map((nextId) => this.copy(id = nextId))
+	def toComponentList =
+		new Tube(id, description, project, tags, locationID, initialContent) with ComponentList[Tube] {
+			/**
+			 * Make a copy of this component with a new ID
+			 * @param newId new ID to set in component copy
+			 * @return component that's a copy of this one except with a new ID
+			 */
+			def idCopy(newId: String) = this.copy(id = newId)
+		}
 }
 
 /**

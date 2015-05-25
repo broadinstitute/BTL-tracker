@@ -46,14 +46,14 @@ object FreezerController extends ComponentController[Freezer] {
 	 * @param id freezer ID
 	 * @return responds to request with html form to view/update freezer
 	 */
-	def findFreezerByID(id: String) = Action.async { request => find(id,request)}
+	def findFreezerByID(id: String) = Action.async { request => find(id,request) }
 
 	/**
 	 * Go create a freezer.  If all goes well the freezer is created in the DB and the user is redirected home.to
 	 * @param id freezer ID
 	 * @return responds to request with message and form with errors or home page
 	 */
-	def createFreezerFromForm(id: String) = Action.async { request => create(id, request)}
+	def createFreezerFromForm(id: String) = Action.async { request => create(id, request) }
 
 	/**
 	 * Get a form filled in with specified ID
@@ -79,13 +79,11 @@ object FreezerController extends ComponentController[Freezer] {
 	 * Request to add a stack of freezers
 	 * @return response with completion status of freezer insertions
 	 */
-	def addFreezerStack = Action.async { request =>
-		addStack(request)
-	}
+	def addFreezerStack = Action.async { request => addStack(request) }
 
 	/**
 	 * Go update a freezer.  If all goes well the freezer is updated in the DB and the user is redirected home.
 	 * @return responds to request with message and form with errors or home page
 	 */
-	def updateFreezerFromForm(id: String) = Action.async { request => update(id, request)}
+	def updateFreezerFromForm(id: String) = Action.async { request => update(id, request) }
 }

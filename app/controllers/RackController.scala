@@ -55,7 +55,7 @@ object RackController extends ComponentController[Rack] {
 	 * @param id rack ID
 	 * @return responds to request with message and form with errors or home page
 	 */
-	def createRackFromForm(id: String) = Action.async { implicit request => create(id, request)}
+	def createRackFromForm(id: String) = Action.async { implicit request => create(id, request) }
 
 	/**
 	 * Get a form filled in with specified ID
@@ -82,9 +82,7 @@ object RackController extends ComponentController[Rack] {
 	 * Request to add a stack of racks
 	 * @return response with completion status of rack insertions
 	 */
-	def addRackStack = Action.async { request =>
-		addStack(request)
-	}
+	def addRackStack = Action.async { request => addStack(request) }
 
 	/**
 	 * Do BSP report for a Rack.  We show how the scan done of the rack being used compares with what BSP reported

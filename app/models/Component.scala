@@ -187,17 +187,36 @@ trait Component {
 }
 
 /**
+ * Marks that a component can be made into a component list
+ * @tparam C
+ */
+trait ComponentCanBeList[C <: Component] {
+	/**
+	 * Make a new component that includes the ability to make a list of individual components from the ID list.
+	 */
+	def toComponentList : C with ComponentList[C]
+}
+
+/**
  * Trait to indicate that component can have a list of ids, separated by white space or commas, in it's id attribute.
  * ComponentList is used for implementing registration of stacked components.
  * @tparam C component type
  */
 trait ComponentList[C <: Component] {
+	// Must be associated with a component
+	this: Component =>
+	/**
+	 * Make a copy of this component with a new ID
+	 * @param newId new ID to set in component copy
+	 * @return component that's a copy of this one except with a new ID
+	 */
+	def idCopy(newId: String) : C
 	/**
 	 * Give a component that has multiple IDs make a list of components where each component has one of the IDs in the
 	 * original component.
 	 * @return components, each with one of the IDs in the input component
 	 */
-	def makeList: List[C]
+	def makeList: List[C] = Utils.getIDs(id).toList.map((nextId) => idCopy(nextId))
 }
 
 object Component {

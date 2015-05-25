@@ -65,9 +65,7 @@ object PlateController extends ComponentController[Plate] {
 	 * Request to add a stack of plates
 	 * @return response with completion status of plate insertions
 	 */
-	def addPlateStack = Action.async { request =>
-		addStack(request)
-	}
+	def addPlateStack = Action.async { request => addStack(request) }
 
 	/**
 	 * Request to find a plate, identified by an ID.  We find the plate (or return an error if it can’t be found) and
@@ -75,18 +73,18 @@ object PlateController extends ComponentController[Plate] {
 	 * @param id plate ID
 	 * @return responds to request with html form to view/update plate
 	 */
-	def findPlateByID(id: String) = Action.async { request => find(id, request)}
+	def findPlateByID(id: String) = Action.async { request => find(id, request) }
 
 	/**
 	 * Go create a plate.  If all goes well the plate is created in the DB and the user is redirected home.
 	 * @param id plate ID
 	 * @return responds to request with message and form with errors or home page
 	 */
-	def createPlateFromForm(id: String) = Action.async { request => create(id, request)}
+	def createPlateFromForm(id: String) = Action.async { request => create(id, request) }
 
 	/**
 	 * Go update a plate.  If all goes well the plate is updated in the DB and the user is redirected home.
 	 * @return responds to request with message and form with errors or home page
 	 */
-	def updatePlateFromForm(id: String) = Action.async { request => update(id, request)}
+	def updatePlateFromForm(id: String) = Action.async { request => update(id, request) }
 }

@@ -34,7 +34,7 @@ case class Rack(override val id: String,override val description: Option[String]
                 override val locationID: Option[String], override val initialContent: Option[ContentType.ContentType],
                 override val layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
-	with ComponentList[Rack] {
+	with ComponentCanBeList[Rack] {
 	override val component = Rack.componentType
 	override val validLocations = Rack.validLocations
 	override val validTransfers = Rack.validTransfers
@@ -48,11 +48,17 @@ case class Rack(override val id: String,override val description: Option[String]
 	override protected def isValid(request: Request[AnyContent]) = isProjectValid(getHiddenField(request,_.project))
 
 	/**
-	 * Give a rack that has multiple IDs make a list of racks where each rack has one of the IDs in the input rack.
-	 * @return racks, each with one of the IDs in the input rack
+	 * Make a new component that includes the ability to make a list of individual components from the ID list.
 	 */
-	def makeList =
-		Utils.getIDs(id).toList.map((nextId) => this.copy(id = nextId))
+	def toComponentList =
+		new Rack(id, description, project, tags, locationID, initialContent, layout) with ComponentList[Rack] {
+			/**
+			 * Make a copy of this component with a new ID
+			 * @param newId new ID to set in component copy
+			 * @return component that's a copy of this one except with a new ID
+			 */
+			def idCopy(newId: String) = this.copy(id = newId)
+		}
 }
 
 object Rack extends ComponentObject[Rack](ComponentType.Rack) {
