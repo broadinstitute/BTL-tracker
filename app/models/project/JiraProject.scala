@@ -1,13 +1,15 @@
 package models.project
 
-import models.Component
+import models.{ComponentList, Component}
 import models.Component._
 import org.broadinstitute.LIMStales.sampleRacks._
 import JiraDBs._
 
 import scala.concurrent.Future
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
+ * Module to look at associations between a component and a jira project (set as component's project).
  * @author Nathaniel Novod
  *         Date: 2/12/15
  *         Time: 4:27 PM
@@ -16,42 +18,73 @@ import scala.concurrent.Future
 trait JiraProject {
 	// Must be associated with a component
 	this: Component =>
+
 	/**
-	 * Check if what's set in request is valid - specifically we check if the project set contains the rack or plate.
+	 * Check if what's set in request is valid.  Specifically we check if the project set contains the rack(s) or
+	 * plate(s).
 	 * @param hiddenProject Hidden field (normally from HTTP request) with project set before update
-	 * @return Future of map of fields to errors - empty if no errors found
+	 * @return Future of map of form fields to errors - empty if no errors found
 	 */
 	protected def isProjectValid(hiddenProject: Option[String]) : Future[Map[Option[String], String]] = {
 		// If no project set or project hasn't changed then just return saying all is fine
 		if (project.isEmpty || hiddenProject == project)
 			Future.successful(Map.empty)
 		else {
-			import play.api.libs.concurrent.Execution.Implicits.defaultContext
-			Future {
-				val componentID = component.toString + " " + id
-				// Go get contents for issue
-				val (entries, err) = component match {
-					case ComponentType.Rack => JiraProject.getBspIssueCollection(id)
-					case ComponentType.Plate => JiraProject.getPlateIssueCollection(id)
-					case _ => (List.empty[SSFIssueList[_]], None)
-				}
-				if (entries.isEmpty) {
-					// Nothing returned - set global error (from DB or simply not found)
-					if (err.isDefined) {
-						Map(None -> ("Error looking for " + component.toString + " in projects database: " + err.get))
-					} else {
-						Map(Some(formKey + "." + projectKey) -> ("No projects found for " + componentID))
+			val proj = project.get
+			this match {
+				case cl: ComponentList[_] =>
+					val components = cl.makeList
+					val projChecks = for (c <- components) yield checkProject(c.id, proj)
+					Future.fold(projChecks)(Map.empty[Option[String], String]){
+						case (soFar, Some((key, value))) =>
+							soFar.get(key) match {
+								case Some(valSet) => soFar + (key -> (valSet + ";\n" + value))
+								case _ => soFar + (key -> value)
+							}
+						case (soFar, None) => soFar
 					}
-				} else {
-					// Entry returned - if it's for our project then we're happy - otherwise return error
-					if (entries.exists(_.issue == project.get))
-						Map.empty
-					else
-						Map(Some(formKey + "." + projectKey) ->
-							(componentID + " is not included in specified project.  " +
-								component.toString + " found in project" +
-								(if (entries.size != 1) "s " else " ") + entries.map(_.issue).mkString(",") + "."))
+				case c => checkProject(c.id, proj).map {
+					case Some((key, value)) => Map(key -> value)
+					case _ => Map.empty
 				}
+			}
+		}
+	}
+
+	/**
+	 * Check if project is associated with component.  If there is no association found then an error is returned.
+	 * @param id id of component
+	 * @param project id of project
+	 * @return map of errors (form field -> error); empty map if project is associated with component
+	 */
+	private def checkProject(id: String, project: String) : Future[Option[(Option[String], String)]] = {
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		Future {
+			// Component description (type id)
+			val componentID = component.toString + " " + id
+			// Key to project in form
+			val projectFormKey = formKey + "." + projectKey
+			// Go get contents for issue
+			val (entries, err) = component match {
+				case ComponentType.Rack => JiraProject.getBspIssueCollection(id)
+				case ComponentType.Plate => JiraProject.getPlateIssueCollection(id)
+				case _ => (List.empty[SSFIssueList[_]], None)
+			}
+			if (entries.isEmpty) {
+				// Nothing returned - set global error (if DB error) or project specific error if no projects found
+				if (err.isDefined) {
+					Some(None -> ("Error looking for " + component.toString + " in projects database: " + err.get))
+				} else {
+					Some(Some(projectFormKey) -> ("No projects found for " + componentID))
+				}
+			} else {
+				// Entry returned - if it's for our project then we're happy - otherwise return error
+				if (entries.exists(_.issue == project))
+					None
+				else
+					Some(Some(projectFormKey) -> (componentID + " is not included in specified project.  " +
+						component.toString + " found in project" +
+						(if (entries.size != 1) "s " else " ") + entries.map(_.issue).mkString(",") + "."))
 			}
 		}
 	}

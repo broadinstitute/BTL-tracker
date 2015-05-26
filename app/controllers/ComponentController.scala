@@ -57,6 +57,15 @@ trait ComponentController[C <: Component] extends Controller {
 	def htmlForCreateStack: (Form[C]) => Html
 
 	/**
+	 * Create html to be sent back to get parameters to make a stack.  First create the form filled in with IDs and
+	 * then output the html based on the created form.
+	 * @param id ids for stack
+	 * @param completionStr completion status to set as global message in form
+	 * @return html to create stack of plates
+	 */
+	def makeStackHtml(id: String, completionStr: String) : Html
+
+	/**
 	 * Component type, supplied by component inheriting trait (maybe someday make a macro to get this based on C type?)
 	 */
 	val componentType: ComponentType.ComponentType
@@ -136,6 +145,7 @@ trait ComponentController[C <: Component] extends Controller {
 	 */
 	def create(id: String, request: Request[AnyContent], isStack: Boolean = false) = {
 		doRequestFromForm(form,
+			// If a stack then convert to component that can make list
 			afterBind = (c: C) => c match {
 				case cl: ComponentCanBeList[C] if isStack => cl.toComponentList
 				case _ => c

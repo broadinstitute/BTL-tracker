@@ -7,8 +7,8 @@
 @import models.Component
 @import helper._
 
-@createStackForm("Register Freezers", freezerForm, routes.FreezerController.addFreezerStack,
-	Component.ComponentType.Freezer, None, false) {
+@createStackForm("Register Freezers", freezerForm, routes.FreezerController.addFreezerStack(),
+	Component.ComponentType.Freezer, None, divisions = false) {
 	@inputText(freezerForm(Freezer.addressKey), '_label -> "Address")
 	@inputText(freezerForm(Freezer.temperatureKey), '_label -> "Temperature (Celsius)")
 }

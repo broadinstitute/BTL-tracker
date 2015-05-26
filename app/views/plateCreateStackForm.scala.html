@@ -6,7 +6,7 @@
 @import models.Plate
 @import models.Component
 
-@createStackForm("Register Plates", plateForm, routes.PlateController.addPlateStack, Component.ComponentType.Plate,
-	Some(Plate.validContents), true) {
+@createStackForm("Register Plates", plateForm, routes.PlateController.addPlateStack(), Component.ComponentType.Plate,
+	Some(Plate.validContents), divisions = true) {
 	@play.twirl.api.HtmlFormat.empty
 }

@@ -82,7 +82,7 @@ object RackController extends ComponentController[Rack] {
 	 * Request to add a stack of racks
 	 * @return response with completion status of rack insertions
 	 */
-	def addRackStack = Action.async { request => addStack(request) }
+	def addRackStack() = Action.async { request => addStack(request) }
 
 	/**
 	 * Do BSP report for a Rack.  We show how the scan done of the rack being used compares with what BSP reported

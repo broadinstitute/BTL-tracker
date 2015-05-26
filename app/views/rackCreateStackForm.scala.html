@@ -6,7 +6,7 @@
 @import models.Rack
 @import models.Component
 
-@createStackForm("Register Racks", rackForm, routes.RackController.addRackStack, Component.ComponentType.Rack,
-	Some(Rack.validContents), true) {
+@createStackForm("Register Racks", rackForm, routes.RackController.addRackStack(), Component.ComponentType.Rack,
+	Some(Rack.validContents), divisions = true) {
 	@play.twirl.api.HtmlFormat.empty
 }

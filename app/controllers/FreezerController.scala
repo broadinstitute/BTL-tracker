@@ -79,7 +79,7 @@ object FreezerController extends ComponentController[Freezer] {
 	 * Request to add a stack of freezers
 	 * @return response with completion status of freezer insertions
 	 */
-	def addFreezerStack = Action.async { request => addStack(request) }
+	def addFreezerStack() = Action.async { request => addStack(request) }
 
 	/**
 	 * Go update a freezer.  If all goes well the freezer is updated in the DB and the user is redirected home.

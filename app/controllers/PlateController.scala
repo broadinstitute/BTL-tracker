@@ -65,7 +65,7 @@ object PlateController extends ComponentController[Plate] {
 	 * Request to add a stack of plates
 	 * @return response with completion status of plate insertions
 	 */
-	def addPlateStack = Action.async { request => addStack(request) }
+	def addPlateStack() = Action.async { request => addStack(request) }
 
 	/**
 	 * Request to find a plate, identified by an ID.  We find the plate (or return an error if it can’t be found) and

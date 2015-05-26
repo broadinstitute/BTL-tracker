@@ -40,7 +40,7 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
             }
         })
         .fail(function(err) {
-            $('<option value="' + err + '">' + err + '</option>').appendTo('#' + tagsTag)
+            $('<option value="">' + err.responseText + '</option>').appendTo('#' + tagsTag)
         });
 }
 

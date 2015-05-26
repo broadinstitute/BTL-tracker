@@ -188,7 +188,7 @@ trait Component {
 
 /**
  * Marks that a component can be made into a component list
- * @tparam C
+ * @tparam C component type
  */
 trait ComponentCanBeList[C <: Component] {
 	/**

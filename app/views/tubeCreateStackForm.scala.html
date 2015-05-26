@@ -6,7 +6,7 @@
 @import models.Tube
 @import models.Component
 
-@createStackForm("Register Tubes", tubeForm, routes.TubeController.addTubeStack, Component.ComponentType.Tube,
-	Some(Tube.validContents), false) {
+@createStackForm("Register Tubes", tubeForm, routes.TubeController.addTubeStack(), Component.ComponentType.Tube,
+	Some(Tube.validContents), divisions = false) {
 	@play.twirl.api.HtmlFormat.empty
 }

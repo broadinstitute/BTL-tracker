@@ -64,7 +64,7 @@ object TubeController extends ComponentController[Tube] {
 	 * Request to add a stack of tubes
 	 * @return response with completion status of tube insertions
 	 */
-	def addTubeStack = Action.async { request => addStack(request) }
+	def addTubeStack() = Action.async { request => addStack(request) }
 
 	/**
 	 * Request to find a tube, identified by an ID.  We find the tube (or return an error if it can’t be found) and
