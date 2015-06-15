@@ -1,4 +1,4 @@
-@(title: String, cForm: Form[_ <: Component], formRoute: Call,
+@(title: String, cForm: Form[_ <: Component], formRoute: Call, id: String,
 	componentType: Component.ComponentType.ComponentType,
 	validContents: Option[List[models.initialContents.InitialContents.ContentType.ContentType]],
 	divisions: Boolean)(extraFields: Html)
@@ -7,11 +7,9 @@
 
 @mainComponent(title) {
 	@componentIntro(title, cForm)
-	@* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
+	@* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
 	@form(formRoute, 'style -> "display:inline;") {
-		@textarea(cForm(Component.formKey + "." + Component.idKey),
-			'_label -> "IDs", 'readonly -> "readonly", '_showConstraints -> "false")
-		@componentCommon(cForm, componentType, None, validContents, divisions)
+		@component(cForm, Some(id), componentType, None, validContents, divisions)
 		@extraFields
 		@createButtons()
 	}

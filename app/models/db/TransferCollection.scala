@@ -140,7 +140,7 @@ object TransferCollection extends Controller with MongoController {
 	def insert(data: Transfer) = {
 		transferCollection.insert(data).map {
 			(lastError) => {
-				Logger.debug(s"Successfully inserted ${data.quadDesc} with status: $lastError")
+				Logger.debug(s"Successfully recorded ${data.quadDesc} with status: $lastError")
 				lastError
 			}
 		}

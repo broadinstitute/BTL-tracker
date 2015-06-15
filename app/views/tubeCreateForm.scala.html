@@ -4,17 +4,10 @@
 * @param id component id                                       *
 ***************************************************************@
 @(tubeForm: Form[Tube], id: String)
-@import helper._
+@import models.Tube
 
 @* Call main template to create html with form to create a tube *@
-@mainComponent("Register Tube"){
-	@componentIntro("Register Tube", tubeForm)
-	@* Form with tube values - parameter to form method is "reverse-route" of action used to handle form submission *@
-	@form(routes.TubeController.createTubeFromForm(id), 'style -> "display:inline;") {
-		@component(tubeForm, Some(id), Component.ComponentType.Tube)
-        @* @inputText(tubeForm(Location.locationKey), '_label -> "Location") *@
-		@initialContents(Tube.validContents, tubeForm)
-		@createButtons()
-	}
-	@homeOption(Seq.empty)
+@createForm("Register Tube", tubeForm, routes.TubeController.createTubeFromForm(id), id,
+	Component.ComponentType.Tube, Some(Tube.validContents), false){
+	@play.twirl.api.HtmlFormat.empty
 }

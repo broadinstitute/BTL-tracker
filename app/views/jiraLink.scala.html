@@ -6,4 +6,5 @@
 @import models.Component
 @if(componentForm(Component.formKey + "." + Component.projectKey).value.isDefined){
 	<a href ="http://ipa.broadinstitute.org:8090/browse/@componentForm(Component.formKey + "." + Component.projectKey).value.get" target="_blank">Jira Issue</a>
+	<br>
 }

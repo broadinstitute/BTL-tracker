@@ -7,18 +7,10 @@
 @import models.Rack
 @import models.Component
 
-@* Call main template to create html with form to update a rack *@
-@mainComponent("Rack"){
-    @componentIntro("Rack", rackInput)
-	@* Form with rack values - parameter to form method is "reverse-route" of action used to handle form submission *@
-    @form(routes.RackController.updateRackFromForm(id), 'enctype -> "multipart/form-data", 'style -> "display:inline;") {
-        @component(rackInput, Some(id), Component.ComponentType.Rack, hiddenFields)
-	    @initialContents(Rack.validContents, rackInput)
-        @select(field = rackInput(ContainerDivisions.divisionKey),
-            options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
-	    @inputFile(rackInput(Rack.rackScanKey), '_label -> "Scan File")
-        @updateButtons()
-    }
-	@homeUpdateOption(rackInput, Seq((routes.RackController.doBSPReport(
-		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report")))
+@updateForm("Rack", rackInput, routes.RackController.updateRackFromForm(id), id,
+	Component.ComponentType.Rack, hiddenFields, Some(Rack.validContents), true,
+	Seq((routes.RackController.doBSPReport(
+		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report")),
+	List('enctype -> "multipart/form-data")){
+	@inputFile(rackInput(Rack.rackScanKey), '_label -> "Scan File")
 }

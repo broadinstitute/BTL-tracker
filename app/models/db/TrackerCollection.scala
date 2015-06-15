@@ -107,7 +107,7 @@ object TrackerCollection extends Controller with MongoController {
 	 * @return future with return type
 	 */
 	def insertComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) =
-		doComponentDBOperation(trackerCollection.insert(_: C), "inserted", data, onSuccess, onFailure)
+		doComponentDBOperation(trackerCollection.insert(_: C), "registered", data, onSuccess, onFailure)
 
 	/**
 	 * Insert components, via reactive mongo, into the tracker DB
@@ -119,7 +119,7 @@ object TrackerCollection extends Controller with MongoController {
 		val okPrefix = "OK:"
 		val notOkPrefix = "NOK:"
 		val inserts = for (d <- data) yield {
-			doComponentDBOperation(trackerCollection.insert(_: C), "inserted", d,
+			doComponentDBOperation(trackerCollection.insert(_: C), "registered", d,
 				(s: String) => s"$okPrefix$s", (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}")
 		}
 		Future.fold(inserts)((List.empty[String], List.empty[String])){
@@ -161,7 +161,7 @@ object TrackerCollection extends Controller with MongoController {
 		oper(data).map {
 			// All went well - log that and call back with success
 			lastError =>
-				val success = s"Successfully $operLabel item ${data.id}"
+				val success = s"Successfully $operLabel component ${data.id}"
 				Logger.debug(s"$success with status: $lastError")
 				onSuccess(success)
 		}.recover {

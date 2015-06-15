@@ -1,0 +1,18 @@
+@(title: String, cForm: Form[_ <: Component], formRoute: Call, id: String,
+	componentType: Component.ComponentType.ComponentType,
+	hiddenFields: Option[Component.HiddenFields],
+	validContents: Option[List[models.initialContents.InitialContents.ContentType.ContentType]],
+	divisions: Boolean, others: Seq[(Call, String)], formAttr: List[(Symbol, String)])(extraFields: Html)
+@import helper._
+@import models.Component
+
+@mainComponent(title) {
+	@componentIntro(title, cForm)
+	@* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
+	@form(formRoute, List('style -> "display:inline;") ++ formAttr: _*) {
+		@component(cForm, Some(id), componentType, hiddenFields, validContents, divisions)
+		@extraFields
+		@updateButtons()
+	}
+	@homeUpdateOption(cForm, others)
+}

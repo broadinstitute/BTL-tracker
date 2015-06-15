@@ -4,16 +4,11 @@
 ***************************************************************************@
 @(freezerInput: Form[Freezer], id: String, hiddenFields: Option[Component.HiddenFields])
 @import helper._
+@import models.Freezer
 
 @* Call main template to create html with form to update a freezer *@
-@mainComponent("Freezer"){
-    @componentIntro("Freezer", freezerInput)
-    @* Form with values - parameter to form method is "reverse-route" of action used to handle form submission *@
-    @form(routes.FreezerController.updateFreezerFromForm(id), 'style -> "display:inline;") {
-        @component(freezerInput, Some(id), Component.ComponentType.Freezer, hiddenFields)
-	    @inputText(freezerInput(Freezer.addressKey), '_label -> "Address")
-	    @inputText(freezerInput(Freezer.temperatureKey), '_label -> "Temperature (Celsius)")
-	    @updateButtons()
-    }
-	@homeUpdateOption(freezerInput, Seq.empty)
+@updateForm("Freezer", freezerInput, routes.FreezerController.updateFreezerFromForm(id), id,
+	Component.ComponentType.Freezer, hiddenFields, None, false, Seq.empty, List.empty){
+	@inputText(freezerInput(Freezer.addressKey), '_label -> "Address")
+	@inputText(freezerInput(Freezer.temperatureKey), '_label -> "Temperature (Celsius)")
 }

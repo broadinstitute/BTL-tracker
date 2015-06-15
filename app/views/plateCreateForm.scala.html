@@ -4,20 +4,10 @@
 * @param id component id                                  *
 **********************************************************@
 @(plateForm: Form[Plate], id: String)
-@import helper._
 @import models.Plate
 
 @* Call main template to create html with form to create a plate *@
-@mainComponent("Register Plate"){
-	@componentIntro("Register Plate", plateForm)
-	@* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
-	@form(routes.PlateController.createPlateFromForm(id), 'style -> "display:inline;") {
-		@component(plateForm, Some(id), Component.ComponentType.Plate)
-		@*      @inputText(plateForm(Location.locationKey), '_label -> "Location") *@
-		@initialContents(Plate.validContents, plateForm)
-		@select(field = plateForm(ContainerDivisions.divisionKey),
-			options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
-		@createButtons()
-	}
-	@homeOption(Seq.empty)
+@createForm("Register Plate", plateForm, routes.PlateController.createPlateFromForm(id), id,
+	Component.ComponentType.Plate, Some(Plate.validContents), true){
+	@play.twirl.api.HtmlFormat.empty
 }

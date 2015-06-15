@@ -3,18 +3,11 @@
 * @param tubeForm form used to gather values for tube - must already have id set *
 *********************************************************************************@
 @(tubeInput: Form[Tube], id: String, hiddenFields: Option[Component.HiddenFields])
-@import helper._
+@import models.Tube
 
-@* Call main template to create html with form to update a tube *@
-@mainComponent("Tube"){
-	@componentIntro("Tube", tubeInput)
-    @* Form with tube values - parameter to form method is "reverse-route" of action used to handle form submission *@
-    @form(routes.TubeController.updateTubeFromForm(id), 'style -> "display:inline;") {
-        @component(tubeInput, Some(id), Component.ComponentType.Tube, hiddenFields)
-        @inputText(tubeInput(Location.locationKey), '_label -> "Location")
-	    @initialContents(Tube.validContents, tubeInput)
-	    @updateButtons()
-    }
-	@homeUpdateOption(tubeInput, Seq((routes.EZPassController.ezpass(
-		tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "Create EZPASS")))
+@updateForm("Tube", tubeInput, routes.TubeController.updateTubeFromForm(id), id,
+	Component.ComponentType.Tube, hiddenFields, Some(Tube.validContents), false,
+	Seq((routes.EZPassController.ezpass(
+		tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "Create EZPASS")), List.empty){
+	@play.twirl.api.HtmlFormat.empty
 }

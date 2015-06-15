@@ -4,20 +4,10 @@
 * @param id component id                                  *
 **********************************************************@
 @(rackForm: Form[Rack], id: String)
-@import helper._
 @import models.Rack
 
 @* Call main template to create html with form to create a rack *@
-@mainComponent("Register Rack"){
-    @componentIntro("Register Rack", rackForm)
-    @* Form with rack values - parameter to form method is "reverse-route" of action used to handle form submission *@
-    @form(routes.RackController.createRackFromForm(id), 'style -> "display:inline;") {
-        @component(rackForm, Some(id), Component.ComponentType.Rack)
-@*        @inputText(rackForm(Location.locationKey), '_label -> "Location") *@
-	    @initialContents(Rack.validContents, rackForm)
-        @select(field = rackForm(ContainerDivisions.divisionKey),
-            options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
-        @createButtons()
-    }
-	@homeOption(Seq.empty)
+@createForm("Register Rack", rackForm, routes.RackController.createRackFromForm(id), id,
+	Component.ComponentType.Rack, Some(Rack.validContents), true){
+	@play.twirl.api.HtmlFormat.empty
 }
