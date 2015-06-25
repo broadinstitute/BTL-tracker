@@ -15,7 +15,7 @@ function tableSelect(tableName) {
     var selectionPivot;
     // 1 for left button, 2 for middle, and 3 for right.
     var LEFT_MOUSE_BUTTON = 1;
-    var idTds = $(trs);
+    var idTds = $(tds);
     idTds.each(function (idx, val) {
         // onselectstart because IE doesn't respect the css `user-select: none;`
         val.onselectstart = function () {
