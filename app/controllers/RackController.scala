@@ -94,7 +94,7 @@ object RackController extends ComponentController[Rack] {
 		Application.findRequestUsingID(id,request,List(ComponentType.Rack))((cType,json,request) => {
 			Rack.getBSPmatch(id,
 				(matches, foundRack) => {
-					// Get layout type and corresponding data to now dimensions of rack
+					// Get layout type and corresponding data to know dimensions of rack
 					val layout = (json \ ContainerDivisions.divisionKey).as[String]
 					val layoutType = ContainerDivisions.Division.withName(layout)
 					val layoutData = ContainerDivisions.divisionDimensions(layoutType)
