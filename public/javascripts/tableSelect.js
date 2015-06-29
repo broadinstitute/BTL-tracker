@@ -7,14 +7,29 @@
  * present, selects from the last single cell (un)selected to the newly selected cell if a shift/click.
  * If cntrl is added as a modifier then cells already selected are left selected, otherwise previous selections are
  * unselected before the new selection is done.
- * http://jsfiddle.net/0LLd8keu/2/ has an example of this code in action
+ * http://jsfiddle.net/0LLd8keu/8/ has an example of this code in action
  * @param tableName name of table to select cells from
  */
 function tableSelect(tableName) {
+    // Get array of html tds and total # of tds
     var tds = document.getElementById(tableName).getElementsByTagName('td');
-    var selectionPivot;
+    var numEles = tds.length;
+    // Get array of html trs and total # of trs excluding rows that don't contain tds (i.e., header rows with just ths)
+    var trs = document.getElementById(tableName).getElementsByTagName('tr');
+    var numRows = 0;
+    for (var i = 0; i < trs.length; i++) {
+        var trTds = trs[i].getElementsByTagName('td');
+        if (trTds.length > 0) {
+            numRows++;
+        }
+    }
+    // Get # of td elements per row
+    var elesPerRow = numEles/numRows;
+    // Last cell selected
+    var selectionPivot = 0;
     // 1 for left button, 2 for middle, and 3 for right.
     var LEFT_MOUSE_BUTTON = 1;
+    // Get jQuery array to loop through it
     var idTds = $(tds);
     idTds.each(function (idx, val) {
         // onselectstart because IE doesn't respect the css `user-select: none;`
@@ -26,6 +41,7 @@ function tableSelect(tableName) {
         $(idTds[idx]).on("contextmenu", function(evt) {evt.preventDefault();});
         // Now declare event handler for click
         $(val).mousedown(function (event) {
+            // If not left mouse button then leave it for someone else
             if (event.which != LEFT_MOUSE_BUTTON) {
                 return;
             }
@@ -61,13 +77,43 @@ function tableSelect(tableName) {
         elem.className = elem.className == 'selected' ? '' : 'selected';
     }
 
-    // Set elements in a range to all be selected
+    // Set elements in a range - note that selection is flipped - we want to go down rows
     function selectElemsBetweenIndexes(ia, ib) {
-        var bot = Math.min(ia, ib);
-        var top = Math.max(ia, ib);
-
-        for (var i = bot; i <= top; i++) {
-            tds[i].className = 'selected';
+        // Get index row and element
+        function re(idx) {return {row: Math.floor(idx/elesPerRow), ele: idx%elesPerRow}}
+        // Get row/element for two elements
+        var iaPos = re(ia);
+        var ibPos = re(ib);
+        // Figure out "bottom" and "top" selection row/element
+        var botEle = Math.min(iaPos.ele, ibPos.ele);
+        var topEle = Math.max(iaPos.ele, ibPos.ele);
+        var botRow, topRow;
+        if (iaPos.ele == ibPos.ele) {
+            botRow = Math.min(iaPos.row, ibPos.row);
+            topRow = Math.max(iaPos.row, ibPos.row);
+        } else if (iaPos.ele < ibPos.ele) {
+            botRow = iaPos.row;
+            topRow = ibPos.row;
+        } else {
+            botRow = ibPos.row;
+            topRow = iaPos.row;
+        }
+        // Now go through all elements and select those in proper row/element
+        for (var i = 0; i < tds.length; i++) {
+            // Get row/element we're looking at
+            iPos = re(i);
+            // If only one element then just make sure one we're looking at is in right row
+            if (botEle == topEle) {
+                if (iPos.ele == botEle && iPos.row >= botRow && iPos.row <= topRow) {
+                    tds[i].className = 'selected';
+                }
+            }
+            // Otherwise it must be an element between ones we're looking at or row positioned correctly in bottom
+            // or top element
+            else if ((iPos.ele > botEle && iPos.ele < topEle) ||
+                (iPos.ele == botEle && iPos.row >= botRow) || (iPos.ele == topEle && iPos.row <= topRow)) {
+                tds[i].className = 'selected';
+            }
         }
     }
 
