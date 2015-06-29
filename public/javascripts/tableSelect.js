@@ -7,7 +7,7 @@
  * present, selects from the last single cell (un)selected to the newly selected cell if a shift/click.
  * If cntrl is added as a modifier then cells already selected are left selected, otherwise previous selections are
  * unselected before the new selection is done.
- * http://jsfiddle.net/0LLd8keu/8/ has an example of this code in action
+ * http://jsfiddle.net/0LLd8keu/9/ has an example of this code in action
  * @param tableName name of table to select cells from
  */
 function tableSelect(tableName) {
@@ -75,6 +75,34 @@ function tableSelect(tableName) {
     // Toggle element between selected and not selected
     function toggleElem(elem) {
         elem.className = elem.className == 'selected' ? '' : 'selected';
+    }
+
+    // Set elements in a range - note that selection is flipped - we want to go down rows
+    function selectElemsBetweenIndexes(ia, ib) {
+        // Get re: index row and element from original index
+        function re(idx) {return {row: Math.floor(idx/elesPerRow), ele: idx%elesPerRow}}
+        // Get index from re made from original index
+        function getIdx(rei) {return rei.row*elesPerRow + rei.ele}
+        // Get new re by flipping row and element
+        function flipCoords(rei) {return {row: rei.ele, ele: rei.row}}
+        // Get re from flipped index
+        function flipRe(idx) {return {row: Math.floor(idx/numRows), ele: idx%numRows}}
+        // Get index from flipped re
+        function flipGetIdx(rei) {return rei.row*numRows + rei.ele}
+        // Flip coordinates and then get flipped indexes
+        var iaFlipRe = flipCoords(re(ia));
+        var ibFlipRe = flipCoords(re(ib));
+        var iaFlipIdx = flipGetIdx(iaFlipRe);
+        var ibFlipIdx = flipGetIdx(ibFlipRe);
+        // Find first and last index being selected
+        var bot = Math.min(iaFlipIdx, ibFlipIdx);
+        var top = Math.max(iaFlipIdx, ibFlipIdx);
+        // Go through and mark selected elements - note we flip back to original coordinates to select element
+        for (var i = bot; i <= top; i++) {
+            var iRe = flipRe(i);
+            var j = getIdx(flipCoords(iRe));
+            tds[j].className = 'selected';
+        }
     }
 
     // Set elements in a range - note that selection is flipped - we want to go down rows
