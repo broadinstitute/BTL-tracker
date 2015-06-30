@@ -85,7 +85,7 @@ object TransferContents {
 	 * as everything transferred into it.  First we make a graph of the transfers that lead into the component and then
 	 * we find the contents by travelling up the graph.
 	 * @param componentID ID for component we want to know the contents of
-	 * @return future to get contents of component
+	 * @return future returning contents of component
 	 */
 	def getContents(componentID: String) = {
 		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage

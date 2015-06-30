@@ -213,6 +213,7 @@ object TransferHistory extends Controller with MongoController {
 					(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad, t.slice, t.time)))
 			}
 		)
+		//@TODO If empty then make graph with just node of findComponent(componentID) - will throw exception if nothing there
 		// When future with list of edges returns make it into a graph
 		edges.map((e) => Graph(e: _*))
 	}

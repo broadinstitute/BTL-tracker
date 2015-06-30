@@ -32,8 +32,22 @@ object Application extends Controller {
 	/**
 	 * Just a test form
 	 */
-	def test(id: String) = Action {
-		Ok(views.html.index(Component.blankForm.withGlobalError(id)))
+	def test(id: String) = Action.async { request =>
+		TransferContents.getContents(id).map((contents) => {
+			val msgs = contents.map((content) => content.errs)
+			val displayErrs = msgs.getOrElse(List.empty[String]).map((err) => (None:Option[String]) -> err)
+			if (displayErrs.isEmpty) {
+				val wells = contents.map((content) => {
+					content.wells.map {
+						case (well, results) =>
+							well -> results.map((res) => res.bsp.map((bsp) => bsp.library.getOrElse("unknown")))
+					}
+				})
+				Ok(wells.toString)
+			} else {
+				Ok(views.html.index(MessageHandler.setMessages(displayErrs.toMap, Component.blankForm)))
+			}
+		})
 	}
 
 	/**
