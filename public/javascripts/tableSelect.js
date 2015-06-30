@@ -104,47 +104,6 @@ function tableSelect(tableName) {
             tds[j].className = 'selected';
         }
     }
-
-    // Set elements in a range - note that selection is flipped - we want to go down rows
-    function selectElemsBetweenIndexes(ia, ib) {
-        // Get index row and element
-        function re(idx) {return {row: Math.floor(idx/elesPerRow), ele: idx%elesPerRow}}
-        // Get row/element for two elements
-        var iaPos = re(ia);
-        var ibPos = re(ib);
-        // Figure out "bottom" and "top" selection row/element
-        var botEle = Math.min(iaPos.ele, ibPos.ele);
-        var topEle = Math.max(iaPos.ele, ibPos.ele);
-        var botRow, topRow;
-        if (iaPos.ele == ibPos.ele) {
-            botRow = Math.min(iaPos.row, ibPos.row);
-            topRow = Math.max(iaPos.row, ibPos.row);
-        } else if (iaPos.ele < ibPos.ele) {
-            botRow = iaPos.row;
-            topRow = ibPos.row;
-        } else {
-            botRow = ibPos.row;
-            topRow = iaPos.row;
-        }
-        // Now go through all elements and select those in proper row/element
-        for (var i = 0; i < tds.length; i++) {
-            // Get row/element we're looking at
-            iPos = re(i);
-            // If only one element then just make sure one we're looking at is in right row
-            if (botEle == topEle) {
-                if (iPos.ele == botEle && iPos.row >= botRow && iPos.row <= topRow) {
-                    tds[i].className = 'selected';
-                }
-            }
-            // Otherwise it must be an element between ones we're looking at or row positioned correctly in bottom
-            // or top element
-            else if ((iPos.ele > botEle && iPos.ele < topEle) ||
-                (iPos.ele == botEle && iPos.row >= botRow) || (iPos.ele == topEle && iPos.row <= topRow)) {
-                tds[i].className = 'selected';
-            }
-        }
-    }
-
     // Set all elements to not be selected
     function clearAll() {
         for (var i = 0; i < tds.length; i++) {
