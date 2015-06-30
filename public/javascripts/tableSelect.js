@@ -77,30 +77,27 @@ function tableSelect(tableName) {
         elem.className = elem.className == 'selected' ? '' : 'selected';
     }
 
-    // Set elements in a range - note that selection is flipped - we want to go down rows
+    // Set elements in a range - selection is flipped since we want to go down rows
     function selectElemsBetweenIndexes(ia, ib) {
         // Get re: index row and element from original index
         function re(idx) {return {row: Math.floor(idx/elesPerRow), ele: idx%elesPerRow}}
         // Get index from re made from original index
         function getIdx(rei) {return rei.row*elesPerRow + rei.ele}
-        // Get new re by flipping row and element
-        function flipCoords(rei) {return {row: rei.ele, ele: rei.row}}
+        // Get new re by swapping row and element
+        function swapCoords(rei) {return {row: rei.ele, ele: rei.row}}
         // Get re from flipped index
         function flipRe(idx) {return {row: Math.floor(idx/numRows), ele: idx%numRows}}
         // Get index from flipped re
         function flipGetIdx(rei) {return rei.row*numRows + rei.ele}
-        // Flip coordinates and then get flipped indexes
-        var iaFlipRe = flipCoords(re(ia));
-        var ibFlipRe = flipCoords(re(ib));
-        var iaFlipIdx = flipGetIdx(iaFlipRe);
-        var ibFlipIdx = flipGetIdx(ibFlipRe);
+        // Flip indexes
+        var iaFlipIdx = flipGetIdx(swapCoords(re(ia)));
+        var ibFlipIdx = flipGetIdx(swapCoords(re(ib)));
         // Find first and last index being selected
         var bot = Math.min(iaFlipIdx, ibFlipIdx);
         var top = Math.max(iaFlipIdx, ibFlipIdx);
         // Go through and mark selected elements - note we flip back to original coordinates to select element
         for (var i = bot; i <= top; i++) {
-            var iRe = flipRe(i);
-            var j = getIdx(flipCoords(iRe));
+            var j = getIdx(swapCoords(flipRe(i)));
             tds[j].className = 'selected';
         }
     }
