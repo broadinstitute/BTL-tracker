@@ -191,7 +191,8 @@ object TransferHistory extends Controller with MongoController {
 		graph.nodes.filter((n) => n.project.isDefined).map(_.value.asInstanceOf[Component].project.get)
 
 	/**
-	 * Make a graph from the transfers (direct or indirect) to or from a component.
+	 * Make a graph from the transfers (direct or indirect) to or from a component.  If there are no transfers to/from
+	 * component then the graph returned has just the component itself and no edges.
 	 * @param componentID id of target component
 	 * @param getIDs callback to get sources or targets of tranfers to/from specified component
 	 * @param getTransferID callback to get id from transfer
@@ -213,9 +214,18 @@ object TransferHistory extends Controller with MongoController {
 					(findComponent(t.from) ~+#> findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad, t.slice, t.time)))
 			}
 		)
-		//@TODO If empty then make graph with just node of findComponent(componentID) - will throw exception if nothing there
 		// When future with list of edges returns make it into a graph
-		edges.map((e) => Graph(e: _*))
+		edges.flatMap((e) => {
+			// If empty then make graph with just node of component (or nothing if ID can't be found)
+			if (e.isEmpty) {
+				TrackerCollection.findID[JsObject](componentID).map{
+					case Some(json) => Graph[Component, LkDiEdge](ComponentFromJson.getComponent(json))
+					case None => Graph[Component, LkDiEdge]()
+				}
+			} else {
+				Future.successful(Graph(e: _*))
+			}
+		})
 	}
 
 	/**
@@ -262,7 +272,7 @@ object TransferHistory extends Controller with MongoController {
 	 */
 	private def makeDot(componentID: String, makeGraph: (String) => Future[Graph[Component, LkDiEdge]]) = {
 		makeGraph(componentID).map((graph) => {
-			// Make root of dot graph
+			// Set root information for dot graph: graph is directed and graph ID is based on component ID
 			val root = DotRootGraph(directed = true, id = Some(Id(componentID)))
 
 			// Get representation for node (Component) in Graph
@@ -315,7 +325,7 @@ object TransferHistory extends Controller with MongoController {
 			def emptyGraph(id: String) = "digraph \"" + id + "\" {\n\"" + id + "\";\n}"
 
 			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
-			if (graph.isEmpty) emptyGraph(componentID)
+			if (graph.edges.isEmpty) emptyGraph(componentID)
 			else graph.toDot(dotRoot = root, edgeTransformer = edgeHandler)
 		})
 	}

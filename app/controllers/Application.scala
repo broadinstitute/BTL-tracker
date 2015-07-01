@@ -34,17 +34,34 @@ object Application extends Controller {
 	 */
 	def test(id: String) = Action.async { request =>
 		TransferContents.getContents(id).map((contents) => {
+			// Get any errors setup to be displayed
 			val msgs = contents.map((content) => content.errs)
 			val displayErrs = msgs.getOrElse(List.empty[String]).map((err) => (None:Option[String]) -> err)
+			// If there are no errors then get well results, otherwise display errors on home page
 			if (displayErrs.isEmpty) {
-				val wells = contents.map((content) => {
-					content.wells.map {
-						case (well, results) =>
-							well -> results.map((res) => res.bsp.map((bsp) => bsp.library.getOrElse("unknown")))
-					}
-				})
+				// Go through optional contents and get well by well results
+				val wells =
+					contents.map((content) => {
+						// Make map of well -> optionalLibraryContent
+						content.wells.map {
+							case (well, results) =>
+								well ->
+									(if (results.isEmpty) None
+									// Merge together all results as one optional string
+									else results.foldLeft(None: Option[String])((sofar, next) => {
+										// Get optional library from this result
+										val lib = next.bsp.flatMap(_.library)
+										// Add it to what found so far
+										sofar match {
+											case Some(res) => if (lib.isDefined) Some(s"$res $lib") else Some(res)
+											case None => lib
+										}
+									}))
+						}
+					})
 				Ok(wells.toString)
 			} else {
+				// Display errors
 				Ok(views.html.index(MessageHandler.setMessages(displayErrs.toMap, Component.blankForm)))
 			}
 		})
