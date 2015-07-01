@@ -1,0 +1,26 @@
+@(title: String)(componentID: String, grid: Map[String, Option[String]], rows: Int, cols: Int)
+
+@import helper._
+
+@main(title) {
+	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tableSelect.css")">
+	<script type='text/javascript' src="@routes.Assets.at("javascripts/tableSelect.js")"></script>
+}{
+	<h2>Pick samples for @componentID</h2>
+	<table id="cherries">
+		<tr>
+			<th> </th>
+			@for(c <- 1 to cols) {<th>@(f"$c%02d")</th>}
+		</tr>
+		@for(r <- 'A'.toInt to ('A'+(rows-1))) {
+			<tr>
+				<th>@r.toChar.toString</th>
+				@for(c <- 1 to cols; cell=r.toChar.toString+(f"$c%02d")) {
+					<td>@grid.getOrElse(cell, None).getOrElse("unknown")</td>
+				}
+			</tr>
+		}
+	</table>
+	<script>tableSelect('cherries')</script>
+	@homeOption(Seq.empty)
+}

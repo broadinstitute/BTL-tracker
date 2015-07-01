@@ -92,9 +92,9 @@ POST        /transferDeleteFromForm/:id                 controllers.TransferDele
 GET         /transferDeleteWithIDs/:fromID/:toID        controllers.TransferDeleteController.deleteTransferByIDs(fromID: String, toID: String)
 
 # Initial EZPASS request
-GET         /EZPASS/:id                                 controllers.EZPassController.ezpass(id: String)
+GET         /EZPASS/:id/:output                         controllers.EZPassController.ezpass(id: String, output: String)
 # Post from form with parameters needed (e.g., dilution) to create EZPASS
-POST        /EZPASS/create/:id                          controllers.EZPassController.createEZPass(id: String)
+POST        /EZPASS/create/:id/:output                  controllers.EZPassController.createEZPass(id: String, output: String)
 
 # Make a display of the graph of transfers into and out of a component
 GET         /display/:id                                controllers.Application.graphDisplay(id: String)

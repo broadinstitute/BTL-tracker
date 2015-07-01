@@ -1,4 +1,4 @@
-@(ezpassForm: Form[EZPass], id: String)
+@(ezpassForm: Form[EZPass], id: String, output: String)
 @import helper._
 @import models.EZPass
 
@@ -6,12 +6,13 @@
 	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
 	@componentIntro("Create EZPASS", ezpassForm)
-	@form(routes.EZPassController.createEZPass(id), 'style -> "display:inline;") {
+	@form(routes.EZPassController.createEZPass(id, output), 'style -> "display:inline;") {
 		@inputText(ezpassForm(EZPass.idKey).copy(value=Some(id)), 'readonly -> "readonly",
 			'_showConstraints -> false, '_label -> "ID")
 		@inputText(ezpassForm(EZPass.libSizeKey), '_label -> "Library Insert Size (including adapters)")
 		@inputText(ezpassForm(EZPass.libVolKey), '_label -> "Library Volume (ul)")
 		@inputText(ezpassForm(EZPass.libConcKey), '_label -> "Library Concentration (ng/ul)")
+		@inputText(ezpassForm(EZPass.fileName).copy(value=Some(output + "_EZPASS")), '_label -> "Output filename")
 		<input type="submit" value="Download EZPASS" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

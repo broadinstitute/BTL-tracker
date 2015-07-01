@@ -40,15 +40,14 @@ object Application extends Controller {
 			// If there are no errors then get well results, otherwise display errors on home page
 			if (displayErrs.isEmpty) {
 				// Go through optional contents and get well by well results
-				val wells =
-					contents.map((content) => {
+				contents match {
+					case Some(content) =>
 						// Make map of well -> optionalLibraryContent
-						content.wells.map {
+						val wells = content.wells.map {
 							case (well, results) =>
 								well ->
-									(if (results.isEmpty) None
-									// Merge together all results as one optional string
-									else results.foldLeft(None: Option[String])((sofar, next) => {
+									// Merge together all library names as one optional string
+									results.foldLeft(None: Option[String])((sofar, next) => {
 										// Get optional library from this result
 										val lib = next.bsp.flatMap(_.library)
 										// Add it to what found so far
@@ -56,15 +55,31 @@ object Application extends Controller {
 											case Some(res) => if (lib.isDefined) Some(s"$res $lib") else Some(res)
 											case None => lib
 										}
-									}))
+									})
 						}
-					})
-				Ok(wells.toString)
+						val divisions = content.component match {
+							case c: ContainerDivisions => Some(ContainerDivisions.divisionDimensions(c.layout))
+							case _ => None
+						}
+						divisions match {
+							case Some(div) =>
+								Ok(views.html.cherryPicker("Cherry Picker")(id, wells, div.rows, div.columns))
+							case None =>
+								Ok(views.html.index(
+									MessageHandler.formGlobalError(Component.blankForm, "Not welled component")))
+						}
+					case None =>
+						Ok(views.html.index(MessageHandler.formGlobalError(Component.blankForm, "No contents found")))
+				}
 			} else {
 				// Display errors
 				Ok(views.html.index(MessageHandler.setMessages(displayErrs.toMap, Component.blankForm)))
 			}
-		})
+		}).recoverWith{
+			case e: Exception =>
+				Future.successful(Ok(views.html.index(
+					MessageHandler.formGlobalError(Component.blankForm, MessageHandler.exceptionMessage(e)))))
+		}
 	}
 
 	/**

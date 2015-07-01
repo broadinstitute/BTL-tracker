@@ -27,8 +27,9 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * @param libSize library insert size including adapters
  * @param libVol library volume (ul)
  * @param libConcentration library concentration (ng/ul)
+ * @param fileName name to give to EZPass
  */
-case class EZPass(component: String, libSize: Int, libVol: Int, libConcentration: Float)
+case class EZPass(component: String, libSize: Int, libVol: Int, libConcentration: Float, fileName: String)
 
 /**
  * EZPass creation logic
@@ -39,13 +40,15 @@ object EZPass {
 	val libSizeKey = "libSize"
 	val libVolKey = "libVol"
 	val libConcKey = "libConc"
+	val fileName = "fileName"
 	// Form with mapping to object and validation
 	val form =
 		Form(mapping(
 			idKey -> nonEmptyText,
 			libSizeKey -> number,
 			libVolKey -> number(min=20),
-			libConcKey -> of[Float]
+			libConcKey -> of[Float],
+			fileName -> nonEmptyText
 		)(EZPass.apply)(EZPass.unapply))
 
 	/**
