@@ -101,9 +101,9 @@ class EZPassSpec extends TestSpec with TestConfig {
 
 			// Test of combining rack of samples and plate of MIDs into a plate
 			doTest(List(
-				Transfer(fakeRack, "ATM", None, None, None, None),
-				Transfer("ATM", "T", None, None, None, None),
-				Transfer("MID", "ATM", None, None, None, None)),
+				Transfer(fakeRack, "ATM", None, None, None, None, None),
+				Transfer("ATM", "T", None, None, None, None, None),
+				Transfer("MID", "ATM", None, None, None, None, None)),
 				rackSize, None
 			)
 
@@ -111,18 +111,18 @@ class EZPassSpec extends TestSpec with TestConfig {
 			// Test of combining slice of rack of samples and plate of MIDs into a plate
 			val sliceWells = slice96to96map(Slice.S1).keySet
 			doTest(List(
-				Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1)),
-				Transfer("ATM", "T", None, None, None, Some(Slice.S1)),
-				Transfer("MID", "ATM", None, None, None, Some(Slice.S1))),
+				Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1), None),
+				Transfer("ATM", "T", None, None, None, Some(Slice.S1), None),
+				Transfer("MID", "ATM", None, None, None, Some(Slice.S1), None)),
 				sliceWells.size, Some(sliceWells)
 			)
 
 			// Test of transfer of rack and MIDs to and from 384 well plate with a slice of final plate sent to the tube
 			val sliceWellsQS = slice96to96map(Slice.S2).keySet
-			doTest(List(Transfer(fakeRack, "P384", None, Some(Transfer.Quad.Q1), None, None),
-				Transfer("MID", "P384", None, Some(Transfer.Quad.Q1), None, None),
-				Transfer("P384", "ATM", Some(Transfer.Quad.Q1), None, None, None),
-				Transfer("ATM", "T", None, None, None, Some(Slice.S2))),
+			doTest(List(Transfer(fakeRack, "P384", None, Some(Transfer.Quad.Q1), None, None, None),
+				Transfer("MID", "P384", None, Some(Transfer.Quad.Q1), None, None, None),
+				Transfer("P384", "ATM", Some(Transfer.Quad.Q1), None, None, None, None),
+				Transfer("ATM", "T", None, None, None, Some(Slice.S2), None)),
 				sliceWellsQS.size, Some(sliceWellsQS))
 		}
 	}

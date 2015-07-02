@@ -8,7 +8,7 @@
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
 	@componentIntro("Transfer Component", transferForm)
-	@form(routes.TransferController.transferFromForm(), 'style -> "display:inline;") {
+	@form(routes.TransferController.transferFromForm(), 'id -> "transferForm", 'style -> "display:inline;") {
 		@inputText(transferForm(Transfer.transferKey + "." + Transfer.fromKey).copy(value=Some(fromID)),
 			'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
 		@inputText(transferForm(Transfer.transferKey + "." + Transfer.toKey).copy(value=Some(toID)),
@@ -40,6 +40,12 @@
 		<input type="hidden" id="@{Transfer.isQuadToQuadKey}" name="@{Transfer.isQuadToQuadKey}" value="@isQuadToQuad" />
 		<input type="hidden" id="@{Transfer.isQuadToTubeKey}" name="@{Transfer.isQuadToTubeKey}" value="@isQuadToTube" />
 		<input type="submit" value="Transfer" style="display:inline;">
+		<script>
+		$("#transferForm").submit( function(eventObj){
+		$(this).append('<input type="hidden" id="@{Transfer.transferKey + "_" + Transfer.cherriesKey}[0]" name="@{Transfer.transferKey + "." + Transfer.cherriesKey}[0]" value="10" />');
+		return true;
+		});
+		</script>
 	}
 	@homeOption(Seq.empty)
 }

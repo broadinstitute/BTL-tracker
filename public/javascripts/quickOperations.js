@@ -5,13 +5,13 @@
 $('#qRegister').keypress(function (e) {
     var key = e.which;
     if(key == 13 && $("#qRegister").val().trim() != "") {
-        window.location.assign("/add/" + $("#qRegister").val());
+        window.location.assign("/add/" + $("#qRegister").val().trim());
         return false;
     }});
 $('#qFind').keypress(function (e) {
     var key = e.which;
     if(key == 13 && $("#qFind").val().trim() != "") {
-        window.location.assign("/find/" + $("#qFind").val());
+        window.location.assign("/find/" + $("#qFind").val().trim());
         return false;
     }});
 function doTran(e, from, to, proj) {

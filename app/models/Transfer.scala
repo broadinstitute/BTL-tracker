@@ -21,10 +21,11 @@ import play.api.libs.json._
  * @param toQuad optional quadrant transfer is going to
  * @param project optional project transfer is associated with
  * @param slice optional slice to transfer
+ * @param cherries wells cherry picked (indicies to wells going across first)
  */
 case class Transfer(from: String, to: String,
 					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String],
-					slice: Option[Transfer.Slice.Slice]) {
+					slice: Option[Transfer.Slice.Slice], cherries: Option[List[Int]]) {
 
 	import models.Transfer.Quad._
 	import models.Transfer.Slice._
@@ -47,7 +48,7 @@ case class Transfer(from: String, to: String,
  */
 case class TransferStart(from: String, to: String, project: Option[String]) {
 	def toTransferForm = TransferForm(toTransfer, dataMandatory = false, isQuadToQuad = false, isQuadToTube = false)
-	def toTransfer = Transfer(from, to, None, None, project, None)
+	def toTransfer = Transfer(from, to, None, None, project, None, None)
 }
 
 /**
@@ -288,6 +289,7 @@ object Transfer {
 	val fromQuadKey = "fromQuad"
 	val toQuadKey = "toQuad"
 	val sliceKey = "slice"
+	val cherriesKey = "cherries"
 
 	// Mapping to create/read Transfer objects
 	val transferMapping = mapping(
@@ -296,7 +298,8 @@ object Transfer {
 		fromQuadKey -> optional(enum(Quad)),
 		toQuadKey -> optional(enum(Quad)),
 		projectKey -> optional(text),
-		sliceKey -> optional(enum(Slice))
+		sliceKey -> optional(enum(Slice)),
+		cherriesKey -> optional(list(number))
 	)(Transfer.apply)(Transfer.unapply)
 
 	// Keys for form
@@ -351,8 +354,9 @@ class TransferWithTime(override val from: String, override val to: String,
 					   override val fromQuad: Option[Transfer.Quad.Quad],
 					   override val toQuad: Option[Transfer.Quad.Quad],
 					   override val project: Option[String], override val slice: Option[Transfer.Slice.Slice],
+					   override val cherries: Option[List[Int]],
 					   val time: Long)
-	extends Transfer(from, to, fromQuad, toQuad, project, slice)
+	extends Transfer(from, to, fromQuad, toQuad, project, slice, cherries)
 
 /**
  * Companion object
@@ -366,5 +370,5 @@ object TransferWithTime {
 	 */
 	def apply(transfer: Transfer, time: Long) : TransferWithTime =
 		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad,
-			transfer.project, transfer.slice, time)
+			transfer.project, transfer.slice, transfer.cherries, time)
 }

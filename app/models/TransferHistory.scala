@@ -325,7 +325,15 @@ object TransferHistory extends Controller with MongoController {
 			def emptyGraph(id: String) = "digraph \"" + id + "\" {\n\"" + id + "\";\n}"
 
 			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
-			if (graph.edges.isEmpty) emptyGraph(componentID)
+			if (graph.edges.isEmpty) {
+				// If no edges then get id for component's graph node, that should only one there, and make a dot
+				// representation with just that node
+				val id = graph.nodes.lastOption match {
+					case Some(last) => getNodeId(last)
+					case None => componentID
+				}
+				emptyGraph(id)
+			}
 			else graph.toDot(dotRoot = root, edgeTransformer = edgeHandler)
 		})
 	}

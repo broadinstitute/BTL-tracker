@@ -108,3 +108,24 @@ function tableSelect(tableName) {
         }
     }
 }
+
+/**
+ * Retrieve indicies of selected table detail element.
+ * @param tableName name of table
+ * @returns {Array} contains integer indicies of selected detail elements (numbers are consecutive within a row)
+ */
+function findSelect(tableName) {
+    // Get array of html tds and total # of tds
+    var tds = document.getElementById(tableName).getElementsByTagName('td');
+    // Get number of elements
+    var numEles = tds.length;
+    // Init array to return selected indicies
+    var selectedEles = [];
+    // Loop through saving indicies in array
+    for (var i = 0; i < numEles; i++) {
+        if (tds[i].className == 'selected') {
+            selectedEles.push(i);
+        }
+    }
+    return selectedEles;
+}
