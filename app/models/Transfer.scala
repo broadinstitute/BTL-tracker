@@ -162,6 +162,7 @@ object Transfer {
 		val S4 = Value("10-12 x A-H")
 		val S5 = Value("1-6 x A-H")
 		val S6 = Value("7-12 x A-H")
+		val CP = Value("Cherry Pick Wells")
 	}
 
 	// String values for dropdown lists etc.
@@ -184,6 +185,7 @@ object Transfer {
 			case S4 => slice24(10)
 			case S5 => slice48(1)
 			case S6 => slice48(7)
+			case CP => (0, 'A', 0, 0)
 		}
 		val xRange = s._2 until (s._2 + s._4).toChar
 		val yRange = s._1 until (s._1 + s._3)
@@ -318,19 +320,20 @@ object Transfer {
 
 	// Form used for transferring - it includes verification to see if proper set of quadrants are set.  If a
 	// transfer is being done between two components with quadrants (i.e., 384-well component to 384-well component)
-	// isQuadToQuad is true and then if the entire component is not being transferred both quadrants must be
-	// specified.  If a transfer between a source with quadrants and a non-divided target then isQuadToTube is true
-	// and a source quadrant must be set if slicing.
+	// isQuadToQuad is true and then if neither the entire component is being transferred nor is there cherry-picking
+	// then both quadrants must be specified.  If a transfer between a source with quadrants and a non-divided target
+	// then isQuadToTube is true and a source quadrant must be set if slicing.
 	val form = Form(transferFormMapping
-		verifying ("Quadrants must be specified when slicing", f =>
+		verifying ("Quadrant(s) must be specified", f =>
 		(!f.isQuadToQuad && !f.isQuadToTube) ||
-			(f.transfer.slice.isEmpty && f.transfer.fromQuad.isEmpty && f.transfer.toQuad.isEmpty) ||
+			((f.transfer.slice.isEmpty || f.transfer.slice.get == CP) &&
+				f.transfer.fromQuad.isEmpty && f.transfer.toQuad.isEmpty) ||
 			(f.isQuadToQuad && f.transfer.fromQuad.isDefined && f.transfer.toQuad.isDefined) ||
 			(f.isQuadToTube && f.transfer.fromQuad.isDefined)
 	))
 
-	// Same form but without verification - this is ued to get data from form in case verification failed with
-	// for with verification
+	// Same form but without verification - this is used to get data from form in case verification failed with regular
+	// form with verification
 	val formWithoutVerify = Form(transferFormMapping)
 
 	// Formatter for going to/from and validating Json

@@ -27,7 +27,6 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  *         Date: 2/24/15
  *         Time: 6:27 PM
  */
-// @TODO Need ability to delete individual transfers
 object TransferController extends Controller {
 	/**
 	 * Initiate transfer - if additional info needed bring up form otherwise try to do transfer now

@@ -16,7 +16,7 @@ object MessageHandler {
 	/**
 	 * Validation error report
 	 */
-	val validationError = "Data entry error - see below"
+	val validationError = "Data entry error"
 
 	/**
 	 * Regular expression to find duplicate key in database exception
@@ -182,11 +182,11 @@ object MessageHandler {
 	 * @return form with specified err added and any nested mapping errors converted to global errors
 	 */
 	def formGlobalError[I](form: Form[I], err: String) = {
-		// Get errors that don't have an associated data field
+		// Get errors that don't have an associated data field (and are not global already)
 		val errsWithoutFields = form.errors.filter{
-			case f => form.data.get(f.key).isEmpty
+			case f => f.key.nonEmpty && form.data.get(f.key).isEmpty
 		}
-		// Set the non-associated errors to be global (and set error as parameter first)
+		// Set the non-associated errors to be global (and set new global error as parameter first)
 		errsWithoutFields.foldLeft(form.withGlobalError(err)){
 			case (soFar, next) => soFar.withGlobalError(next.message, next.args)
 		}
