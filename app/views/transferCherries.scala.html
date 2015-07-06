@@ -6,6 +6,8 @@
 
 @main("Transfer Component") {
 	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tableSelect.css")">
+	<script type='text/javascript' src="@routes.Assets.at("javascripts/tableSelect.js")"></script>
 }{
 	@componentIntro("Transfer Component", transferForm)
 	@form(routes.TransferController.transferCherriesFromForm(), 'id -> "transferCherriesForm", 'style -> "display:inline;") {
@@ -24,10 +26,15 @@
 				'readonly -> "readonly", '_showContraints -> false, '_label -> (toID + " quadrant to transfer to"))
 		}
 		<input type="hidden" id="@{Transfer.sliceKey}" name="@{Transfer.sliceKey}" value="@{Transfer.Slice.CP.toString}" />
+		@cherryPicker("cherryTable", wells, rows, columns)
+		<script>tableSelect("cherryTable")</script>
 		<input type="submit" value="Transfer" style="display:inline;">
 		<script>
 		$("#transferCherriesForm").submit( function(eventObj){
-		$(this).append('<input type="hidden" id="@{Transfer.transferKey + "_" + Transfer.cherriesKey}[0]" name="@{Transfer.transferKey + "." + Transfer.cherriesKey}[0]" value="10" />');
+		var sel = findSelect("cherryTable");
+		for (var i = 0; i < sel.length; i++) {
+		$(this).append('<input type="hidden" id="@{Transfer.cherriesKey}[' + i + ']" name="@{Transfer.cherriesKey}[' + i + ']" value="' + sel[i] + '"/>');
+		}
 		return true;
 		});
 		</script>
