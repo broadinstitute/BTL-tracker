@@ -393,7 +393,7 @@ object TransferController extends Controller {
 					case Some(slice) if slice == CP =>
 						val transfer = data.transfer
 						getWells(transfer.from, transfer.fromQuad).map {
-							case (Some(wells), rows, columns, Map.empty) =>
+							case (Some(wells), rows, columns, errs) =>
 								val result = Ok(views.html.transferCherries(Transfer.formForCherryPicking, transfer.from,
 									transfer.to, wells, rows, columns, transfer.project,
 									transfer.fromQuad, transfer.toQuad))
@@ -460,5 +460,16 @@ object TransferController extends Controller {
 			case e => Future.successful((None, 0, 0,
 				Map[Option[String], String](None -> MessageHandler.exceptionMessage(e))))
 		}
+	}
+
+	def transferCherriesFromForm = Action {request =>
+		Transfer.formForCherryPicking.bindFromRequest()(request).fold(
+			formWithErrors => {
+				Ok("Error")
+			},
+			data => {
+				Ok(data.toString)
+			}
+		)
 	}
 }
