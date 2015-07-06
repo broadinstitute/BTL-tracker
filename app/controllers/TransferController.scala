@@ -414,47 +414,56 @@ object TransferController extends Controller {
 		}
 	}
 
+	/**
+	 * Get information to be used for cherry picking wells.  For each well we get the sample contained in the well.
+	 * The dimensions of the plate are also retrieved
+	 * @param fromID ID of component being transferred from
+	 * @param fromQuad optional quadrant being transferred from
+	 * @return future containing map of wells to samples; # of rows; # of columns; errors
+	 */
 	def getWells(fromID: String, fromQuad: Option[Transfer.Quad.Quad]) :
 	Future[(Option[Map[String, Option[String]]], Int, Int, Map[Option[String], String])] = {
 		TransferContents.getContents(fromID).map((contents) => {
 			// Get any errors setup to be displayed
 			val msgs = contents.map((content) => content.errs)
 			val displayErrs = msgs.getOrElse(List.empty[String]).map((err) => (None:Option[String]) -> err)
-			// If there are no errors then get well results, otherwise display errors on home page
-			if (displayErrs.isEmpty) {
-				// Go through optional contents and get well by well results
-				contents match {
-					case Some(content) =>
-						// Make map of well -> optionalLibraryContent
-						val wells = content.wells.map {
-							case (well, results) =>
-								well ->
-									// Merge together all library names as one optional string
-									results.foldLeft(None: Option[String])((sofar, next) => {
-										// Get optional library from this result
-										val lib = next.bsp.flatMap(_.library)
-										// Add it to what found so far
-										sofar match {
-											case Some(res) => if (lib.isDefined) Some(s"$res $lib") else Some(res)
-											case None => lib
-										}
-									})
-						}
-						val divisions = content.component match {
-							case c: ContainerDivisions => Some(ContainerDivisions.divisionDimensions(c.layout))
-							case _ => None
-						}
-						divisions match {
-							case Some(div) =>
-								(Some(wells), div.rows, div.columns, Map.empty[Option[String], String])
-							case None =>
-								(None, 0, 0, Map[Option[String], String](None -> "Not welled component"))
-						}
-					case None =>
-						(None, 0, 0, Map[Option[String], String](None -> "No contents Found"))
-				}
-			} else {
-				(None, 0, 0, displayErrs.toMap)
+			// Go through optional contents and get well by well results
+			contents match {
+				case Some(content) =>
+					// Make map of well -> optionalLibraryContent
+					val wells = content.wells.map {
+						case (well, results) =>
+							well ->
+								// Merge together all library names as one optional string
+								results.foldLeft(None: Option[String])((sofar, next) => {
+									// Get optional library from this result
+									val lib = next.bsp.flatMap(_.library)
+									// Add it to what found so far
+									sofar match {
+										case Some(res) => if (lib.isDefined) Some(s"$res $lib") else Some(res)
+										case None => lib
+									}
+								})
+					}
+					// Get layout of component
+					val divisions = content.component match {
+						case c: ContainerDivisions => Some(ContainerDivisions.divisionDimensions(c.layout))
+						case _ => None
+					}
+					// Get # of rows/columns in layout
+					divisions match {
+						case Some(div) =>
+							val (rows, columns) =
+								fromQuad match {
+									case Some(_) => (div.rows/2, div.columns/2)
+									case _ => (div.rows, div.columns)
+								}
+							(Some(wells), rows, columns, displayErrs.toMap)
+						case None =>
+							(None, 0, 0, displayErrs.toMap + (None -> "Not welled component"))
+					}
+				case None =>
+					(None, 0, 0, displayErrs.toMap + (None -> "No contents Found"))
 			}
 		}).recoverWith {
 			case e => Future.successful((None, 0, 0,
@@ -462,6 +471,10 @@ object TransferController extends Controller {
 		}
 	}
 
+	/**
+	 * Called upon submission of transfer form including cherry picking
+	 * @return
+	 */
 	def transferCherriesFromForm = Action {request =>
 		Transfer.formForCherryPicking.bindFromRequest()(request).fold(
 			formWithErrors => {

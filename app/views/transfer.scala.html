@@ -40,12 +40,6 @@
 		<input type="hidden" id="@{Transfer.isQuadToQuadKey}" name="@{Transfer.isQuadToQuadKey}" value="@isQuadToQuad" />
 		<input type="hidden" id="@{Transfer.isQuadToTubeKey}" name="@{Transfer.isQuadToTubeKey}" value="@isQuadToTube" />
 		<input type="submit" value="Transfer" style="display:inline;">
-		<script>
-		$("#transferForm").submit( function(eventObj){
-		$(this).append('<input type="hidden" id="@{Transfer.transferKey + "_" + Transfer.cherriesKey}[0]" name="@{Transfer.transferKey + "." + Transfer.cherriesKey}[0]" value="10" />');
-		return true;
-		});
-		</script>
 	}
 	@homeOption(Seq.empty)
 }
