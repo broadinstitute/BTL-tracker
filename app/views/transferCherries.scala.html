@@ -1,0 +1,36 @@
+@(transferForm: Form[Transfer], fromID: String, toID: String,
+	wells: Map[String, Option[String]],	rows: Int, columns: Int, project: Option[String],
+	fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad])
+@import helper._
+@import models.Transfer
+
+@main("Transfer Component") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Transfer Component", transferForm)
+	@form(routes.TransferController.transferCherriesFromForm(), 'id -> "transferCherriesForm", 'style -> "display:inline;") {
+		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)),
+			'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
+		@inputText(transferForm(Transfer.toKey).copy(value=Some(toID)),
+			'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
+		@inputText(transferForm(Transfer.projectKey).copy(value=project),
+			'readonly -> "readonly", '_showConstraints -> false, '_label -> "Project")
+		@if(fromQuad.isDefined) {
+			@inputText(transferForm(Transfer.fromQuadKey).copy(value=Some(fromQuad.get.toString)),
+			'readonly -> "readonly", '_showContraints -> false, '_label -> (fromID + " quadrant to transfer from"))
+		}
+		@if(toQuad.isDefined) {
+			@inputText(transferForm(Transfer.toQuadKey).copy(value=Some(toQuad.get.toString)),
+				'readonly -> "readonly", '_showContraints -> false, '_label -> (toID + " quadrant to transfer to"))
+		}
+		<input type="hidden" id="@{Transfer.sliceKey}" name="@{Transfer.sliceKey}" value="@{Transfer.Slice.CP.toString}" />
+		<input type="submit" value="Transfer" style="display:inline;">
+		<script>
+		$("#transferCherriesForm").submit( function(eventObj){
+		$(this).append('<input type="hidden" id="@{Transfer.transferKey + "_" + Transfer.cherriesKey}[0]" name="@{Transfer.transferKey + "." + Transfer.cherriesKey}[0]" value="10" />');
+		return true;
+		});
+		</script>
+	}
+	@homeOption(Seq.empty)
+}

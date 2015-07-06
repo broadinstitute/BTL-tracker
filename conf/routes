@@ -85,6 +85,7 @@ GET         /transferWithParams/:fromID/:toID           controllers.TransferCont
 POST        /transferIDs                                controllers.TransferController.transferIDs
 # Transfer using input from form that includes IDs and quadrants
 POST        /transfer                                   controllers.TransferController.transferFromForm
+POST        /transferCherries                           controllers.TransferController.transferCherriesFromForm
 
 # Initial transfer delete
 GET         /transferDelete/:id                         controllers.TransferDeleteController.deleteTransfer(id: String)

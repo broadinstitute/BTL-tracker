@@ -7,6 +7,7 @@ import play.api.mvc.{Result, Action, Controller}
 import play.api.libs.json._
 import utils.MessageHandler
 import MessageHandler.FlashingKeys
+import Transfer.Slice.CP
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -326,7 +327,7 @@ object TransferController extends Controller {
 								val plural = if (projectsFound.size != 1) "s" else ""
 								val projectsFoundStr = if (projectsFound.isEmpty) "" else
 									s"Project$plural found: ${projectsFound.mkString(",")}"
-								Some(s"$projectWanted not in ${from.id} or its derivatives. $projectsFoundStr")
+								Some(s"Project $projectWanted not in ${from.id} or its derivatives. $projectsFoundStr")
 							}
 						// No project on transfer so nothing to check there
 						case _ => None
@@ -386,11 +387,78 @@ object TransferController extends Controller {
 						None, None, None)),
 				formData => Future.successful(transferFormErrorResult(MessageHandler.formGlobalError(
 					formWithErrors, MessageHandler.validationError), formData))),
-			data =>	insertTransfer(data)
+			data => {
+				val transfer = data.transfer
+				transfer.slice match {
+					case Some(slice) if slice == CP =>
+						val transfer = data.transfer
+						getWells(transfer.from, transfer.fromQuad).map {
+							case (Some(wells), rows, columns, Map.empty) =>
+								val result = Ok(views.html.transferCherries(Transfer.formForCherryPicking, transfer.from,
+									transfer.to, wells, rows, columns, transfer.project,
+									transfer.fromQuad, transfer.toQuad))
+								FlashingKeys.setFlashingValue(result, FlashingKeys.Status,
+									s"Pick wells to be transferred")
+							case (_, _, _, errs: Map[Option[String], String]) =>
+								transferStartFormErrorResult(MessageHandler.setMessages(errs, Transfer.startForm),
+									None, None, None)
+						}
+					// Redirect to transferCherries
+					case _ => insertTransfer(data)
+				}
+			}
 		).recover {
 			case err =>
 				transferStartFormErrorResult(Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)),
 					None, None, None)
+		}
+	}
+
+	def getWells(fromID: String, fromQuad: Option[Transfer.Quad.Quad]) :
+	Future[(Option[Map[String, Option[String]]], Int, Int, Map[Option[String], String])] = {
+		TransferContents.getContents(fromID).map((contents) => {
+			// Get any errors setup to be displayed
+			val msgs = contents.map((content) => content.errs)
+			val displayErrs = msgs.getOrElse(List.empty[String]).map((err) => (None:Option[String]) -> err)
+			// If there are no errors then get well results, otherwise display errors on home page
+			if (displayErrs.isEmpty) {
+				// Go through optional contents and get well by well results
+				contents match {
+					case Some(content) =>
+						// Make map of well -> optionalLibraryContent
+						val wells = content.wells.map {
+							case (well, results) =>
+								well ->
+									// Merge together all library names as one optional string
+									results.foldLeft(None: Option[String])((sofar, next) => {
+										// Get optional library from this result
+										val lib = next.bsp.flatMap(_.library)
+										// Add it to what found so far
+										sofar match {
+											case Some(res) => if (lib.isDefined) Some(s"$res $lib") else Some(res)
+											case None => lib
+										}
+									})
+						}
+						val divisions = content.component match {
+							case c: ContainerDivisions => Some(ContainerDivisions.divisionDimensions(c.layout))
+							case _ => None
+						}
+						divisions match {
+							case Some(div) =>
+								(Some(wells), div.rows, div.columns, Map.empty[Option[String], String])
+							case None =>
+								(None, 0, 0, Map[Option[String], String](None -> "Not welled component"))
+						}
+					case None =>
+						(None, 0, 0, Map[Option[String], String](None -> "No contents Found"))
+				}
+			} else {
+				(None, 0, 0, displayErrs.toMap)
+			}
+		}).recoverWith {
+			case e => Future.successful((None, 0, 0,
+				Map[Option[String], String](None -> MessageHandler.exceptionMessage(e))))
 		}
 	}
 }

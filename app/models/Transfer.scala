@@ -336,6 +336,9 @@ object Transfer {
 	// form with verification
 	val formWithoutVerify = Form(transferFormMapping)
 
+	// Form with everything setup to do cherry picking
+	val formForCherryPicking = Form(transferMapping)
+
 	// Formatter for going to/from and validating Json
 	// Supply our custom enum Reader and Writer for content type enum
 	implicit val quadFormat: Format[Quad.Quad] = enumFormat(Quad)
