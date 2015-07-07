@@ -129,3 +129,19 @@ function findSelect(tableName) {
     }
     return selectedEles;
 }
+
+/**
+ * Upon form submission set form values from cherry picking table.
+ * @param formName name of form to be submitted
+ * @param tableName name of cherry picking table
+ * @param cherriesKey keyword to use for form array to be set with picked wells.
+ */
+function submitSelect(formName, tableName, cherriesKey) {
+    $('#' + formName).submit( function(eventObj){
+        var sel = findSelect(tableName);
+        for (var i = 0; i < sel.length; i++) {
+            var idName = cherriesKey + '[' + i + ']';
+            $(this).append('<input type="hidden" id="' + idName + '" name="' + idName + '" value="' + sel[i] + '"/>');
+        }
+        return true;
+    })};

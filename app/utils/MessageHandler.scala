@@ -158,7 +158,7 @@ object MessageHandler {
 	def setGlobalErrors[I](msgs: List[String], form: Form[I]) = {
 		if (msgs.isEmpty) form else {
 			val formWithError = form.withGlobalError("Operation unsuccessful - fix errors below")
-			msgs.foldLeft(formWithError)((soFar, next) => setMessages(Map(None -> next), soFar))
+			msgs.foldLeft(formWithError)((soFar, next) => soFar.withGlobalError(next))
 		}
 	}
 

@@ -9,7 +9,7 @@
 	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tableSelect.css")">
 	<script type='text/javascript' src="@routes.Assets.at("javascripts/tableSelect.js")"></script>
 }{
-	@componentIntro("Transfer Component", transferForm)
+	@componentIntro("Transfer", transferForm)
 	@form(routes.TransferController.transferCherriesFromForm(), 'id -> "transferCherriesForm", 'style -> "display:inline;") {
 		@inputText(transferForm(Transfer.fromKey).copy(value=Some(fromID)),
 			'readonly -> "readonly", '_showConstraints -> false, '_label -> "From ID")
@@ -29,15 +29,7 @@
 		@cherryPicker("cherryTable", wells, rows, columns)
 		<script>tableSelect("cherryTable")</script>
 		<input type="submit" value="Transfer" style="display:inline;">
-		<script>
-		$("#transferCherriesForm").submit( function(eventObj){
-		var sel = findSelect("cherryTable");
-		for (var i = 0; i < sel.length; i++) {
-		$(this).append('<input type="hidden" id="@{Transfer.cherriesKey}[' + i + ']" name="@{Transfer.cherriesKey}[' + i + ']" value="' + sel[i] + '"/>');
-		}
-		return true;
-		});
-		</script>
+		<script>submitSelect("transferCherriesForm", "cherryTable", "@{Transfer.cherriesKey}")</script>
 	}
 	@homeOption(Seq.empty)
 }

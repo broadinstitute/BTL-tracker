@@ -394,13 +394,14 @@ object TransferController extends Controller {
 						val transfer = data.transfer
 						getWells(transfer.from, transfer.fromQuad).map {
 							case (Some(wells), rows, columns, errs) =>
-								val result = Ok(views.html.transferCherries(Transfer.formForCherryPicking, transfer.from,
+								val errorForm = errs.foldLeft(Transfer.formForCherryPicking)(
+									(soFar, next) => soFar.withGlobalError(next)).
+									withGlobalError("Pick wells to be transferred")
+								Ok(views.html.transferCherries(errorForm, transfer.from,
 									transfer.to, wells, rows, columns, transfer.project,
 									transfer.fromQuad, transfer.toQuad))
-								FlashingKeys.setFlashingValue(result, FlashingKeys.Status,
-									s"Pick wells to be transferred")
-							case (_, _, _, errs: Map[Option[String], String]) =>
-								transferStartFormErrorResult(MessageHandler.setMessages(errs, Transfer.startForm),
+							case (_, _, _, errs) =>
+								transferStartFormErrorResult(MessageHandler.setGlobalErrors(errs, Transfer.startForm),
 									None, None, None)
 						}
 					// Redirect to transferCherries
@@ -419,14 +420,14 @@ object TransferController extends Controller {
 	 * The dimensions of the plate are also retrieved
 	 * @param fromID ID of component being transferred from
 	 * @param fromQuad optional quadrant being transferred from
-	 * @return future containing map of wells to samples; # of rows; # of columns; errors
+	 * @return future containing map of wells to samples; # of rows; # of columns; list of errors
 	 */
 	def getWells(fromID: String, fromQuad: Option[Transfer.Quad.Quad]) :
-	Future[(Option[Map[String, Option[String]]], Int, Int, Map[Option[String], String])] = {
+	Future[(Option[Map[String, Option[String]]], Int, Int, List[String])] = {
 		TransferContents.getContents(fromID).map((contents) => {
 			// Get any errors setup to be displayed
 			val msgs = contents.map((content) => content.errs)
-			val displayErrs = msgs.getOrElse(List.empty[String]).map((err) => (None:Option[String]) -> err)
+			val displayErrs = msgs.getOrElse(List.empty[String])
 			// Go through optional contents and get well by well results
 			contents match {
 				case Some(content) =>
@@ -458,16 +459,15 @@ object TransferController extends Controller {
 									case Some(_) => (div.rows/2, div.columns/2)
 									case _ => (div.rows, div.columns)
 								}
-							(Some(wells), rows, columns, displayErrs.toMap)
+							(Some(wells), rows, columns, displayErrs)
 						case None =>
-							(None, 0, 0, displayErrs.toMap + (None -> "Not welled component"))
+							(None, 0, 0, displayErrs :+ "Not welled component")
 					}
 				case None =>
-					(None, 0, 0, displayErrs.toMap + (None -> "No contents Found"))
+					(None, 0, 0, displayErrs :+ "No contents Found")
 			}
 		}).recoverWith {
-			case e => Future.successful((None, 0, 0,
-				Map[Option[String], String](None -> MessageHandler.exceptionMessage(e))))
+			case e => Future.successful((None, 0, 0, List(MessageHandler.exceptionMessage(e))))
 		}
 	}
 
