@@ -169,9 +169,10 @@ object TransferContents {
 
 			/*
 			 * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
-			 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice is a subset
-			 * of a quadrant (for components that have quadrants) or an entire component (for non-quadrant components,
-			 * such as 96-well components, in which case the entire component can be thought of as a single quadrant).
+			 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice, other than
+			 * cherry picking, is a subset of a quadrant (for components that have quadrants) or an entire component
+			 * (for non-quadrant components, such as 96-well components, in which case the entire component can be
+			 * thought of as a single quadrant).
 			 * This method, taking in account the quadrants/slices wanted determines where the selected input wells
 			 * will wind up in the output component.
 			 * @param in contents for input to transfer
@@ -179,50 +180,68 @@ object TransferContents {
 			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
 			 */
 			def takeQuadrant(in: MergeTotalContents, transfer: TransferEdge) = {
+				/**
+				 * Get a components layout if it is divided
+				 * @param c component
+				 * @return layout of component if one is found
+				 */
+				def getLayout(c: Component) =
+					c match {
+						case cd:ContainerDivisions => Some(cd.layout)
+						case _ => None
+					}
+
 				/*
 				 * Do the mapping of a quadrant between original input wells to wells it will go to in the destination.
 				 * @param in input component contents
-				 * @param layout layout we should be going to or from
+				 * @param layout layout we should be coming from if a divided component
 				 * @param wellMap map of well locations in input to well locations in output
 				 * @return input component contents mapped to destination wells
 				 */
 				def mapQuadrantWells(in: MergeTotalContents, layout: ContainerDivisions.Division.Division,
 									 wellMap: Map[String, String]) = {
-					in.component match {
-						case cd:ContainerDivisions if cd.layout == layout =>
-							val newWells = in.wells.flatMap{
+					// See if layout is for input
+					getLayout(in.component) match {
+						case Some(inLayout) if inLayout == layout =>
+							// Layout is for input - now see which wells we want and make new mapping for them
+							val newWells = in.wells.flatMap {
 								case (well, contents) if wellMap.get(well).isDefined =>
 									List(wellMap(well) -> contents)
 								case _ => List.empty
 							}
 							// Create the new input contents
 							MergeTotalContents(in.component, newWells, in.errs)
+						// Input not a divided component - take single input
 						case _ => in
 					}
 				}
 
 				// Go do mapping based on type of transfer
-				(transfer.fromQuad, transfer.toQuad, transfer.slice) match {
+				(transfer.fromQuad, transfer.toQuad, transfer.slice, transfer.cherries) match {
 					// From a quadrant to an entire component - should be 384-well component to non-quadrant component
-					case (Some(from), None, None) => mapQuadrantWells(in, DIM16x24, Transfer.qFrom384(from))
+					case (Some(from), None, None, _) => mapQuadrantWells(in, DIM16x24, TransferWells.qFrom384(from))
 					// To a quadrant from an entire component - should be 96-well component to 384-well component
-					case (None, Some(to), None) => mapQuadrantWells(in, DIM8x12, Transfer.qTo384(to))
+					case (None, Some(to), None, _) => mapQuadrantWells(in, DIM8x12, TransferWells.qTo384(to))
 					// Slice of quadrant to an entire component - should be 384-well component to non-quadrant component
-					case (Some(from), None, Some(slice)) =>
-						mapQuadrantWells(in, DIM16x24, Transfer.slice384to96map(from, slice))
+					case (Some(from), None, Some(slice), cher) =>
+						mapQuadrantWells(in, DIM16x24, TransferWells.slice384to96wells(from, slice, cher))
 					// Quadrant to quadrant - must be 384-well component to 384-well component
-					case (Some(from), Some(to), None) =>
-						mapQuadrantWells(in, DIM16x24, Transfer.q384to384map(from, to))
-					// Slice of quadrant to slice of quadrant - must be 384-well component to 384-well component
-					case (Some(from), Some(to), Some(slice)) =>
-						mapQuadrantWells(in, DIM16x24, Transfer.slice384to384map(from, to, slice))
+					case (Some(from), Some(to), None, _) =>
+						mapQuadrantWells(in, DIM16x24, TransferWells.q384to384map(from, to))
+					// Quadrant to quadrant with slice - must be 384-well component to 384-well component
+					case (Some(from), Some(to), Some(slice), cher) =>
+						mapQuadrantWells(in, DIM16x24, TransferWells.slice384to384wells(from, to, slice, cher))
 					// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
-					case (None, Some(to), Some(slice)) =>
-						mapQuadrantWells(in, DIM8x12, Transfer.slice96to384map(to, slice))
-					// Slice of non-quadrant component to non-quadrant component
-					// must be 96-well component to 96-well component
-					case (None, None, Some(slice)) =>
-						mapQuadrantWells(in, DIM8x12, Transfer.slice96to96map(slice))
+					case (None, Some(to), Some(slice), cher) =>
+						mapQuadrantWells(in, DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
+					// Either a 96-well component (non-quadrant transfer)
+					// or a straight cherry picked 384-well component (no quadrants involved)
+					case (None, None, Some(slice), cher) =>
+						getLayout(in.component) match {
+							case Some(DIM8x12) => mapQuadrantWells(in, DIM8x12, TransferWells.slice96to96wells(slice, cher))
+							case Some(DIM16x24) => mapQuadrantWells(in, DIM16x24, TransferWells.slice384to384wells(slice,cher))
+							case _ => in
+						}
 					case _ => in
 				}
 			}
@@ -247,22 +266,16 @@ object TransferContents {
 				val outContents = output.wells
 				// @TODO Need to use TruGrade quadrant plates to keep MID names matched with well name?
 				// Merge input into output - combine maps to get entries that might be in one but not the other and
-				// then within map combine what's in the same well
+				// then within map combine what's in the same well.
 				val newResults = inContent ++ outContents.map {
 					case (well, results) => (inContent.get(well), outContents.get(well)) match {
+						// Something in input and output for well - merge them together
 						case (Some(inResults), Some(outResults)) =>
 							// Combine input and output sets (will eliminate duplicates)
 							val allResults = inResults ++ outResults
-							// Separate those with and without MIDs
-							val midsVsSamples = allResults.groupBy(_.bsp.isDefined)
-							val mids = midsVsSamples.getOrElse(false, Set.empty)
-							val samples = midsVsSamples.getOrElse(true, Set.empty)
-							// Merge together lists attaching MIDs not yet associated with samples
-							val mergedResults =
-								if (mids.size == 0 || samples.size == 0) allResults
-								else samples.map((sample) =>
-									MergeResult(sample.bsp, sample.mid ++ mids.flatMap(_.mid)))
+							val mergedResults = mergeWellResults(allResults)
 							well -> mergedResults
+						// Nothing in well of either input or output so nothing to merge
 						case _ => well -> results
 					}
 				}
@@ -302,10 +315,31 @@ object TransferContents {
 	}
 
 	/**
-	 * Merge all the wells' results into a single result
+	 * Merge together all the contents going into a single well.  In particular, if there any unattached MIDs, then
+	 * they should now be attached to any samples in the well.
+	 * @param results contents going into well
+	 * @return merged contents going into well
+	 */
+	private def mergeWellResults(results: Set[MergeResult]) = {
+		// Separate those with and without MIDs
+		val midsVsSamples = results.groupBy(_.bsp.isDefined)
+		val mids = midsVsSamples.getOrElse(false, Set.empty)
+		val samples = midsVsSamples.getOrElse(true, Set.empty)
+		// Merge together lists attaching MIDs not yet associated with samples
+		if (mids.size == 0 || samples.size == 0) results
+		else samples.map((sample) =>
+			MergeResult(sample.bsp, sample.mid ++ mids.flatMap(_.mid)))
+	}
+
+	/**
+	 * Merge all the wells' results into a single result.  First we put all the wells results into a single set and
+	 * then within that set we attach any unattached mids to the samples.  This may lead to results that look a bit
+	 * strange merging multiple wells into a tube.  In particular if MIDs are unattached in one well from a plate
+	 * transferred into a tube then the unattached MIDs get attached to all the samples in other wells from the
+	 * plate when this plate is put into the tube.  Correct?  In theory, yes.
 	 * @param in map of wells to result sets
 	 * @return single result set combining all the wells' result sets
 	 */
-	def getAsOneResult(in: Map[String, Set[MergeResult]]) =
-		in.foldLeft(Set.empty[MergeResult]) ((soFar, next) => soFar ++ next._2)
+	private def getAsOneResult(in: Map[String, Set[MergeResult]]) =
+		mergeWellResults(in.foldLeft(Set.empty[MergeResult]) ((soFar, next) => soFar ++ next._2))
 }

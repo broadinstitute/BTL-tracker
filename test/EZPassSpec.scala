@@ -88,7 +88,7 @@ class EZPassSpec extends TestSpec with TestConfig {
 			def doTest(transfers: List[Transfer],
 					   numWells: Int, wellSet: Option[Set[String]]) = {
 				// Start up all the transfer inserts
-				val tFutures = transfers.map(insertTransfer(_))
+				val tFutures = transfers.map(insertTransfer)
 				// Wait for the result of a fold of the inserts
 				Await.result(Future.fold(tFutures)(List.empty[LastError])((soFar, next) => soFar :+ next), d3secs)
 				// Setup to make EZPass and check it out
@@ -109,7 +109,7 @@ class EZPassSpec extends TestSpec with TestConfig {
 
 
 			// Test of combining slice of rack of samples and plate of MIDs into a plate
-			val sliceWells = slice96to96map(Slice.S1).keySet
+			val sliceWells = TransferWells.slice96to96wells(Slice.S1, None).keySet
 			doTest(List(
 				Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1), None),
 				Transfer("ATM", "T", None, None, None, Some(Slice.S1), None),
@@ -118,7 +118,7 @@ class EZPassSpec extends TestSpec with TestConfig {
 			)
 
 			// Test of transfer of rack and MIDs to and from 384 well plate with a slice of final plate sent to the tube
-			val sliceWellsQS = slice96to96map(Slice.S2).keySet
+			val sliceWellsQS = TransferWells.slice96to96wells(Slice.S2, None).keySet
 			doTest(List(Transfer(fakeRack, "P384", None, Some(Transfer.Quad.Q1), None, None, None),
 				Transfer("MID", "P384", None, Some(Transfer.Quad.Q1), None, None, None),
 				Transfer("P384", "ATM", Some(Transfer.Quad.Q1), None, None, None, None),
@@ -199,12 +199,12 @@ object EZPassSpec extends TestSpec {
 		// Split input data into array of individual lines
 		val lines = lineSplitter.split(data)
 		// For each line split across tabs and create cells of values
-		(0 until lines.length).foreach((r) => {
+		lines.indices.foreach((r) => {
 			val line = lines(r).trim
 			val cols = colSplitter.split(line)
 			// Make new row in spreadsheet containing fields of line
 			val row = sheet.createRow(r)
-			(0 until cols.length).foreach((c) => {
+			cols.indices.foreach((c) => {
 				val cell = row.createCell(c)
 				cell.setCellValue(cols(c))
 			})

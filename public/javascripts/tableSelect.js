@@ -144,4 +144,5 @@ function submitSelect(formName, tableName, cherriesKey) {
             $(this).append('<input type="hidden" id="' + idName + '" name="' + idName + '" value="' + sel[i] + '"/>');
         }
         return true;
-    })};
+    })
+}

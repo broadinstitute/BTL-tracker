@@ -1,5 +1,6 @@
 package controllers
 
+import models.TransferContents.MergeResult
 import models._
 import models.db.{TrackerCollection, TransferCollection}
 import play.api.data.Form
@@ -273,7 +274,7 @@ object TransferController extends Controller {
 								// Source isn't divided - go complete transfer of its contents
 								case _ =>
 									val tForm = data.toTransferForm
-									insertTransfer(tForm)
+									insertTransferWithoutCherries(tForm)
 							}
 					}
 				}
@@ -361,21 +362,32 @@ object TransferController extends Controller {
 		transferFormErrorResult(MessageHandler.fillAndSetFailureMsgs(errs, Transfer.form, data), data)
 
 	/**
+	 * Insert transfer without cherry picking into DB and return Result.
+	 * @param data transfer to record in DB
+	 * @return result to return with completion status
+	 */
+	private def insertTransferWithoutCherries(data: TransferForm) = {
+		insertTransfer(data.transfer, onError = (_, err) => transferErrorResult(data, Map(None -> err)))
+	}
+
+	/**
 	 * Insert transfer into DB and return Result.
 	 * @param data transfer to record in DB
 	 * @return result to return with completion status
 	 */
-	private def insertTransfer(data: TransferForm) = {
-		TransferCollection.insert(data.transfer).map {
-			(lastError) => transferComplete(() => "Completed " + data.transfer.quadDesc)
+	private def insertTransfer(data: Transfer, onError: (Transfer, String) => Result) = {
+		TransferCollection.insert(data).map {
+			(lastError) => transferComplete(() => "Completed " + data.quadDesc)
 		}.recover {
-			case err => transferErrorResult(data, Map(None -> MessageHandler.exceptionMessage(err)))
+			case err => onError(data, MessageHandler.exceptionMessage(err))
 		}
 	}
 
 	/**
 	 * Do transfer based on form with quadrant inputs.  If form fails with errors then it is most likely because of
-	 * extra verification so we try bind again, without verification, to pick up data in form to report error.
+	 * extra verification done in form so we try bind again, with a form without extra verification, to successfully
+	 * bind to pick up data in form to do better error reporting.  If user wants to do cherry picking we need to go
+	 * to one more form to allow cherry picking.
  	 * @return action to do transfer
 	 */
 	def transferFromForm = Action.async { request =>
@@ -390,25 +402,16 @@ object TransferController extends Controller {
 			data => {
 				val transfer = data.transfer
 				transfer.slice match {
+					// If doing cherry picking we need to find out more about the source place: what samples are in
+					// wells and source dimensions
 					case Some(slice) if slice == CP =>
-						val transfer = data.transfer
-						getWells(transfer.from, transfer.fromQuad).map {
-							case (Some(wells), rows, columns, errs) =>
-								val errorForm = errs.foldLeft(Transfer.formForCherryPicking)(
-									(soFar, next) => soFar.withGlobalError(next)).
-									withGlobalError("Pick wells to be transferred")
-								Ok(views.html.transferCherries(errorForm, transfer.from,
-									transfer.to, wells, rows, columns, transfer.project,
-									transfer.fromQuad, transfer.toQuad))
-							case (_, _, _, errs) =>
-								transferStartFormErrorResult(MessageHandler.setGlobalErrors(errs, Transfer.startForm),
-									None, None, None)
-						}
-					// Redirect to transferCherries
-					case _ => insertTransfer(data)
+						getCherryPickingView(data.transfer, Transfer.formForCherryPicking)
+					// Go do insert into DB of transfer
+					case _ => insertTransferWithoutCherries(data)
 				}
 			}
 		).recover {
+			// If an exception go back to transfer start and report on exception
 			case err =>
 				transferStartFormErrorResult(Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)),
 					None, None, None)
@@ -422,7 +425,7 @@ object TransferController extends Controller {
 	 * @param fromQuad optional quadrant being transferred from
 	 * @return future containing map of wells to samples; # of rows; # of columns; list of errors
 	 */
-	def getWells(fromID: String, fromQuad: Option[Transfer.Quad.Quad]) :
+	private def getWells(fromID: String, fromQuad: Option[Transfer.Quad.Quad]) :
 	Future[(Option[Map[String, Option[String]]], Int, Int, List[String])] = {
 		TransferContents.getContents(fromID).map((contents) => {
 			// Get any errors setup to be displayed
@@ -431,11 +434,21 @@ object TransferController extends Controller {
 			// Go through optional contents and get well by well results
 			contents match {
 				case Some(content) =>
-					// Make map of well -> optionalLibraryContent
-					val wells = content.wells.map {
-						case (well, results) =>
-							well ->
-								// Merge together all library names as one optional string
+					// Get layout of component
+					content.component match {
+						case c: ContainerDivisions =>
+							val div = ContainerDivisions.divisionDimensions(c.layout)
+							// Get # of rows, columns and optional mapping of original wells to quadrant wells
+							val (rows, columns, quadWells) =
+								fromQuad match {
+									case Some(q) =>
+										// Taking quad of 384-well component
+										(div.rows/2, div.columns/2, Some(TransferWells.qFrom384(q)))
+									case _ => (div.rows, div.columns, None)
+								}
+
+							// Method to get the library name - a merge of the contents' library names
+							def getLibraryName (results: Set[MergeResult]) =
 								results.foldLeft(None: Option[String])((sofar, next) => {
 									// Get optional library from this result
 									val lib = next.bsp.flatMap(_.library)
@@ -445,26 +458,28 @@ object TransferController extends Controller {
 										case None => lib
 									}
 								})
-					}
-					// Get layout of component
-					val divisions = content.component match {
-						case c: ContainerDivisions => Some(ContainerDivisions.divisionDimensions(c.layout))
-						case _ => None
-					}
-					// Get # of rows/columns in layout
-					divisions match {
-						case Some(div) =>
-							val (rows, columns) =
-								fromQuad match {
-									case Some(_) => (div.rows/2, div.columns/2)
-									case _ => (div.rows, div.columns)
-								}
+
+							// Make map of well -> optionalLibraryContent
+							val wells = content.wells.flatMap {
+								case (well, results) =>
+									quadWells match {
+										// Only looking at a quadrant
+										case Some(qw) => qw.get(well) match {
+											// If well found then set it to quadrant well
+											case Some(quadWell) => Map(quadWell -> getLibraryName(results))
+											// If well not in quadrant then filter it out
+											case _ => Map.empty[String, Option[String]]
+										}
+										// Not limited to quadrant
+										case _ => Map(well -> getLibraryName(results))
+									}
+							}
 							(Some(wells), rows, columns, displayErrs)
-						case None =>
-							(None, 0, 0, displayErrs :+ "Not welled component")
+						// Error - we're trying to cherry pick an undivided component
+						case _ => (None, 0, 0, displayErrs :+ "Not welled component")
 					}
-				case None =>
-					(None, 0, 0, displayErrs :+ "No contents Found")
+				// Error - no contents found in component
+				case None => (None, 0, 0, displayErrs :+ "No contents Found")
 			}
 		}).recoverWith {
 			case e => Future.successful((None, 0, 0, List(MessageHandler.exceptionMessage(e))))
@@ -472,16 +487,51 @@ object TransferController extends Controller {
 	}
 
 	/**
-	 * Called upon submission of transfer form including cherry picking
-	 * @return
+	 * Get result for doing cherry picking.  Get well information and return view with input form and well information
+	 * found.
+	 * @param transfer transfer information for cherry picking
+	 * @param form form to be used for cherry picking
+	 * @return response with page to display to do cherry picking
 	 */
-	def transferCherriesFromForm = Action {request =>
+	private def getCherryPickingView(transfer: Transfer, form: Form[Transfer]) = {
+		getWells(transfer.from, transfer.fromQuad).map {
+			// Report and errors found an then bring up page with cherry picking
+			case (Some(wells), rows, columns, errs) =>
+				val errorForm = errs.foldLeft(form)(
+					(soFar, next) => soFar.withGlobalError(next)).
+					withGlobalError("Pick wells to be transferred")
+				Ok(views.html.transferCherries(errorForm, transfer.from,
+					transfer.to, wells, rows, columns, transfer.project,
+					transfer.fromQuad, transfer.toQuad))
+			// If we couldn't get well information go back to transfer start with errors
+			case (_, _, _, errs) =>
+				val allErrs = form.globalErrors.map((err) => err.message).toList ++ errs
+				transferStartFormErrorResult(MessageHandler.setGlobalErrors(allErrs, Transfer.startForm),
+					None, None, None)
+		}
+	}
+
+	/**
+	 * Called upon submission of transfer form that includes cherry picking.  If all is well we now go add the transfer
+	 * information to the database.
+	 * @return Response
+	 */
+	def transferCherriesFromForm = Action.async {request =>
 		Transfer.formForCherryPicking.bindFromRequest()(request).fold(
+			// If an error in form go retry, reporting errors
 			formWithErrors => {
-				Ok("Error")
+				getCherryPickingView(formWithErrors.get, formWithErrors)
 			},
 			data => {
-				Ok(data.toString)
+				// If no wells selected then go back to get some; otherwise go do the transfer
+				if (data.cherries.isEmpty || data.cherries.get.isEmpty) {
+					val form = MessageHandler.setGlobalErrors(List("No wells selected"), Transfer.formForCherryPicking)
+					getCherryPickingView(data, form)
+				} else {
+					// Go insert transfer
+					insertTransfer(data, onError =
+						(tran, err) => transferComplete(() => "Error completing " + data.quadDesc + ": " + err))
+				}
 			}
 		)
 	}
