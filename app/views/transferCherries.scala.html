@@ -19,7 +19,7 @@
 			'readonly -> "readonly", '_showConstraints -> false, '_label -> "Project")
 		@if(fromQuad.isDefined) {
 			@inputText(transferForm(Transfer.fromQuadKey).copy(value=Some(fromQuad.get.toString)),
-			'readonly -> "readonly", '_showContraints -> false, '_label -> (fromID + " quadrant to transfer from"))
+				'readonly -> "readonly", '_showContraints -> false, '_label -> (fromID + " quadrant to transfer from"))
 		}
 		@if(toQuad.isDefined) {
 			@inputText(transferForm(Transfer.toQuadKey).copy(value=Some(toQuad.get.toString)),
