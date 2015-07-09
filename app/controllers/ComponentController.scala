@@ -85,7 +85,6 @@ trait ComponentController[C <: Component] extends Controller {
 		Ok(htmlForCreate(id)(form))
 	}
 
-	//@TODO need to check project (update isProjectValid in JiraProject to have Future.fold of project checks)
 	/**
 	 * Add a stack of components
 	 * @param request request containing component ids and data

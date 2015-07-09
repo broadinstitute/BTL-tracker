@@ -5,16 +5,14 @@
 @(title: String)(found: scala.collection.Set[models.Find.Found])
 
 @main(title) {
-	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/findResults.css")">
-	@* Originally from http://github.hubspot.com/sortable/ *@
-	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/sortable-theme-light.css")">
-	<script type='text/javascript' src="@routes.Assets.at("javascripts/sortable.min.js")"></script>
+	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tablesort.css")">
+	<script type='text/javascript' src="@routes.Assets.at("javascripts/tablesort.min.js")"></script>
 }{
 	<h2>@found.size.toString components found</h2>
-	<table class="sortable-theme-light" data-sortable>
+	<table id="findTable" class="sort">
 		<thead>
 			<tr>
-				<th>ID</th>
+				<th class='sort-default'>ID</th>
 				<th>Type</th>
 				<th>Description</th>
 				<th>Project</th>
@@ -25,7 +23,7 @@
 		<tbody>
 		@for(f <- found) {
 			<tr>
-				<td><a href="@routes.Application.findByID(f.id).url">@f.id</a></td>
+				<td data-sort='@f.id'><a href="@routes.Application.findByID(f.id).url">@f.id</a></td>
 				<td>@f.component.getOrElse("")</td>
 				<td>@f.description.getOrElse("")</td>
 				<td>@f.project.getOrElse("")</td>
@@ -35,6 +33,7 @@
 		}
 		</tbody>
 	</table>
+	<script>new Tablesort(document.getElementById('findTable'))</script>
 	<br>
 	@homeOption(Seq[(Call, String, Option[String])]((routes.FindController.find(), "Return to search", None)))
 }
