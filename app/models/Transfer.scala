@@ -34,8 +34,13 @@ case class Transfer(from: String, to: String,
 	 * @return description of transfer, including quadrant information
 	 */
 	def quadDesc = {
-		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) =
-			slice.map((s) => s"slice $s of ").getOrElse("") + quad.map((q) => s"$q of $id").getOrElse(id)
+		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) = {
+			val sliceStr = slice.map((s) => {
+				val head = if (s != CP) s"slice $s" else "cherry picked wells"
+				s"$head of "
+			}).getOrElse("")
+			sliceStr + quad.map((q) => s"$q of $id").getOrElse(id)
+		}
 		"transfer from " + qDesc(from, fromQuad, slice) + " to " + qDesc(to, toQuad, None)
 	}
 }

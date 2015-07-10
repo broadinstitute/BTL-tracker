@@ -98,10 +98,10 @@ object TransferWells {
 
 	// Well mappings between 96-well plate and 384-well plate quadrants - can be used to see what well quadrant
 	// transfers come from and are going to
-	val qTo384 = Map(Q1 -> q96to384(Q1), Q2 -> q96to384(Q2), Q3 -> q96to384(Q3), Q4 -> q96to384(Q4))
-	val qFrom384 = Map(Q1 -> q384to96(Q1), Q2 -> q384to96(Q2), Q3 -> q384to96(Q3), Q4 -> q384to96(Q4))
+	lazy val qTo384 = Map(Q1 -> q96to384(Q1), Q2 -> q96to384(Q2), Q3 -> q96to384(Q3), Q4 -> q96to384(Q4))
+	lazy val qFrom384 = Map(Q1 -> q384to96(Q1), Q2 -> q384to96(Q2), Q3 -> q384to96(Q3), Q4 -> q384to96(Q4))
 	// Make 384 to 384 map of maps: (fromQ, toQ) -> (originalWells -> destinationWells)
-	val q384to384map =
+	lazy val q384to384map =
 		(for {
 			qFrom <- Quad.values.toIterable
 			qTo <- Quad.values.toIterable
@@ -262,7 +262,7 @@ object TransferWells {
 
 	// Make 384 to 384 map of maps: (fromQ, toQ, slice) -> (originalWells -> destinationWells)
 	// Not for cherry picking slices
-	private val slice384to384map =
+	private lazy val slice384to384map =
 		(for {
 			s <- Slice.values.toIterable if s != CP
 			qFrom <- Quad.values.toIterable
@@ -320,7 +320,7 @@ object TransferWells {
 
 	// Make 96 to 96 map of maps: slice -> (originalWells -> destinationWells) - no quadrants are needed for 96-wells
 	// Not for cherry picking slices
-	private val slice96to96map =
+	private lazy val slice96to96map =
 		Slice.values.toIterable.filterNot(_ == CP).map((value) => value -> slice96to96(value, None)).toMap
 
 	/**
