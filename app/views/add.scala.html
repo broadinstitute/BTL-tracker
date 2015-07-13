@@ -8,5 +8,5 @@
 @main("Register Component") {
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
-	@addCommon(addForm, Some(id), "Register Component", routes.Application.addFromForm, false)
+	@addCommon(addForm, Some(id), "Register Component", routes.Application.addFromForm(id), false)
 }

@@ -8,8 +8,7 @@
 @updateForm("Tube", tubeInput, routes.TubeController.updateTubeFromForm(id), id,
 	Component.ComponentType.Tube, hiddenFields, Some(Tube.validContents), false,
 	Seq((routes.EZPassController.ezpass(
-		tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0"),
-		tubeInput(Component.formKey + "." + Component.projectKey).value.getOrElse(id)),
+		tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")),
 		"Create EZPASS")), List.empty){
 	@play.twirl.api.HtmlFormat.empty
 }

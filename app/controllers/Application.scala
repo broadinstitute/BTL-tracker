@@ -92,13 +92,14 @@ object Application extends Controller {
 
 	/**
 	 * Using type supplied from form go to next step to fill in type specific data for components.
+	 * @param id component ID
 	 * @return action to execute to put up form to get component data
 	 */
-	def addFromForm() = Action { request =>
+	def addFromForm(id: String) = Action { request =>
 		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
 				BadRequest(views.html.add(MessageHandler.formGlobalError(formWithErrors,
-					MessageHandler.validationError), formWithErrors.get.id)),
+					MessageHandler.validationError), id)),
 			data =>
 				Redirect(ComponentController.actions(data.t).addRoute(data.id))
 		)
