@@ -12,7 +12,7 @@
 		@inputText(ezpassForm(EZPass.libSizeKey), '_label -> "Library Insert Size (including adapters)")
 		@inputText(ezpassForm(EZPass.libVolKey), '_label -> "Library Volume (ul)")
 		@inputText(ezpassForm(EZPass.libConcKey), '_label -> "Library Concentration (ng/ul)")
-		@inputText(ezpassForm(EZPass.fileName).copy(value=Some(output + "_EZPASS")), '_label -> "Output filename")
+		@inputText(ezpassForm(EZPass.fileName).copy(value=Some("EZ-PASS_" + output)), '_label -> "Output filename")
 		<input type="submit" value="Download EZPASS" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

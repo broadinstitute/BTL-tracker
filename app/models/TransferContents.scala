@@ -180,7 +180,7 @@ object TransferContents {
 			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
 			 */
 			def takeQuadrant(in: MergeTotalContents, transfer: TransferEdge) = {
-				/**
+				/*
 				 * Get a components layout if it is divided
 				 * @param c component
 				 * @return layout of component if one is found
