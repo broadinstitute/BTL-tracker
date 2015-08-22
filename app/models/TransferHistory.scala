@@ -11,6 +11,7 @@ import play.api.libs.json.JsObject
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.BSONFormats
+import play.mvc.Call
 import reactivemongo.bson.{BSONObjectID, BSONDocument}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
@@ -18,7 +19,6 @@ import scala.concurrent.Future
 import scalax.collection.edge.LkDiEdge
 import scalax.collection.Graph
 import scalax.collection.edge.Implicits._
-
 
 /**
  * @author Nathaniel Novod
@@ -270,25 +270,43 @@ object TransferHistory extends Controller with MongoController {
 	/**
 	 * Make a dot format representation of a graph (can be components sources, targets or both)
 	 * @param componentID id of final destination or target of graph
+	 * @param accessPath callback to get call to link to find for component
 	 * @param makeGraph callback to make wanted graph for component
 	 * @return dot output for graph
 	 */
-	private def makeDot(componentID: String, makeGraph: (String) => Future[Graph[Component, LkDiEdge]]) = {
+	private def makeDot(componentID: String, accessPath: (String) => Call,
+						makeGraph: (String) => Future[Graph[Component, LkDiEdge]]) = {
 		makeGraph(componentID).map((graph) => {
 			// Set root information for dot graph: graph is directed and graph ID is based on component ID
 			val root = DotRootGraph(directed = true, id = Some(Id(componentID)))
 
-			// Get representation for node (Component) in Graph
-			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
+			/*
+			 * Setup node from graph for dot rendition.  Node id is simply component ID and label has additional
+			 * description
+			 * @param innerNode node to transform
+			 * @return node representation.
+			 */
+			def nodeHandler(innerNode: Graph[Component, LkDiEdge]#NodeT): Option[(DotGraph, DotNodeStmt)] = {
+				val id = getNodeComponent(innerNode).id
+				Some((root, DotNodeStmt(NodeId(getNodeId(innerNode)),
+					Seq(DotAttr(Id("label"), Id(getNodeLabel(innerNode)))))))
+			}
+
+			/*
+			 * Setup node label - the label is the component ID with additional description.
+			 * @param node to make label for
+			 * @return node label.
+			 */
+			def getNodeLabel(node: Graph[Component, LkDiEdge]#NodeT) = {
 				val component = getNodeComponent(node)
 				val id = component.id
 				// Get id and description up to 23 characters - if longer truncate it and add ...
 				val intro = component.description match {
-					case Some(d) if d.trim.length > 23 => id + " " + d.trim.substring(0, 20) + "..."
-					case Some(d) if d.trim.length > 0 => id + " " + d.trim
-					case _ => id
+					case Some(d) if d.trim.length > 23 => " " + d.trim.substring(0, 20) + "..."
+					case Some(d) if d.trim.length > 0 => " " + d.trim
+					case _ => ""
 				}
-				component match {
+				val label = component match {
 					// If there's initial content include it in identifier
 					case c: Container if c.initialContent.isDefined =>
 						intro + s" (${c.initialContent.get.toString})"
@@ -297,6 +315,16 @@ object TransferHistory extends Controller with MongoController {
 					// Otherwise just identify the node by its id
 					case _ => intro
 				}
+				//graphlib-dot doesn't support html strings, although dot does - someday it would be nice to do:
+				//val refPath = accessPath(id).url
+				// "<<a href=\"" + refPath + "\"" + f">$id</a> $label>"
+				s"$id$label"
+			}
+
+			// Get representation for node (Component) in Graph
+			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
+				val component = getNodeComponent(node)
+				component.id
 			}
 
 			// Handler to display edge
@@ -329,7 +357,7 @@ object TransferHistory extends Controller with MongoController {
 
 			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
 			if (graph.edges.isEmpty) {
-				// If no edges then get id for component's graph node, that should only one there, and make a dot
+				// If no edges then get id for component's graph node, that should only be one there, and make a dot
 				// representation with just that node
 				val id = graph.nodes.lastOption match {
 					case Some(last) => getNodeId(last)
@@ -337,7 +365,7 @@ object TransferHistory extends Controller with MongoController {
 				}
 				emptyGraph(id)
 			}
-			else graph.toDot(dotRoot = root, edgeTransformer = edgeHandler)
+			else graph.toDot(dotRoot = root, edgeTransformer = edgeHandler, cNodeTransformer = Some(nodeHandler))
 		})
 	}
 
@@ -345,25 +373,31 @@ object TransferHistory extends Controller with MongoController {
 	 * Make a dot format representation of a graph of components that are sources (directly or indirectly) for the
 	 * specified component.
 	 * @param componentID id of target component
+	 * @param accessPath callback to get call to link to find for component
 	 * @return dot output for graph
 	 */
-	def makeSourceDot(componentID: String) = makeDot(componentID, makeSourceGraph)
+	def makeSourceDot(componentID: String, accessPath: (String) => Call) =
+		makeDot(componentID, accessPath, makeSourceGraph)
 
 	/**
 	 * Make a dot form representation of a graph of components that are targets (directly or indirectly) of the
 	 * specified component.
 	 * @param componentID id of source component
+	 * @param accessPath callback to get call to link to find for component
 	 * @return dot output for graph
 	 */
-	def makeTargetDot(componentID: String) = makeDot(componentID, makeTargetGraph)
+	def makeTargetDot(componentID: String, accessPath: (String) => Call) =
+		makeDot(componentID, accessPath, makeTargetGraph)
 
 	/**
 	 * Make a dot form representation of a graph of components that are sources or targets (directly or indirectly) of
 	 * the specified component.
 	 * @param componentID id of source component
+	 * @param accessPath callback to get call to link to find for component
 	 * @return dot output for graph
 	 */
-	def makeBidirectionalDot(componentID: String) = makeDot(componentID, makeBidirectionalGraph)
+	def makeBidirectionalDot(componentID: String, accessPath: (String) => Call) =
+		makeDot(componentID, accessPath, makeBidirectionalGraph)
 
 	/**
 	 * Get set of components in graph leading into and out of specified component.

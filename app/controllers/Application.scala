@@ -43,7 +43,7 @@ object Application extends Controller {
 	 * @return puts up pretty picture of graph of transfers to and from a component
 	 */
 	def graphDisplay(id: String) = Action.async {
-		TransferHistory.makeBidirectionalDot(id).map((dot) => {
+		TransferHistory.makeBidirectionalDot(id, routes.Application.findByID(_: String)).map((dot) => {
 			val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
 			Ok(views.html.graphDisplay(htmlStr, id))
 		})
