@@ -289,7 +289,9 @@ object TransferHistory extends Controller with MongoController {
 			def nodeHandler(innerNode: Graph[Component, LkDiEdge]#NodeT): Option[(DotGraph, DotNodeStmt)] = {
 				val id = getNodeComponent(innerNode).id
 				Some((root, DotNodeStmt(NodeId(getNodeId(innerNode)),
-					Seq(DotAttr(Id("label"), Id(getNodeLabel(innerNode)))))))
+					Seq(DotAttr(Id("label"), Id(getNodeLabel(innerNode))),
+						DotAttr(Id("href"), Id(getLabelURL(innerNode))),
+						DotAttr(Id("shape"), Id("box"))))))
 			}
 
 			/*
@@ -315,10 +317,14 @@ object TransferHistory extends Controller with MongoController {
 					// Otherwise just identify the node by its id
 					case _ => intro
 				}
-				//graphlib-dot doesn't support html strings, although dot does - someday it would be nice to do:
-				//val refPath = accessPath(id).url
-				// "<<a href=\"" + refPath + "\"" + f">$id</a> $label>"
 				s"$id$label"
+			}
+
+
+			// Get URL for a node
+			def getLabelURL(node: Graph[Component, LkDiEdge]#NodeT) = {
+				val id = getNodeComponent(node).id
+				accessPath(id).url
 			}
 
 			// Get representation for node (Component) in Graph
