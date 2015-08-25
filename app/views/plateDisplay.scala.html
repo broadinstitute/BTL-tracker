@@ -1,0 +1,16 @@
+@(tableID: String, grid: Map[String, Option[String]], none: String, rows: Int, cols: Int)
+
+<table id=@{tableID}>
+	<tr>
+		<th> </th>
+		@for(c <- 1 to cols) {<th>@(f"$c%02d")</th>}
+	</tr>
+	@for(r <- 'A'.toInt to ('A'+(rows-1))) {
+		<tr>
+			<th>@r.toChar.toString</th>
+			@for(c <- 1 to cols; cell=r.toChar.toString+(f"$c%02d")) {
+				<td>@grid.getOrElse(cell, None).getOrElse(none)</td>
+			}
+		</tr>
+	}
+</table>

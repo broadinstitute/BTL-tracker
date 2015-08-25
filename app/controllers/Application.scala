@@ -1,12 +1,13 @@
 package controllers
 
 import models.Component.ComponentType
-import models.db.TransferCollection
+import models.db.{TrackerCollection, TransferCollection}
 import play.api.Routes
 import play.api.libs.json._
 import play.api.mvc._
 import models._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import play.modules.reactivemongo.json.BSONFormats
 import utils.MessageHandler
 
 import scala.concurrent.Future
@@ -46,6 +47,56 @@ object Application extends Controller {
 		TransferHistory.makeBidirectionalDot(id, routes.Application.findByID(_: String)).map((dot) => {
 			val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
 			Ok(views.html.graphDisplay(htmlStr, id))
+		})
+	}
+
+	/**
+	 * Display the well transfers between two components.
+	 * @param from source component
+	 * @param to target component
+	 * @return puts up nice display of source plate with contents of wells set to destination wells
+	 */
+	def transferDisplay(from: String, to: String) = Action.async {
+		// Get transfers between components (flatmap to avoid future of future)
+		TransferCollection.find(from, to).flatMap((trans) => {
+			// Get components
+			TrackerCollection.findIds(List(from, to)).map((ids) => {
+				// Map bson to components (someday direct mapping should be possible but too painful for now)
+				val components = ids.map((bson) => {
+					// Get json since model conversions are setup to do json reads/writes
+					val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
+					// Do conversion to model component object
+					ComponentFromJson.getComponent(json)
+				})
+				// Find from and to components
+				val fromComponent = components.find(_.id == from)
+				val toComponent = components.find(_.id == to)
+				// Combine all the well transfers together
+				val wells = trans.foldLeft(Map.empty[String, String]){
+					case (out, bson) if (fromComponent.isDefined) =>
+						val next = TransferHistory.getTransferObject(bson)
+						TransferContents.getWellMapping(out, fromComponent.get,
+							next.fromQuad, next.toQuad, next.slice, next.cherries) {
+							case (wellsSoFar, div, newWells) => wellsSoFar ++ newWells
+						}
+					case (out, next) => out
+				}
+				// Make destination wells into options (template takes the map that way)
+				val optWells =
+					wells.map{
+						case (key, value) => key -> Some(value)
+					}
+				// Get number of rows and columns
+				val (rows, cols) =
+					fromComponent.map {
+						case c: ContainerDivisions =>
+							val div = ContainerDivisions.divisionDimensions(c.layout)
+							(div.rows, div.columns)
+						case _ => (0,0)
+					}.getOrElse((0, 0))
+				// Go display the results
+				Ok(views.html.transferDisplay(fromComponent, toComponent, "TransferDisplay", optWells, rows, cols))
+			})
 		})
 	}
 

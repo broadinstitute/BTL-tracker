@@ -1,6 +1,9 @@
 package models
 
+import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division._
+import models.Transfer.Quad._
+import models.Transfer.Slice._
 import models.initialContents.InitialContents
 import models.TransferHistory.TransferEdge
 
@@ -180,69 +183,33 @@ object TransferContents {
 			 * @return contents mapped to output wells (quadrant of input or entire input mapped to quadrant of output)
 			 */
 			def takeQuadrant(in: MergeTotalContents, transfer: TransferEdge) = {
-				/*
-				 * Get a components layout if it is divided
-				 * @param c component
-				 * @return layout of component if one is found
-				 */
-				def getLayout(c: Component) =
-					c match {
-						case cd:ContainerDivisions => Some(cd.layout)
-						case _ => None
-					}
-
-				/*
-				 * Do the mapping of a quadrant between original input wells to wells it will go to in the destination.
-				 * @param in input component contents
-				 * @param layout layout we should be coming from if a divided component
-				 * @param wellMap map of well locations in input to well locations in output
-				 * @return input component contents mapped to destination wells
-				 */
-				def mapQuadrantWells(in: MergeTotalContents, layout: ContainerDivisions.Division.Division,
-									 wellMap: Map[String, String]) = {
-					// See if layout is for input
-					getLayout(in.component) match {
-						case Some(inLayout) if inLayout == layout =>
-							// Layout is for input - now see which wells we want and make new mapping for them
-							val newWells = in.wells.flatMap {
-								case (well, contents) if wellMap.get(well).isDefined =>
-									List(wellMap(well) -> contents)
-								case _ => List.empty
-							}
-							// Create the new input contents
-							MergeTotalContents(in.component, newWells, in.errs)
-						// Input not a divided component - take single input
-						case _ => in
-					}
-				}
-
-				// Go do mapping based on type of transfer
-				(transfer.fromQuad, transfer.toQuad, transfer.slice, transfer.cherries) match {
-					// From a quadrant to an entire component - should be 384-well component to non-quadrant component
-					case (Some(from), None, None, _) => mapQuadrantWells(in, DIM16x24, TransferWells.qFrom384(from))
-					// To a quadrant from an entire component - should be 96-well component to 384-well component
-					case (None, Some(to), None, _) => mapQuadrantWells(in, DIM8x12, TransferWells.qTo384(to))
-					// Slice of quadrant to an entire component - should be 384-well component to non-quadrant component
-					case (Some(from), None, Some(slice), cher) =>
-						mapQuadrantWells(in, DIM16x24, TransferWells.slice384to96wells(from, slice, cher))
-					// Quadrant to quadrant - must be 384-well component to 384-well component
-					case (Some(from), Some(to), None, _) =>
-						mapQuadrantWells(in, DIM16x24, TransferWells.q384to384map(from, to))
-					// Quadrant to quadrant with slice - must be 384-well component to 384-well component
-					case (Some(from), Some(to), Some(slice), cher) =>
-						mapQuadrantWells(in, DIM16x24, TransferWells.slice384to384wells(from, to, slice, cher))
-					// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
-					case (None, Some(to), Some(slice), cher) =>
-						mapQuadrantWells(in, DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
-					// Either a 96-well component (non-quadrant transfer)
-					// or a straight cherry picked 384-well component (no quadrants involved)
-					case (None, None, Some(slice), cher) =>
+				// Get input to output well mapping and add it to what's in input so far
+				getWellMapping(in, in.component, transfer.fromQuad, transfer.toQuad, transfer.slice, transfer.cherries)
+				{
+					/*
+					 * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
+					 * @param in input component contents
+					 * @param layout layout we should be coming from if a divided component
+					 * @param wellMap map of well locations in input to well locations in output
+					 * @return input component contents mapped to destination wells
+					 */
+					(in: MergeTotalContents, layout: ContainerDivisions.Division.Division,
+					 wellMap: Map[String, String]) => {
+						// See if layout is for input
 						getLayout(in.component) match {
-							case Some(DIM8x12) => mapQuadrantWells(in, DIM8x12, TransferWells.slice96to96wells(slice, cher))
-							case Some(DIM16x24) => mapQuadrantWells(in, DIM16x24, TransferWells.slice384to384wells(slice,cher))
+							case Some(inLayout) if inLayout == layout =>
+								// Layout is for input - now see which wells we want and make new mapping for them
+								val newWells = in.wells.flatMap {
+									case (well, contents) if wellMap.get(well).isDefined =>
+										List(wellMap(well) -> contents)
+									case _ => List.empty
+								}
+								// Create the new input contents
+								MergeTotalContents(in.component, newWells, in.errs)
+							// Input not a divided component - take single input
 							case _ => in
 						}
-					case _ => in
+					}
 				}
 			}
 
@@ -326,7 +293,7 @@ object TransferContents {
 		val mids = midsVsSamples.getOrElse(false, Set.empty)
 		val samples = midsVsSamples.getOrElse(true, Set.empty)
 		// Merge together lists attaching MIDs not yet associated with samples
-		if (mids.size == 0 || samples.size == 0) results
+		if (mids.isEmpty || samples.isEmpty) results
 		else samples.map((sample) =>
 			MergeResult(sample.bsp, sample.mid ++ mids.flatMap(_.mid)))
 	}
@@ -342,4 +309,69 @@ object TransferContents {
 	 */
 	private def getAsOneResult(in: Map[String, Set[MergeResult]]) =
 		mergeWellResults(in.foldLeft(Set.empty[MergeResult]) ((soFar, next) => soFar ++ next._2))
+
+	/*
+	 * Get a components layout if it is divided
+	 * @param c component
+	 * @return layout of component if one is found
+	 */
+	private def getLayout(c: Component) =
+		c match {
+			case cd:ContainerDivisions => Some(cd.layout)
+			case _ => None
+		}
+
+	/**
+	 * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
+	 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice, other than
+	 * cherry picking, is a subset of a quadrant (for components that have quadrants) or an entire component
+	 * (for non-quadrant components, such as 96-well components, in which case the entire component can be
+	 * thought of as a single quadrant).
+	 * This method, taking in account the quadrants/slices wanted determines where the selected input wells
+	 * will wind up in the output component.
+	 *
+	 * @param in object to with initial results to add to to return results of merging in new wells
+	 * @param component input component
+	 * @param fromQuad quadrant transfer is coming from
+	 * @param toQuad quadrant transfer is going to
+	 * @param quadSlice slice of quadrant being transferred
+	 * @param cherries cherry picked wells being transferred
+	 * @param makeOut callback to return result - called with (in, expected type of input, input->output wells picked)
+	 * @tparam T type of input/output parameter tracking results
+	 * @return original input (in) or result of makeOut callback if input/output transfer is not possible
+	 */
+	def getWellMapping[T](in: T, component: Component, fromQuad: Option[Quad], toQuad: Option[Quad],
+						  quadSlice: Option[Slice], cherries: Option[List[Int]])
+						 (makeOut: (T, Division.Division, Map[String, String]) => T) = {
+		(fromQuad, toQuad, quadSlice, cherries) match {
+			// From a quadrant to an entire component - should be 384-well component to non-quadrant component
+			case (Some(from), None, None, _) => makeOut(in, DIM16x24, TransferWells.qFrom384(from))
+			// To a quadrant from an entire component - should be 96-well component to 384-well component
+			case (None, Some(to), None, _) => makeOut(in, DIM8x12, TransferWells.qTo384(to))
+			// Slice of quadrant to an entire component - should be 384-well component to non-quadrant component
+			case (Some(from), None, Some(slice), cher) =>
+				makeOut(in, DIM16x24, TransferWells.slice384to96wells(from, slice, cher))
+			// Quadrant to quadrant - must be 384-well component to 384-well component
+			case (Some(from), Some(to), None, _) =>
+				makeOut(in, DIM16x24, TransferWells.q384to384map(from, to))
+			// Quadrant to quadrant with slice - must be 384-well component to 384-well component
+			case (Some(from), Some(to), Some(slice), cher) =>
+				makeOut(in, DIM16x24, TransferWells.slice384to384wells(from, to, slice, cher))
+			// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
+			case (None, Some(to), Some(slice), cher) =>
+				makeOut(in, DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
+			// Either a 96-well component (non-quadrant transfer)
+			// or a straight cherry picked 384-well component (no quadrants involved)
+			case (None, None, Some(slice), cher) =>
+				getLayout(component) match {
+					case Some(DIM8x12) =>
+						makeOut(in, DIM8x12, TransferWells.slice96to96wells(slice, cher))
+					case Some(DIM16x24) =>
+						makeOut(in, DIM16x24, TransferWells.slice384to384wells(slice, cher))
+					case _ => in
+				}
+			case _ => in
+		}
+	}
+
 }

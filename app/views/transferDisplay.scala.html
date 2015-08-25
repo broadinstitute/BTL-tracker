@@ -1,0 +1,15 @@
+@(from: Option[Component], to: Option[Component], tableID: String, grid: Map[String, Option[String]], rows: Int, cols: Int)
+
+@main("Source to destination wells") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tableSelect.css")">
+}{
+	<h2>Well transfers from @from.map(_.id).getOrElse("unknown") to @to.map(_.id).getOrElse("unknown")</h2>
+	@plateDisplay(tableID, grid, "", rows, cols)
+	<br>
+	@homeOption(Seq(
+		(routes.Application.findByID(from.map(_.id).getOrElse("unknown")),
+			"Go to " + from.map(_.id).getOrElse("unknown"), None),
+		(routes.Application.findByID(to.map(_.id).getOrElse("unknown")),
+			"Go to " + to.map(_.id).getOrElse("unknown"), None)))
+}

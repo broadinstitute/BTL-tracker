@@ -100,6 +100,9 @@ POST        /EZPASS/create/:id/:output                  controllers.EZPassContro
 # Make a display of the graph of transfers into and out of a component
 GET         /display/:id                                controllers.Application.graphDisplay(id: String)
 
+# Make a display of the graph of transfers into and out of a component
+GET         /displayTransfer/:from/:to                  controllers.Application.transferDisplay(from: String, to: String)
+
 # Map static resources from the /public folder to the /assets URL path
 GET         /assets/*file                               controllers.Assets.at(path="/public", file)
 

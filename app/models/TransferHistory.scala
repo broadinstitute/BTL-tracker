@@ -89,7 +89,7 @@ object TransferHistory extends Controller with MongoController {
 	 * @param bson input bson
 	 * @return transfer object
 	 */
-	private def getTransferObject(bson: BSONDocument) = {
+	def getTransferObject(bson: BSONDocument) = {
 		// Get the time of the transfer
 		val time = bson.getAs[BSONObjectID]("_id") match {
 			case Some(id) => id.time
@@ -286,13 +286,11 @@ object TransferHistory extends Controller with MongoController {
 			 * @param innerNode node to transform
 			 * @return node representation.
 			 */
-			def nodeHandler(innerNode: Graph[Component, LkDiEdge]#NodeT): Option[(DotGraph, DotNodeStmt)] = {
-				val id = getNodeComponent(innerNode).id
+			def nodeHandler(innerNode: Graph[Component, LkDiEdge]#NodeT): Option[(DotGraph, DotNodeStmt)] =
 				Some((root, DotNodeStmt(NodeId(getNodeId(innerNode)),
 					Seq(DotAttr(Id("label"), Id(getNodeLabel(innerNode))),
 						DotAttr(Id("href"), Id(getLabelURL(innerNode))),
 						DotAttr(Id("shape"), Id("box"))))))
-			}
 
 			/*
 			 * Setup node label - the label is the component ID with additional description.
@@ -358,7 +356,7 @@ object TransferHistory extends Controller with MongoController {
 						}
 				}
 
-			// Go get the Dot output (note IDE gives error on toDot reference but it compiles without any problem)
+			// Go get the Dot output
 			if (graph.edges.isEmpty) {
 				// If no edges then get id for component's graph node, that should only be one there, and make a dot
 				// representation with just that node
@@ -371,6 +369,7 @@ object TransferHistory extends Controller with MongoController {
 				val hrefStr = "href = \"" + href + "\""
 				s"digraph $idStr {\n$idStr [$labelStr, $hrefStr, shape = box]\n}"
 			} else
+				// (note IDE gives error on toDot reference but it compiles without any problem)
 				graph.toDot(dotRoot = root, edgeTransformer = edgeHandler, cNodeTransformer = Some(nodeHandler))
 		})
 	}

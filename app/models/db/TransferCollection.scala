@@ -105,10 +105,10 @@ object TransferCollection extends Controller with MongoController {
 	 * @param from source component id
 	 * @param to target component id
 	 */
-	def countBetweenTransfers(from: String, to: String) = getCount(BSONDocument("from" -> from, "to" -> to))
+	def countBetweenTransfers(from: String, to: String) = getCount(transferBetweenBson(from, to))
 
 	/**
-	 * Future to get list of component that are source/destination of transfers to/from a specified component
+	 * Future to get list of components that are source/destination of transfers to/from a specified component
 	 * @param id component id
 	 * @param directionKey transfer key to indicate to or from
 	 * @return list of components that were target or source of transfers to specified component
@@ -144,5 +144,16 @@ object TransferCollection extends Controller with MongoController {
 				lastError
 			}
 		}
+	}
+
+	/**
+	 * Future to get list of transfers between two specified component IDs
+	 * @param from component transfer is coming from
+	 * @param to component transfer is going to
+	 * @return list of transfers between specified components
+	 */
+	def find(from: String, to: String) = {
+		val cursor = transferCollectionBSON.find(transferBetweenBson(from, to)).cursor
+		cursor.collect[List]()
 	}
 }
