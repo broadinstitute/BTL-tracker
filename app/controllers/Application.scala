@@ -72,17 +72,18 @@ object Application extends Controller {
 				// Find from and to components
 				val fromComponent = components.find(_.id == from)
 				val toComponent = components.find(_.id == to)
-				// Combine all the well transfers together
-				val wells = trans.foldLeft(Map.empty[String, String]){
-					case (out, bson) if (fromComponent.isDefined) =>
-						val next = TransferHistory.getTransferObject(bson)
+				// Make bson into objects and sort results by time (later transfers should override previous ones)
+				val transSorted = trans.map(TransferHistory.getTransferObject).sortWith(_.time < _.time)
+				// Get map of wells
+				val wells = transSorted.foldLeft(Map.empty[String, String]){
+					case (out, next) if (fromComponent.isDefined) =>
 						TransferContents.getWellMapping(out, fromComponent.get,
 							next.fromQuad, next.toQuad, next.slice, next.cherries) {
 							case (wellsSoFar, div, newWells) => wellsSoFar ++ newWells
 						}
 					case (out, next) => out
 				}
-				// Make destination wells into options (template takes the map that way)
+				// Make destination wells into options (view takes the map that way)
 				val optWells =
 					wells.map{
 						case (key, value) => key -> Some(value)
@@ -93,8 +94,8 @@ object Application extends Controller {
 						case c: ContainerDivisions =>
 							val div = ContainerDivisions.divisionDimensions(c.layout)
 							(div.rows, div.columns)
-						case _ => (0,0)
-					}.getOrElse((0, 0))
+						case _ => (1,1) // If component isn't divided then a single "well"
+					}.getOrElse((0, 0)) // If component doesn't exist then nothing there
 				// Go display the results
 				Ok(views.html.transferDisplay(fromComponent, toComponent, "TransferDisplay", optWells, rows, cols))
 			})
