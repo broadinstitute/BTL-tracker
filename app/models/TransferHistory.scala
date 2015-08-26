@@ -271,10 +271,11 @@ object TransferHistory extends Controller with MongoController {
 	 * Make a dot format representation of a graph (can be components sources, targets or both)
 	 * @param componentID id of final destination or target of graph
 	 * @param accessPath callback to get call to link to find for component
+	 * @param transferDisplay callback to get call to display transfer
 	 * @param makeGraph callback to make wanted graph for component
 	 * @return dot output for graph
 	 */
-	private def makeDot(componentID: String, accessPath: (String) => Call,
+	private def makeDot(componentID: String, accessPath: (String) => Call, transferDisplay: (String, String) => Call,
 						makeGraph: (String) => Future[Graph[Component, LkDiEdge]]) = {
 		makeGraph(componentID).map((graph) => {
 			// Set root information for dot graph: graph is directed and graph ID is based on component ID
@@ -320,10 +321,12 @@ object TransferHistory extends Controller with MongoController {
 
 
 			// Get URL for a node
-			def getLabelURL(node: Graph[Component, LkDiEdge]#NodeT) = {
-				val id = getNodeComponent(node).id
-				accessPath(id).url
-			}
+			def getLabelURL(node: Graph[Component, LkDiEdge]#NodeT) =
+				accessPath(getNodeComponent(node).id).url()
+
+			// Get URL for a transfer
+			def getTransferURL(source: Graph[Component, LkDiEdge]#NodeT, target: Graph[Component, LkDiEdge]#NodeT) =
+				transferDisplay(getNodeId(source), getNodeId(target)).url()
 
 			// Get representation for node (Component) in Graph
 			def getNodeId(node: Graph[Component,LkDiEdge]#NodeT) = {
@@ -337,7 +340,8 @@ object TransferHistory extends Controller with MongoController {
 					case LkDiEdge(source, target, edgeLabel) =>
 						// Make the edge format
 						def makeEdgeStmt(label: String) = DotEdgeStmt(NodeId(getNodeId(source)),
-							NodeId(getNodeId(target)), List(DotAttr(Id("label"), Id(label))))
+							NodeId(getNodeId(target)), List(DotAttr(Id("label"), Id(label)),
+								DotAttr(Id("href"), Id(getTransferURL(source, target)))))
 						def makeQuadSliceStmt(slice: Option[Slice]) =
 							slice.map((s) => s" (${s.toString})").getOrElse("")
 						// Make edge label: If a quad/slice transfer then quad/slice we're going to or from
@@ -379,30 +383,34 @@ object TransferHistory extends Controller with MongoController {
 	 * specified component.
 	 * @param componentID id of target component
 	 * @param accessPath callback to get call to link to find for component
+	 * @param transferDisplay callback to get call to display transfer
 	 * @return dot output for graph
 	 */
-	def makeSourceDot(componentID: String, accessPath: (String) => Call) =
-		makeDot(componentID, accessPath, makeSourceGraph)
+	def makeSourceDot(componentID: String, accessPath: (String) => Call, transferDisplay: (String, String) => Call) =
+		makeDot(componentID, accessPath, transferDisplay, makeSourceGraph)
 
 	/**
 	 * Make a dot form representation of a graph of components that are targets (directly or indirectly) of the
 	 * specified component.
 	 * @param componentID id of source component
 	 * @param accessPath callback to get call to link to find for component
+	 * @param transferDisplay callback to get call to display transfer
 	 * @return dot output for graph
 	 */
-	def makeTargetDot(componentID: String, accessPath: (String) => Call) =
-		makeDot(componentID, accessPath, makeTargetGraph)
+	def makeTargetDot(componentID: String, accessPath: (String) => Call, transferDisplay: (String, String) => Call) =
+		makeDot(componentID, accessPath, transferDisplay, makeTargetGraph)
 
 	/**
 	 * Make a dot form representation of a graph of components that are sources or targets (directly or indirectly) of
 	 * the specified component.
 	 * @param componentID id of source component
 	 * @param accessPath callback to get call to link to find for component
+	 * @param transferDisplay callback to get call to display transfer
 	 * @return dot output for graph
 	 */
-	def makeBidirectionalDot(componentID: String, accessPath: (String) => Call) =
-		makeDot(componentID, accessPath, makeBidirectionalGraph)
+	def makeBidirectionalDot(componentID: String, accessPath: (String) => Call,
+							 transferDisplay: (String, String) => Call) =
+		makeDot(componentID, accessPath, transferDisplay, makeBidirectionalGraph)
 
 	/**
 	 * Get set of components in graph leading into and out of specified component.
