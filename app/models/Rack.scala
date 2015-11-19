@@ -7,6 +7,7 @@ package models
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.project.JiraProject
+import org.broadinstitute.LIMStales.sampleRacks.{MatchFound, RackTube}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
@@ -118,7 +119,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 
 	/**
 	 * Get matches for BSP rack.
-	 * @param id id for rack
+	 * @param id id (barcode) for rack
 	 * @param found callback if matches found for BSP rack
 	 * @param notFound callback if matches not found for BSP rack
 	 * @tparam R type returned by callback (and thus us)
@@ -134,7 +135,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 		} else {
 			// Get list of projects containing original BSP scan of rack
 			val (bspRacks, bspErr) = JiraProject.getBspIssueCollection(id)
-			// Get first of list of scanned racks (should only be one there)
+			// Get first project list of scanned racks (should only be one there)
 			val foundRack = rack.head
 			if (bspRacks.isEmpty || foundRack.list.isEmpty) {
 				// Looks like BSP results never entered
@@ -147,9 +148,37 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 					notFound("BSP rack has no recorded contents." +
 						"  Check if the Jira BSP attachment is missing fields, such as tube barcodes.")
 				} else {
-					// Get how scan matches up using first project from each list (should only be one in each list)
-					val matches = foundRack.list.head.matchContent(bspRacks.head.list)
-					found(matches, bspRacks.head)
+					/*
+					 * Determine how a rack scan's tube matches up with the same (equivalent 2d barcode) tube found in
+					 * a bsp scan.
+					 * @param scannedRackBarcode barcode of the rack scanned
+					 * @param bspRackBarcode barcode of bsp rack found with matching tube
+					 * @param scannedRackTube rack scan's tube's contents
+					 * @param bspTube bsp rack's tube's contents
+					 * @param foundInPos bsp tube found in our rackrack/position
+					 *                   set if and only if rack tube not in same position as bsp tube found
+					 * @return
+					 */
+					def findMatch(scannedRackBarcode: String, bspRackBarcode: String,
+								  scannedRackTube: RackTube, bspTube: BSPTube, foundInPos: Option[Option[BSPTube]]) =
+						foundInPos match {
+							case Some(foundTube) =>
+								val isAbDifferent = foundTube match {
+									case Some(foundBsp) => foundBsp.antiBody != bspTube.antiBody
+									case None => bspTube.antiBody.isDefined
+								}
+								if (isAbDifferent) MatchFound.NotFound
+								else if (scannedRackBarcode != bspRackBarcode) MatchFound.NotRack
+								else MatchFound.NotWell
+							case None => MatchFound.Match
+						}
+					// Match rack scan with all bsp rack scans for project
+					// (note heads are ok - should only be one rack scan and only one project for bsp rack(s))
+					val bspProject = bspRacks.head
+					val bspScans = bspProject.list
+					val rackScan = foundRack.list.head
+					val matches = rackScan.matchContent(bspScans, Some(findMatch(_, _, _, _, _)))
+					found(matches, bspProject)
 				}
 			}
 		}
