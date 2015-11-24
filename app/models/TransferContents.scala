@@ -25,14 +25,15 @@ object TransferContents {
 	 * @param collabSample bsp collaborator sample ID
 	 * @param individual bsp collaborator participant
 	 * @param library bsp collaborator library ID
+	 * @param antibody antibody requested for sample
 	 */
 	case class MergeBsp(project: String,projectDescription: Option[String],sampleTube: String,
 						gssrSample: Option[String],collabSample: Option[String],individual: Option[String],
-						library: Option[String]) {
+						library: Option[String], antibody: Option[String]) {
 		// Override equals and hash to make it simpler
 		override def equals(arg: Any) = {
 			arg match {
-				case MergeBsp(p,_,s,_,_,_,_) => p == project && s == sampleTube
+				case MergeBsp(p,_,s,_,_,_,_,_) => p == project && s == sampleTube
 				case _ => false
 			}
 		}
@@ -110,7 +111,8 @@ object TransferContents {
 										Some(MergeBsp(project = ssfIssue.issue, projectDescription = ssfIssue.summary,
 											sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
 											collabSample = tube.collaboratorSample,
-											individual = tube.collaboratorParticipant, library = tube.sampleID)),
+											individual = tube.collaboratorParticipant, library = tube.sampleID,
+											antibody = tube.antiBody)),
 										Set.empty))
 								case _ => List.empty
 							}
@@ -132,8 +134,8 @@ object TransferContents {
 				c match {
 					case container: Container =>
 						container.initialContent match {
-							case Some(ic) =>
-								val mids = InitialContents.contents(ic).contents.map{
+							case Some(ic) if InitialContents.ContentType.isMolBarcode(ic) =>
+								val mids = InitialContents.contents(ic).contents.map {
 									case (well, mbw) =>
 										well -> MergeResult(None, Set(MergeMid(mbw.getSeq, mbw.getName, mbw.isNextera)))
 								}
@@ -224,7 +226,7 @@ object TransferContents {
 			 */
 			def mergeResults(input: MergeTotalContents, output: MergeTotalContents, transfer: TransferEdge) = {
 				// Make sure we only get quadrants transferred (either one quadrant of input or reassign of wells
-				// if full plate only going to one quadrant of output
+				// if full plate only going to one quadrant of output)
 				val inWithQuads = takeQuadrant(input, transfer).wells
 				// If going to a component without divisions (e.g., a tube) put all of input into one "well"
 				val inContent =

@@ -433,7 +433,8 @@ object EZPass {
 					// Finish things up
 					setData.allDone(samplesFound._1, samplesFound._2, contents.errs)
 				// No results - must not be a tube
-				case None => setData.allDone(context, 0, List(s"$component is a multi-well component") ++ contents.errs)
+				case None => setData.allDone(context, 0,
+					List(s"$component is a multi-well component or empty") ++ contents.errs)
 			}
 			// No contents
 			case None => setData.allDone(context, 0, List(s"$component has no contents"))

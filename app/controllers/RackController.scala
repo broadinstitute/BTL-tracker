@@ -3,6 +3,7 @@ package controllers
 import models.Component.{HiddenFields,ComponentType}
 import models.project.JiraProject
 import models.{Component,ContainerDivisions,Rack}
+import org.broadinstitute.LIMStales.sampleRacks.MatchFound
 import play.api.data.Form
 import play.api.libs.Files
 import play.api.libs.json.JsObject
@@ -85,6 +86,26 @@ object RackController extends ComponentController[Rack] {
 	def addRackStack() = Action.async { request => addStack(request) }
 
 	/**
+	 * Map of match found to description of match for sample tubes
+	 */
+	private lazy val bspSampleLegend = Map(
+		MatchFound.Match ->"Rack and well location match",
+		MatchFound.NotWell -> "Match of rack only (well locations differ)",
+		MatchFound.NotRack -> "Rack and well location both do not match",
+		MatchFound.NotFound -> "Tube not found in BSP samples"
+	)
+
+	/**
+	 * Map of match found to description of match for sample tubes to receive antibodies
+	 */
+	private lazy val bspAntibodyLegend = Map(
+		MatchFound.Match ->"Rack and well location match",
+		MatchFound.NotWell -> "Rack and antibody match but well does not",
+		MatchFound.NotRack -> "Antibody matches but rack and well location both do not match",
+		MatchFound.NotFound -> "Tube not found in BSP samples or antibody does not match"
+	)
+
+	/**
 	 * Do BSP report for a Rack.  We show how the scan done of the rack being used compares with what BSP reported
 	 * about the rack.
 	 * @param id barcode for rack
@@ -94,13 +115,16 @@ object RackController extends ComponentController[Rack] {
 		Application.findRequestUsingID(id,request,List(ComponentType.Rack))((cType,json,request) => {
 			Rack.getBSPmatch(id,
 				(matches, foundRack) => {
+					// Get suitable legend
+					val isAntibody = foundRack.list.exists(_.contents.exists(_.antiBody.isDefined))
+					val legend = if (isAntibody) bspAntibodyLegend else bspSampleLegend
 					// Get layout type and corresponding data to know dimensions of rack
 					val layout = (json \ ContainerDivisions.divisionKey).as[String]
 					val layoutType = ContainerDivisions.Division.withName(layout)
 					val layoutData = ContainerDivisions.divisionDimensions(layoutType)
 					// Show the results
 					Ok(views.html.rackScanForm("Rack Scan")(foundRack.issue, id, matches,
-						layoutData.rows, layoutData.columns))
+						layoutData.rows, layoutData.columns, legend))
 
 				},
 				(err) => {

@@ -14,6 +14,7 @@ import play.api.libs.json.Format
 object InitialContents {
 	object ContentType extends Enumeration {
 		type ContentType = Value
+		// Molecular barcode sets (for placement in welled containers (e.g., plate))
 		val NexteraSetA = Value("NexteraXP v2 Index Set A")
 		val NexteraSetB = Value("NexteraXP v2 Index Set B")
 		val NexteraSetC = Value("NexteraXP v2 Index Set C")
@@ -23,6 +24,40 @@ object InitialContents {
 		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
 		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
+		//@TODO Put in real antibody list
+		// Antibodies (only for placement in single sample containers (e.g., tube))
+		val ABRnaPollII = Value("RNAPollII")
+		val ABH3K4me1 = Value("H3K4me1")
+		val ABH3K4me3 = Value("H3K4me3")
+		val ABH3K9me3 = Value("H3K9me3")
+		val ABH3K27ac = Value("H3K27ac")
+		val ABH3K27me3 = Value("H3K27me3")
+		val ABH3K36me3 = Value("H3K36me3")
+		val ABV5 = Value("V5")
+		val ABBrd4 = Value("Brd4")
+
+		val molBarcodes = List(
+			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,TruGrade384Set1,TruGrade96Set1,TruGrade96Set2,
+			TruGrade96Set3,TruGrade96Set4
+		)
+
+		val antiBodies = List(
+			ABRnaPollII,ABH3K4me1,ABH3K4me3,ABH3K9me3,ABH3K27ac,ABH3K27me3,ABH3K36me3,ABV5,ABBrd4
+		)
+
+		/**
+		 * Is content type a molecular barcode set?
+		 * @param ct content type to check
+		 * @return true if content type is a molecular barcode set
+		 */
+		def isMolBarcode(ct: ContentType.ContentType) = molBarcodes.contains(ct)
+
+		/**
+		 * Is content type a antibody?
+		 * @param ct content type to check
+		 * @return true if content type is a antibody
+		 */
+		def isAntibody(ct: ContentType.ContentType) = antiBodies.contains(ct)
 
 		// Create Format for ComponentType enum using our custom enum Reader and Writer
 		implicit val contentTypeFormat: Format[ContentType] =

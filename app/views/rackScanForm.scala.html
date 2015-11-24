@@ -8,11 +8,13 @@
 * @param plate comparison of scanned rack and BSP racks   *
 * @param rows # of rows in rack                           *
 * @param cols # of columns in rack                        *
+* @param legend text to display in legend for match types *
 **********************************************************@
 @(title: String)(issue: String, rack: String,
-        plate: org.broadinstitute.LIMStales.sampleRacks.
-        BarcodedContentList[org.broadinstitute.LIMStales.sampleRacks.BSPTube]#
-                MatchByPos[org.broadinstitute.LIMStales.sampleRacks.BSPTube], rows: Int, cols: Int)
+	plate: org.broadinstitute.LIMStales.sampleRacks.
+	BarcodedContentList[org.broadinstitute.LIMStales.sampleRacks.BSPTube]#
+		MatchByPos[org.broadinstitute.LIMStales.sampleRacks.BSPTube], rows: Int, cols: Int,
+	legend: Map[org.broadinstitute.LIMStales.sampleRacks.MatchFound.MatchFound, String])
 
 @import org.broadinstitute.LIMStales.sampleRacks._
 @import helper._
@@ -47,16 +49,16 @@
 			<th>Legend for matching of rack scan and BSP input</th>
 		</tr>
 		<tr style="height:0px;">
-			<td class="ok" style="text-align:left;">Rack and well location match</td>
+			<td class="ok" style="text-align:left;">@legend(MatchFound.Match)</td>
 		</tr>
 		<tr style="height:0px;">
-			<td class="warning" style="text-align:left;">Match of rack only (well locations differ)</td>
+			<td class="warning" style="text-align:left;">@legend(MatchFound.NotWell)</td>
 		</tr>
 		<tr style="height:0px;">
-			<td class="error" style="text-align:left;">Rack and well location both do not match</td>
+			<td class="error" style="text-align:left;">@legend(MatchFound.NotRack)</td>
 		</tr>
 		<tr style="height:0px;">
-			<td class="fatal" style="text-align:left;">Tube not found in BSP samples</td>
+			<td class="fatal" style="text-align:left;">@legend(MatchFound.NotFound)</td>
 		</tr>
 	</table>
 	<br>

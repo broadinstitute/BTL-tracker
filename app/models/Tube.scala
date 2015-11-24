@@ -2,6 +2,7 @@ package models
 
 import formats.CustomFormats._
 import mappings.CustomMappings._
+import models.initialContents.InitialContents
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
@@ -52,7 +53,8 @@ case class Tube(override val id: String,override val description: Option[String]
 object Tube extends ComponentObject[Tube](ComponentType.Tube) {
 	val validLocations = List(ComponentType.Freezer,ComponentType.Rack)
 	val validTransfers = List(ComponentType.Tube)
-	val validContents = List.empty[ContentType.ContentType]
+	val validContents = InitialContents.ContentType.antiBodies
+
 	/**
 	 * Form mapping for a tube.  Note that component contents must be referred to as componentData.fieldName in forms
 	 * since clean inheritance doesn't appear to be possible.  That's why the (un)applyWithComponent is needed
