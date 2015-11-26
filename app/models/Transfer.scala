@@ -22,10 +22,11 @@ import play.api.libs.json._
  * @param project optional project transfer is associated with
  * @param slice optional slice to transfer
  * @param cherries wells cherry picked (indicies to wells going across first)
+ * @param isTubeToMany true if transferring tube to a multi-welled container
  */
 case class Transfer(from: String, to: String,
 					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String],
-					slice: Option[Transfer.Slice.Slice], cherries: Option[List[Int]]) {
+					slice: Option[Transfer.Slice.Slice], cherries: Option[List[Int]], isTubeToMany: Boolean) {
 
 	import models.Transfer.Quad._
 	import models.Transfer.Slice._
@@ -41,7 +42,8 @@ case class Transfer(from: String, to: String,
 			}).getOrElse("")
 			sliceStr + quad.map((q) => s"$q of $id").getOrElse(id)
 		}
-		"transfer from " + qDesc(from, fromQuad, slice) + " to " + qDesc(to, toQuad, None)
+		val (fromSlice, toSlice) = if (isTubeToMany) (None, slice) else (slice, None)
+		"transfer from " + qDesc(from, fromQuad, fromSlice) + " to " + qDesc(to, toQuad, toSlice)
 	}
 }
 
@@ -52,8 +54,9 @@ case class Transfer(from: String, to: String,
  * @param project optional project transfer is associated with
  */
 case class TransferStart(from: String, to: String, project: Option[String]) {
-	def toTransferForm = TransferForm(toTransfer, dataMandatory = false, isQuadToQuad = false, isQuadToTube = false)
-	def toTransfer = Transfer(from, to, None, None, project, None, None)
+	def toTransferForm = TransferForm(toTransfer, dataMandatory = false,
+		isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = false)
+	def toTransfer = Transfer(from, to, None, None, project, None, None, isTubeToMany = false)
 }
 
 /**
@@ -61,8 +64,10 @@ case class TransferStart(from: String, to: String, project: Option[String]) {
  * @param dataMandatory true if quadrant information must be specified (non-quadrant component to/from quadrant component)
  * @param isQuadToQuad true if quadrant transfers must be quad to quad (both source and destination have quadrants)
  * @param isQuadToTube true if transfer from a source with quadrants to a non-divided component
+ * @param isTubeToQuad true if slice transfer must have to quadrant
  */
-case class TransferForm(transfer: Transfer, dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean)
+case class TransferForm(transfer: Transfer, dataMandatory: Boolean, isQuadToQuad: Boolean,
+						isQuadToTube: Boolean, isTubeToQuad: Boolean)
 
 // Companion object
 object Transfer {
@@ -122,6 +127,7 @@ object Transfer {
 	val toQuadKey = "toQuad"
 	val sliceKey = "slice"
 	val cherriesKey = "cherries"
+	val isTubeToManyKey = "isTubeToMany"
 
 	// Mapping to create/read Transfer objects
 	val transferMapping = mapping(
@@ -131,7 +137,8 @@ object Transfer {
 		toQuadKey -> optional(enum(Quad)),
 		projectKey -> optional(text),
 		sliceKey -> optional(enum(Slice)),
-		cherriesKey -> optional(list(number))
+		cherriesKey -> optional(list(number)),
+		isTubeToManyKey -> boolean
 	)(Transfer.apply)(Transfer.unapply)
 
 	// Keys for form
@@ -139,13 +146,15 @@ object Transfer {
 	val mandatoryKey = "dataMandatory"
 	val isQuadToQuadKey = "isQuadToQuad"
 	val isQuadToTubeKey = "isQuadToTube"
+	val isTubeToQuadKey = "isTubeToQuad"
 
 	// Mapping to create/read Transfer form
 	val transferFormMapping = mapping(
 		transferKey -> transferMapping,
 		mandatoryKey -> boolean,
 		isQuadToQuadKey -> boolean,
-		isQuadToTubeKey -> boolean
+		isQuadToTubeKey -> boolean,
+		isTubeToQuadKey -> boolean
 	)(TransferForm.apply)(TransferForm.unapply)
 
 	// Form used for transferring - it includes verification to see if proper set of quadrants are set.  If a
@@ -155,11 +164,12 @@ object Transfer {
 	// then isQuadToTube is true and a source quadrant must be set if slicing.
 	val form = Form(transferFormMapping
 		verifying ("Quadrant(s) must be specified", f =>
-		(!f.isQuadToQuad && !f.isQuadToTube) ||
+		(!f.isQuadToQuad && !f.isQuadToTube && !f.isTubeToQuad) ||
 			((f.transfer.slice.isEmpty || f.transfer.slice.get == Slice.CP) &&
 				f.transfer.fromQuad.isEmpty && f.transfer.toQuad.isEmpty) ||
 			(f.isQuadToQuad && f.transfer.fromQuad.isDefined && f.transfer.toQuad.isDefined) ||
-			(f.isQuadToTube && f.transfer.fromQuad.isDefined)
+			(f.isQuadToTube && f.transfer.fromQuad.isDefined) ||
+			(f.isTubeToQuad && f.transfer.toQuad.isDefined)
 	))
 
 	// Same form but without verification - this is used to get data from form in case verification failed with regular
@@ -191,8 +201,9 @@ class TransferWithTime(override val from: String, override val to: String,
 					   override val toQuad: Option[Transfer.Quad.Quad],
 					   override val project: Option[String], override val slice: Option[Transfer.Slice.Slice],
 					   override val cherries: Option[List[Int]],
+					   override val isTubeToMany: Boolean,
 					   val time: Long)
-	extends Transfer(from, to, fromQuad, toQuad, project, slice, cherries)
+	extends Transfer(from, to, fromQuad, toQuad, project, slice, cherries, isTubeToMany)
 
 /**
  * Companion object
@@ -206,5 +217,5 @@ object TransferWithTime {
 	 */
 	def apply(transfer: Transfer, time: Long) : TransferWithTime =
 		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad,
-			transfer.project, transfer.slice, transfer.cherries, time)
+			transfer.project, transfer.slice, transfer.cherries, transfer.isTubeToMany, time)
 }

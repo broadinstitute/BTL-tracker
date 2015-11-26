@@ -40,8 +40,8 @@ object TransferCollection extends Controller with MongoController {
 	 * @return query to find transfers directly to/from a component
 	 */
 	private def transferBson(id: String) = BSONDocument("$or" -> BSONArray(
-		BSONDocument("from" -> id),
-		BSONDocument("to" -> id)))
+		BSONDocument(Transfer.fromKey -> id),
+		BSONDocument(Transfer.toKey -> id)))
 
 	/**
 	 * Get BSON document query for transfer between two specified components
@@ -49,7 +49,8 @@ object TransferCollection extends Controller with MongoController {
 	 * @param to transfer target component
 	 * @return query to find transfers directly between specified components
 	 */
-	private def transferBetweenBson(from: String, to: String) = BSONDocument("from" -> from, "to" -> to)
+	private def transferBetweenBson(from: String, to: String) =
+		BSONDocument(Transfer.fromKey -> from, Transfer.toKey -> to)
 
 	/**
 	 * Remove transfers.

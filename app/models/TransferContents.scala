@@ -345,6 +345,7 @@ object TransferContents {
 	def getWellMapping[T](in: T, component: Component, fromQuad: Option[Quad], toQuad: Option[Quad],
 						  quadSlice: Option[Slice], cherries: Option[List[Int]])
 						 (makeOut: (T, Division.Division, Map[String, String]) => T) = {
+		//@TODO Allow for tube to many input - have tube well be single well
 		(fromQuad, toQuad, quadSlice, cherries) match {
 			// From a quadrant to an entire component - should be 384-well component to non-quadrant component
 			case (Some(from), None, None, _) => makeOut(in, DIM16x24, TransferWells.qFrom384(from))

@@ -53,14 +53,17 @@ object TransferController extends Controller {
 	 * @param dataMandatory true if requested quadrant information must be specified
 	 * @param isQuadToQuad true if slice transfers must have from and to quadrant
 	 * @param isQuadToTube true if slice transfer must have from quadrant
+	 * @param isTubeToQuad true if slice transfer must have to quadrant
+	 * @param isTubeToMany true if transferring tube to a multi-welled container
 	 * @return action to get additional transfer information wanted
 	 */
 	def transferWithParams(fromID: String, toID: String, project: Option[String],
 	                       fromQuad: Boolean, toQuad: Boolean,
-						   dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean) = {
+						   dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean,
+						   isTubeToQuad: Boolean, isTubeToMany: Boolean) = {
 		Action { request =>
 			Ok(views.html.transfer(MessageHandler.addStatusFlash(request, Transfer.form), fromID, toID, project,
-				fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube))
+				fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube, isTubeToQuad, isTubeToMany))
 		}
 	}
 
@@ -130,12 +133,15 @@ object TransferController extends Controller {
 	 * @param dataMandatory true if quadrant information requested must be filled in
 	 * @param isQuadToQuad true if sliced transfer must be between quadrants
 	 * @param isQuadToTube true if sliced transfer is from quadrant to non-divided component
+	 * @param isTubeToQuad true if slice transfer must have to quadrant
+	 * @param isTubeToMany true if transferring tube to a multi-welled container
 	 * @return redirect to transferWithParams to query for additional information
 	 */
 	private def transferIncomplete(data: TransferStart, fromQuad: Boolean, toQuad: Boolean,
-								   dataMandatory: Boolean, isQuadToQuad : Boolean, isQuadToTube: Boolean) = {
+								   dataMandatory: Boolean, isQuadToQuad : Boolean, isQuadToTube: Boolean,
+								   isTubeToQuad: Boolean, isTubeToMany: Boolean) = {
 		val result = Redirect(routes.TransferController.transferWithParams(data.from, data.to, data.project,
-			fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube))
+			fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube, isTubeToQuad, isTubeToMany))
 		val quadPlural = if (fromQuad && toQuad) "s" else ""
 		val quadsThere = if (fromQuad || toQuad) " and quadrant" else ""
 		val infoType = if (dataMandatory) s"Specify quadrant$quadPlural and optionally slice"
@@ -145,7 +151,7 @@ object TransferController extends Controller {
 	}
 
 	/**
-	 * Result when transfer needs more information for transfer between divided containers.Based on the quadrant
+	 * Result when transfer needs more information for transfer between divided containers.  Based on the quadrant
 	 * information wanted we set parameters for the transfer screen
 	 * @param data transfer info known so far
 	 * @param fromQuad true if need query for quadrant to transfer from
@@ -158,7 +164,19 @@ object TransferController extends Controller {
 		// size containers)
 		transferIncomplete(data, fromQuad = fromQuad, toQuad = toQuad,
 			dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad),
-			isQuadToQuad = toQuad && fromQuad, isQuadToTube = false)
+			isQuadToQuad = toQuad && fromQuad, isQuadToTube = false, isTubeToQuad = false, isTubeToMany = false)
+	}
+
+	/**
+	 * Result when transfer needs more information for transfer from undivided container to divided containers.
+	 * Based on the quadrant information wanted we set parameters for the transfer screen.
+	 * @param data transfer info known so far
+	 * @param toQuad true if need query for quadrant to transfer to
+	 * @return redirect to transferWithParams to query for additional information
+	 */
+	private def fromTubeTransferIncomplete(data: TransferStart, toQuad: Boolean) = {
+		transferIncomplete(data, fromQuad = false, toQuad = toQuad, dataMandatory = false,
+			isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = toQuad, isTubeToMany = true)
 	}
 
 	/**
@@ -169,8 +187,8 @@ object TransferController extends Controller {
 	 * @return redirect to transferWithParams to query for additional information
 	 */
 	private def toTubeTransferIncomplete(data: TransferStart, fromQuad: Boolean) =
-		transferIncomplete(data, fromQuad  = fromQuad,
-			toQuad = false, dataMandatory = false, isQuadToQuad = false, isQuadToTube = fromQuad)
+		transferIncomplete(data, fromQuad  = fromQuad, toQuad = false, dataMandatory = false,
+			isQuadToQuad = false, isQuadToTube = fromQuad, isTubeToQuad = false, isTubeToMany = false)
 
 	/**
 	 * Result when transfer start form had errors
@@ -271,7 +289,16 @@ object TransferController extends Controller {
 										case DIM16x24 =>
 											now(toTubeTransferIncomplete(data, fromQuad = true))
 									}
-								// Source isn't divided - go complete transfer of its contents
+								// Transferring from an undivided container to a divided container
+								case (_, t: ContainerDivisions) =>
+									t.layout match {
+										case DIM8x12 =>
+											now(fromTubeTransferIncomplete(data, toQuad = false))
+										case DIM16x24 =>
+											now(fromTubeTransferIncomplete(data, toQuad = true))
+									}
+
+								// Source and destinaion aren't divided - go complete transfer of its contents
 								case _ =>
 									val tForm = data.toTransferForm
 									insertTransferWithoutCherries(tForm)
@@ -348,8 +375,8 @@ object TransferController extends Controller {
 	private def transferFormErrorResult(form: Form[TransferForm], data: TransferForm) = {
 		BadRequest(views.html.transfer(form, data.transfer.from, data.transfer.to, data.transfer.project,
 			data.isQuadToQuad || data.isQuadToTube || data.transfer.fromQuad.isDefined,
-			data.isQuadToQuad || data.transfer.toQuad.isDefined,
-			data.dataMandatory, data.isQuadToQuad, data.isQuadToTube))
+			data.isQuadToQuad || data.isTubeToQuad || data.transfer.toQuad.isDefined,
+			data.dataMandatory, data.isQuadToQuad, data.isQuadToTube, data.isTubeToQuad, data.transfer.isTubeToMany))
 	}
 
 	/**
@@ -494,15 +521,17 @@ object TransferController extends Controller {
 	 * @return response with page to display to do cherry picking
 	 */
 	private def getCherryPickingView(transfer: Transfer, form: Form[Transfer]) = {
-		getWells(transfer.from, transfer.fromQuad).map {
-			// Report and errors found an then bring up page with cherry picking
+		val (cherryContainer, cherryQuad) =
+			if (transfer.isTubeToMany) (transfer.to, transfer.toQuad) else (transfer.from, transfer.fromQuad)
+		getWells(cherryContainer, cherryQuad).map {
+			// Report errors found and then bring up page with cherry picking
 			case (Some(wells), rows, columns, errs) =>
 				val errorForm = errs.foldLeft(form)(
 					(soFar, next) => soFar.withGlobalError(next)).
 					withGlobalError("Pick wells to be transferred")
 				Ok(views.html.transferCherries(errorForm, transfer.from,
 					transfer.to, wells, rows, columns, transfer.project,
-					transfer.fromQuad, transfer.toQuad))
+					transfer.fromQuad, transfer.toQuad, transfer.isTubeToMany))
 			// If we couldn't get well information go back to transfer start with errors
 			case (_, _, _, errs) =>
 				val allErrs = form.globalErrors.map((err) => err.message).toList ++ errs

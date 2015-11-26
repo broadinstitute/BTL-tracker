@@ -1,6 +1,6 @@
 @(transferForm: Form[Transfer], fromID: String, toID: String,
 	wells: Map[String, Option[String]],	rows: Int, columns: Int, project: Option[String],
-	fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad])
+	fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], isTubeToMany: Boolean)
 @import helper._
 @import models.Transfer
 
@@ -26,6 +26,7 @@
 				'readonly -> "readonly", '_showContraints -> false, '_label -> (toID + " quadrant to transfer to"))
 		}
 		<input type="hidden" id="@{Transfer.sliceKey}" name="@{Transfer.sliceKey}" value="@{Transfer.Slice.CP.toString}" />
+		<input type="hidden" id="@{Transfer.isTubeToManyKey}" name="@{Transfer.isTubeToManyKey}" value="@isTubeToMany" />
 		@cherryPicker("cherryTable", wells, rows, columns)
 		<script>tableSelect("cherryTable")</script>
 		<input type="submit" value="Transfer" style="display:inline;">

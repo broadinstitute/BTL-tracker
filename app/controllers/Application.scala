@@ -74,10 +74,13 @@ object Application extends Controller {
 				val toComponent = components.find(_.id == to)
 				// Make bson into objects and sort results by time (later transfers should override previous ones)
 				val transSorted = trans.map(TransferHistory.getTransferObject).sortWith(_.time < _.time)
+				// Get which component has wells being transferred from/to
+				val fromTube = transSorted.forall(_.isTubeToMany)
+				val wellComponent = if (fromTube) toComponent else fromComponent
 				// Get map of wells
 				val wells = transSorted.foldLeft(Map.empty[String, String]){
-					case (out, next) if (fromComponent.isDefined) =>
-						TransferContents.getWellMapping(out, fromComponent.get,
+					case (out, next) if (wellComponent.isDefined) =>
+						TransferContents.getWellMapping(out, wellComponent.get,
 							next.fromQuad, next.toQuad, next.slice, next.cherries) {
 							case (wellsSoFar, div, newWells) => wellsSoFar ++ newWells
 						}
@@ -90,7 +93,7 @@ object Application extends Controller {
 					}
 				// Get number of rows and columns
 				val (rows, cols) =
-					fromComponent.map {
+					wellComponent.map {
 						case c: ContainerDivisions =>
 							val div = ContainerDivisions.divisionDimensions(c.layout)
 							(div.rows, div.columns)

@@ -52,7 +52,7 @@ case class Tube(override val id: String,override val description: Option[String]
  */
 object Tube extends ComponentObject[Tube](ComponentType.Tube) {
 	val validLocations = List(ComponentType.Freezer,ComponentType.Rack)
-	val validTransfers = List(ComponentType.Tube)
+	val validTransfers = List(ComponentType.Tube, ComponentType.Plate, ComponentType.Rack)
 	val validContents = InitialContents.ContentType.antiBodies
 
 	/**
