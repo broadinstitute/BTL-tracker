@@ -75,21 +75,29 @@ object Application extends Controller {
 				// Make bson into objects and sort results by time (later transfers should override previous ones)
 				val transSorted = trans.map(TransferHistory.getTransferObject).sortWith(_.time < _.time)
 				// Get which component has wells being transferred from/to
-				val fromTube = transSorted.forall(_.isTubeToMany)
-				val wellComponent = if (fromTube) toComponent else fromComponent
-				// Get map of wells
+				val isFromTube = transSorted.forall(_.isTubeToMany)
+				val wellComponent = if (isFromTube) toComponent else fromComponent
+				// Get map of wells (map of input to output wells)
 				val wells = transSorted.foldLeft(Map.empty[String, String]){
-					case (out, next) if (wellComponent.isDefined) =>
-						TransferContents.getWellMapping(out, wellComponent.get,
-							next.fromQuad, next.toQuad, next.slice, next.cherries) {
+					case (outSoFar, next) if wellComponent.isDefined =>
+						TransferContents.getWellMapping(outSoFar, wellComponent.get,
+							next.fromQuad, next.toQuad, next.slice, next.cherries, isFromTube) {
 							case (wellsSoFar, div, newWells) => wellsSoFar ++ newWells
 						}
-					case (out, next) => out
+					case (out, _) => out
 				}
 				// Make destination wells into options (view takes the map that way)
+				// If from tube then display destination multi-well container with marks where tube contents is
+				// transferred into.  Otherwise source multi-well container is displayed with destination wells set in
+				// input well locations.
 				val optWells =
 					wells.map{
-						case (key, value) => key -> Some(value)
+						case (key, value) =>
+							// If from tube should always be from well "A01" so just mark where tube was transferred
+							if (isFromTube)
+								value -> Some("XX")
+							else
+								key -> Some(value)
 					}
 				// Get number of rows and columns
 				val (rows, cols) =
@@ -100,7 +108,8 @@ object Application extends Controller {
 						case _ => (1,1) // If component isn't divided then a single "well"
 					}.getOrElse((0, 0)) // If component doesn't exist then nothing there
 				// Go display the results
-				Ok(views.html.transferDisplay(fromComponent, toComponent, "TransferDisplay", optWells, rows, cols))
+				Ok(views.html.transferDisplay(fromComponent, toComponent, "TransferDisplay", optWells,
+					rows, cols, !isFromTube))
 			})
 		})
 	}

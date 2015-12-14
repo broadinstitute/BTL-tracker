@@ -1,15 +1,17 @@
-@(from: Option[Component], to: Option[Component], tableID: String, grid: Map[String, Option[String]], rows: Int, cols: Int)
+@(from: Option[Component], to: Option[Component], tableID: String, grid: Map[String, Option[String]],
+	rows: Int, cols: Int, sourceDisplay: Boolean)
+@fromID = @{from.map(_.id).getOrElse("unknown")}
+@toID = @{to.map(_.id).getOrElse("unknown")}
+@displayID = @{"Display of " + (if (sourceDisplay) fromID else toID)}
 
 @main("Source to destination wells") {
 	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tableSelect.css")">
 }{
-	<h2>Well transfers from @from.map(_.id).getOrElse("unknown") to @to.map(_.id).getOrElse("unknown")</h2>
+	<h2>@displayID for transfers from @fromID to @toID</h2>
 	@plateDisplay(tableID, grid, "", rows, cols)
 	<br>
 	@homeOption(Seq(
-		(routes.Application.findByID(from.map(_.id).getOrElse("unknown")),
-			"Go to " + from.map(_.id).getOrElse("unknown"), None),
-		(routes.Application.findByID(to.map(_.id).getOrElse("unknown")),
-			"Go to " + to.map(_.id).getOrElse("unknown"), None)))
+		(routes.Application.findByID(fromID), "Go to " + fromID, None),
+		(routes.Application.findByID(toID),	"Go to " + toID, None)))
 }

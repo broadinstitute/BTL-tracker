@@ -158,10 +158,11 @@ object TransferHistory extends Controller with MongoController {
 	 * @param fromQuad optional source quad of component transfer is coming from
 	 * @param toQuad optional destination quad of component transfer is going to
 	 * @param cherries optional list of indicies to cherry picked wells
+	 * @param isTubeToMany transfer is from one well to many (e.g., tube to plate)
 	 * @param time when transfer was done
 	 */
 	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad], slice: Option[Slice],
-							cherries: Option[List[Int]], time: Long)
+							cherries: Option[List[Int]], isTubeToMany: Boolean, time: Long)
 
 	/**
 	 * Would the addition of this transfer lead to a cyclic graph?  Get what leads into the "from" part of the transfer
@@ -214,7 +215,8 @@ object TransferHistory extends Controller with MongoController {
 				// Map all the transfers into graph edges
 				history.transfers.map((t) =>
 					(findComponent(t.from) ~+#>
-						findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad, t.slice, t.cherries, t.time)))
+						findComponent(t.to))(TransferEdge(t.fromQuad, t.toQuad, t.slice, t.cherries,
+						t.isTubeToMany, t.time)))
 			}
 		)
 		// When future with list of edges returns make it into a graph
@@ -346,14 +348,14 @@ object TransferHistory extends Controller with MongoController {
 							slice.map((s) => s" (${s.toString})").getOrElse("")
 						// Make edge label: If a quad/slice transfer then quad/slice we're going to or from
 						edgeLabel match {
-							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _, _) if fromQ != toQ =>
+							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _, _, _) if fromQ != toQ =>
 								Some(root,
 									makeEdgeStmt(s"from ${fromQ.toString} to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(Some(fromQ), _, qSlice, _, _) =>
+							case TransferEdge(Some(fromQ), _, qSlice, _, _, _) =>
 								Some(root, makeEdgeStmt(s"from ${fromQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(_, Some(toQ), qSlice, _, _) =>
+							case TransferEdge(_, Some(toQ), qSlice, _, _, _) =>
 								Some(root, makeEdgeStmt(s"to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(_, _, Some(slice), _, _) =>
+							case TransferEdge(_, _, Some(slice), _, _, _) =>
 								Some(root, makeEdgeStmt(slice.toString))
 							case _ =>
 								Some(root, DotEdgeStmt(NodeId(getNodeId(source)), NodeId(getNodeId(target))))

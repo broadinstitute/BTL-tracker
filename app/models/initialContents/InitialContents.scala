@@ -24,7 +24,7 @@ object InitialContents {
 		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
 		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
-		//@TODO Put in real antibody list
+		//@TODO Update antibody list
 		// Antibodies (only for placement in single sample containers (e.g., tube))
 		val ABRnaPollII = Value("RNAPollII")
 		val ABH3K4me1 = Value("H3K4me1")
@@ -36,11 +36,17 @@ object InitialContents {
 		val ABV5 = Value("V5")
 		val ABBrd4 = Value("Brd4")
 
+		/**
+		 * List of all molecular barcode sets
+		 */
 		val molBarcodes = List(
 			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,TruGrade384Set1,TruGrade96Set1,TruGrade96Set2,
 			TruGrade96Set3,TruGrade96Set4
 		)
 
+		/**
+		 * List of all antibodies
+		 */
 		val antiBodies = List(
 			ABRnaPollII,ABH3K4me1,ABH3K4me3,ABH3K9me3,ABH3K27ac,ABH3K27me3,ABH3K36me3,ABV5,ABBrd4
 		)

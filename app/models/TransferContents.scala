@@ -186,7 +186,8 @@ object TransferContents {
 			 */
 			def takeQuadrant(in: MergeTotalContents, transfer: TransferEdge) = {
 				// Get input to output well mapping and add it to what's in input so far
-				getWellMapping(in, in.component, transfer.fromQuad, transfer.toQuad, transfer.slice, transfer.cherries)
+				getWellMapping(in, in.component, transfer.fromQuad, transfer.toQuad, transfer.slice,
+					transfer.cherries, transfer.isTubeToMany)
 				{
 					/*
 					 * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
@@ -332,48 +333,49 @@ object TransferContents {
 	 * This method, taking in account the quadrants/slices wanted determines where the selected input wells
 	 * will wind up in the output component.
 	 *
-	 * @param in object to with initial results to add to to return results of merging in new wells
+	 * @param soFar initial object with results so far to add to to return results of merging in new wells
 	 * @param component input component
 	 * @param fromQuad quadrant transfer is coming from
 	 * @param toQuad quadrant transfer is going to
 	 * @param quadSlice slice of quadrant being transferred
 	 * @param cherries cherry picked wells being transferred
 	 * @param makeOut callback to return result - called with (in, expected type of input, input->output wells picked)
+	 * @param isTubeToMany input is a tube being transferred to one or more wells in a multi-well component
 	 * @tparam T type of input/output parameter tracking results
 	 * @return original input (in) or result of makeOut callback if input/output transfer is not possible
 	 */
-	def getWellMapping[T](in: T, component: Component, fromQuad: Option[Quad], toQuad: Option[Quad],
-						  quadSlice: Option[Slice], cherries: Option[List[Int]])
+	def getWellMapping[T](soFar: T, component: Component, fromQuad: Option[Quad], toQuad: Option[Quad],
+						  quadSlice: Option[Slice], cherries: Option[List[Int]], isTubeToMany: Boolean)
 						 (makeOut: (T, Division.Division, Map[String, String]) => T) = {
 		//@TODO Allow for tube to many input - have tube well be single well
 		(fromQuad, toQuad, quadSlice, cherries) match {
 			// From a quadrant to an entire component - should be 384-well component to non-quadrant component
-			case (Some(from), None, None, _) => makeOut(in, DIM16x24, TransferWells.qFrom384(from))
+			case (Some(from), None, None, _) => makeOut(soFar, DIM16x24, TransferWells.qFrom384(from))
 			// To a quadrant from an entire component - should be 96-well component to 384-well component
-			case (None, Some(to), None, _) => makeOut(in, DIM8x12, TransferWells.qTo384(to))
+			case (None, Some(to), None, _) => makeOut(soFar, DIM8x12, TransferWells.qTo384(to))
 			// Slice of quadrant to an entire component - should be 384-well component to non-quadrant component
 			case (Some(from), None, Some(slice), cher) =>
-				makeOut(in, DIM16x24, TransferWells.slice384to96wells(from, slice, cher))
+				makeOut(soFar, DIM16x24, TransferWells.slice384to96wells(from, slice, cher))
 			// Quadrant to quadrant - must be 384-well component to 384-well component
 			case (Some(from), Some(to), None, _) =>
-				makeOut(in, DIM16x24, TransferWells.q384to384map(from, to))
+				makeOut(soFar, DIM16x24, TransferWells.q384to384map(from, to))
 			// Quadrant to quadrant with slice - must be 384-well component to 384-well component
 			case (Some(from), Some(to), Some(slice), cher) =>
-				makeOut(in, DIM16x24, TransferWells.slice384to384wells(from, to, slice, cher))
+				makeOut(soFar, DIM16x24, TransferWells.slice384to384wells(from, to, slice, cher))
 			// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
 			case (None, Some(to), Some(slice), cher) =>
-				makeOut(in, DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
+				makeOut(soFar, DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
 			// Either a 96-well component (non-quadrant transfer)
 			// or a straight cherry picked 384-well component (no quadrants involved)
 			case (None, None, Some(slice), cher) =>
 				getLayout(component) match {
 					case Some(DIM8x12) =>
-						makeOut(in, DIM8x12, TransferWells.slice96to96wells(slice, cher))
+						makeOut(soFar, DIM8x12, TransferWells.slice96to96wells(slice, cher))
 					case Some(DIM16x24) =>
-						makeOut(in, DIM16x24, TransferWells.slice384to384wells(slice, cher))
-					case _ => in
+						makeOut(soFar, DIM16x24, TransferWells.slice384to384wells(slice, cher))
+					case _ => soFar
 				}
-			case _ => in
+			case _ => soFar
 		}
 	}
 
