@@ -33,8 +33,9 @@ object Application extends Controller {
 	/**
 	 * Just a test form
 	 */
-	def test(id: String) = Action { request =>
-		Ok("Got" + id)
+	def test(id: String) = Action.async {
+		TransferContents.getContents(id).map((res) =>
+			Ok(res.toString))
 	}
 
 	/**
@@ -76,13 +77,21 @@ object Application extends Controller {
 				val transSorted = trans.map(TransferHistory.getTransferObject).sortWith(_.time < _.time)
 				// Get which component has wells being transferred from/to
 				val isFromTube = transSorted.forall(_.isTubeToMany)
-				val wellComponent = if (isFromTube) toComponent else fromComponent
 				// Get map of wells (map of input to output wells)
-				val wells = transSorted.foldLeft(Map.empty[String, String]){
-					case (outSoFar, next) if wellComponent.isDefined =>
-						TransferContents.getWellMapping(outSoFar, wellComponent.get,
+				val wells = transSorted.foldLeft(Map.empty[String, List[String]]){
+					case (outSoFar, next) if (fromComponent.isDefined && toComponent.isDefined) =>
+						TransferContents.getWellMapping(outSoFar, fromComponent.get, toComponent.get,
 							next.fromQuad, next.toQuad, next.slice, next.cherries, isFromTube) {
-							case (wellsSoFar, div, newWells) => wellsSoFar ++ newWells
+							case (wellsSoFar, div, newWells) =>
+								val keys = wellsSoFar.keySet ++ newWells.keySet
+								keys.map((k) => {
+									k -> ((wellsSoFar.get(k), newWells.get(k)) match {
+										case (Some(v), None) => v
+										case (None, Some(v)) => v
+										case (Some(v1), Some(v2)) => v1 ++ v2
+										case (None, None) => List.empty[String]
+									})
+								}).toMap
 						}
 					case (out, _) => out
 				}
@@ -91,15 +100,16 @@ object Application extends Controller {
 				// transferred into.  Otherwise source multi-well container is displayed with destination wells set in
 				// input well locations.
 				val optWells =
-					wells.map{
+					wells.flatMap {
 						case (key, value) =>
 							// If from tube should always be from well "A01" so just mark where tube was transferred
 							if (isFromTube)
-								value -> Some("XX")
+								value.map((v) => v -> Some("XX"))
 							else
-								key -> Some(value)
+								Map(key -> Some(value.mkString(",")))
 					}
 				// Get number of rows and columns
+				val wellComponent = if (isFromTube) toComponent else fromComponent
 				val (rows, cols) =
 					wellComponent.map {
 						case c: ContainerDivisions =>

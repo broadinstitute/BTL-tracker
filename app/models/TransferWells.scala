@@ -12,12 +12,14 @@ object TransferWells {
 	private val col1 = 1
 	private val rowLast96 = 'H'
 	private val colLast96 = 12
-	//private val rowsPer96 = rowLast96 - row1 + 1
+	private val rowsPer96 = rowLast96 - row1 + 1
 	private val colsPer96 = colLast96 - col1 + 1
-	//private val rowLast384 = 'P'
+	private val rowLast384 = 'P'
 	private val colLast384 = 24
-	//private val rowsPer384 = rowLast384 - row1 + 1
-	private val colsPer384 = colLast384 - row1 + 1
+	private val rowsPer384 = rowLast384 - row1 + 1
+	private val colsPer384 = colLast384 - col1 + 1
+	private val wellsPer96 = rowsPer96 * colsPer96
+	private val wellsPer384 = rowsPer384 * colsPer384
 
 	import Quad._
 	/**
@@ -113,6 +115,28 @@ object TransferWells {
 					case (k, v) => k -> to(v)
 				}
 			}).toMap
+
+	/**
+	  * Make map of entire plate pointing to itself
+	  * @param size size of plate
+	  * @param wellStrFromIndex callback to make well name from index
+	  * @return map of entire plate of wells pointing to themselves
+	  */
+	private def makeEntireMap(size: Int, wellStrFromIndex: (Int) => String) =
+		(0 to size-1).map((i) => {
+			val well = wellStrFromIndex(i)
+			well -> well
+		}).toMap
+
+	/**
+	  * Map of wells for 96-well plate pointing to themselves (A01->A01, ..., H12->H12)
+	  */
+	lazy val entire96to96wells = makeEntireMap(wellsPer96, make96WellStrFromIndex)
+
+	/**
+	  * Map of wells for 384-well plate pointing to themselves (A01->A01, ..., P24->P24)
+	  */
+	lazy val entire384to384wells = makeEntireMap(wellsPer384, make384WellStrFromIndex)
 
 	import Slice._
 
