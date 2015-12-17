@@ -42,7 +42,7 @@ object Application extends Controller {
 							(if (well == TransferContents.oneWell) "A01" else well) ->
 								Some(contents.map((content) => {
 									val sample = content.bsp match {
-										case Some(bsp) => bsp.collabSample.getOrElse("unknown")
+										case Some(bsp) => bsp.library.getOrElse("unknown")
 										case None => "unknown"
 									}
 									val mids = content.mid.map((m) => m.name).mkString(",")
