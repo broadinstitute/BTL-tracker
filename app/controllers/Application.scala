@@ -34,8 +34,32 @@ object Application extends Controller {
 	 * Just a test form
 	 */
 	def test(id: String) = Action.async {
-		TransferContents.getContents(id).map((res) =>
-			Ok(res.toString))
+		TransferContents.getContents(id).map {
+			case Some(res) =>
+				val wellMap =
+					res.wells.map{
+						case (well, contents) =>
+							(if (well == TransferContents.oneWell) "A01" else well) ->
+								Some(contents.map((content) => {
+									val sample = content.bsp match {
+										case Some(bsp) => bsp.collabSample.getOrElse("unknown")
+										case None => "unknown"
+									}
+									val mids = content.mid.map((m) => m.name).mkString(",")
+									val abs = content.antibody.mkString(",")
+									sample + ";" + mids + ";" + abs
+								}).mkString("+"))
+					}
+				val (rows, cols) =
+					res.component match {
+						case c: ContainerDivisions =>
+							val div = ContainerDivisions.divisionDimensions(c.layout)
+							(div.rows, div.columns)
+						case _ => (1,1) // If component isn't divided then a single "well"
+					}
+				Ok(views.html.contentDisplay(res.component.id, "Contents", wellMap, "", rows, cols))
+			case None => Ok("ID not found")
+		}
 	}
 
 	/**
@@ -79,7 +103,7 @@ object Application extends Controller {
 				val isFromTube = transSorted.forall(_.isTubeToMany)
 				// Get map of wells (map of input to output wells)
 				val wells = transSorted.foldLeft(Map.empty[String, List[String]]){
-					case (outSoFar, next) if (fromComponent.isDefined && toComponent.isDefined) =>
+					case (outSoFar, next) if fromComponent.isDefined && toComponent.isDefined =>
 						TransferContents.getWellMapping(outSoFar, fromComponent.get, toComponent.get,
 							next.fromQuad, next.toQuad, next.slice, next.cherries, isFromTube) {
 							case (wellsSoFar, div, newWells) =>
@@ -102,7 +126,7 @@ object Application extends Controller {
 				val optWells =
 					wells.flatMap {
 						case (key, value) =>
-							// If from tube should always be from well "A01" so just mark where tube was transferred
+							// If from tube should always be from single well so just mark where tube was transferred
 							if (isFromTube)
 								value.map((v) => v -> Some("XX"))
 							else

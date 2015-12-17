@@ -1,0 +1,11 @@
+@(component: String, tableID: String, grid: Map[String, Option[String]], none: String, rows: Int, cols: Int)
+
+@main("Content display") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tableSelect.css")">
+}{
+	<h2>Content of @component</h2>
+	@plateDisplay(tableID, grid, "", rows, cols)
+	<br>
+	@homeOption(Seq.empty)
+}

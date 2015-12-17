@@ -214,13 +214,7 @@ object TransferContents {
 								val newWells =
 									in.wells.flatMap {
 										case (well, contents) if wellMap.get(well).isDefined =>
-											List(wellMap(well).head -> contents)
-										// If tube to welled content fake division of tube into destination wells
-										case (_, contents) if transfer.isTubeToMany && in.wells.get(oneWell).isDefined =>
-											wellMap.get(oneWell) match {
-												case Some(outWells) => outWells.map((w) => w -> in.wells(oneWell))
-												case None => List.empty
-											}
+											wellMap(well).map(_ -> contents)
 										case _ => List.empty
 									}
 								// Create the new input contents
