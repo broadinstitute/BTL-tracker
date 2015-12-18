@@ -9,7 +9,7 @@
 		<tr>
 			<th>@r.toChar.toString</th>
 			@for(c <- 1 to cols; cell=r.toChar.toString+(f"$c%02d")) {
-				<td>@grid.getOrElse(cell, None).getOrElse(none)</td>
+				<td>@Html(grid.getOrElse(cell, None).getOrElse(none))</td>
 			}
 		</tr>
 	}

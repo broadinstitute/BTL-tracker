@@ -47,8 +47,9 @@ object Application extends Controller {
 									}
 									val mids = content.mid.map((m) => m.name).mkString(",")
 									val abs = content.antibody.mkString(",")
-									sample + ";" + mids + ";" + abs
-								}).mkString("+"))
+									sample + (if (mids.isEmpty) "" else "<br>") + mids +
+										(if (abs.isEmpty) "" else "<br>") + abs
+								}).mkString("<br><br>"))
 					}
 				val (rows, cols) =
 					res.component match {
@@ -105,7 +106,7 @@ object Application extends Controller {
 				val wells = transSorted.foldLeft(Map.empty[String, List[String]]){
 					case (outSoFar, next) if fromComponent.isDefined && toComponent.isDefined =>
 						TransferContents.getWellMapping(outSoFar, fromComponent.get, toComponent.get,
-							next.fromQuad, next.toQuad, next.slice, next.cherries, isFromTube) {
+							next.fromQuad, next.toQuad, next.slice, next.cherries, isFromTube, true) {
 							case (wellsSoFar, div, newWells) =>
 								val keys = wellsSoFar.keySet ++ newWells.keySet
 								keys.map((k) => {
@@ -127,10 +128,20 @@ object Application extends Controller {
 					wells.flatMap {
 						case (key, value) =>
 							// If from tube should always be from single well so just mark where tube was transferred
-							if (isFromTube)
-								value.map((v) => v -> Some("XX"))
-							else
+							if (isFromTube) {
+								// Get # of times tube transferred to each well
+								val vals = value.groupBy((s) => s)
+								// Make that into appropriate number of marks
+								vals.map {
+									case (destWell, count) => destWell -> Some(List.fill(count.size)("XX").mkString(","))
+								}
+							}
+							// If between divided components then show well transfers
+							else if (toComponent.get.isInstanceOf[ContainerDivisions])
 								Map(key -> Some(value.mkString(",")))
+							// If to non-divided component from a divided one then show which wells were transferred
+							else
+								Map(key -> Some(value.map(_ => "XX").mkString(",")))
 					}
 				// Get number of rows and columns
 				val wellComponent = if (isFromTube) toComponent else fromComponent

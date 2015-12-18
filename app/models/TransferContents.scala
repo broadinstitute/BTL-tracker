@@ -195,7 +195,7 @@ object TransferContents {
 			def takeQuadrant(in: MergeTotalContents, out: MergeTotalContents, transfer: TransferEdge) = {
 				// Get input to output well mapping and add it to what's in input so far
 				getWellMapping(in, in.component, out.component, transfer.fromQuad, transfer.toQuad, transfer.slice,
-					transfer.cherries, transfer.isTubeToMany)
+					transfer.cherries, transfer.isTubeToMany, false)
 				{
 					/*
 					 * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
@@ -357,15 +357,16 @@ object TransferContents {
 	  * @param cherries cherry picked wells being transferred
 	  * @param makeOut callback to return result - called with (soFar, component, input->output wells picked)
 	  * @param isTubeToMany input is a tube being transferred to one or more wells in a multi-well component
+	  * @param getSameMapping return mapping of wells if transfer of entire components with same division
 	  * @tparam T type of parameter tracking results
 	  * @return original input (soFar) or result of makeOut callback if transfer is possible
 	  */
 	def getWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component,
 						  fromQuad: Option[Quad], toQuad: Option[Quad],
-						  quadSlice: Option[Slice], cherries: Option[List[Int]], isTubeToMany: Boolean)
+						  quadSlice: Option[Slice], cherries: Option[List[Int]],
+						  isTubeToMany: Boolean, getSameMapping: Boolean)
 						 (makeOut: (T, Division.Division, Map[String, List[String]]) => T) = {
-		//@TODO Make well map be key->List of wells - so tube becomes onewell -> List
-		//Also to tube will become x->onewell, y->onewell, ...
+		// Get destination component to look at divisions, unless we're coming from a tube to a divided compoment
 		val divComponent = if (isTubeToMany) toComponent else fromComponent
 		val trans =
 			(fromQuad, toQuad, quadSlice, cherries) match {
@@ -387,6 +388,7 @@ object TransferContents {
 					Some(DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
 				// Either a 96-well component (non-quadrant transfer)
 				// or a straight cherry picked 384-well component (no quadrants involved)
+				// or a tube to a divided compoment
 				case (None, None, Some(slice), cher) =>
 					getLayout(divComponent) match {
 						case Some(DIM8x12) =>
@@ -395,17 +397,20 @@ object TransferContents {
 							Some(DIM16x24, TransferWells.slice384to384wells(slice, cher))
 						case _ => None
 					}
-				// Transfer of tube to entire divided component
-				case (None, None, None, _) if isTubeToMany && getLayout(divComponent).isDefined =>
-					getLayout(divComponent).get match {
-						case DIM8x12 => Some(DIM8x12, TransferWells.entire96to96wells)
-						case DIM16x24 => Some(DIM16x24, TransferWells.entire384to384wells)
+				// Transfer to entire divided component either from a tube or between same size components
+				case (None, None, None, _) if isTubeToMany || getSameMapping =>
+					getLayout(divComponent) match {
+						case Some(DIM8x12) => Some(DIM8x12, TransferWells.entire96to96wells)
+						case Some(DIM16x24) => Some(DIM16x24, TransferWells.entire384to384wells)
+						case _ => None
 					}
-				// Transfer of entire component to another component of the same size
-				case _ => None
+				case _ =>
+					None
 			}
+		// Callback if anything found to get new results
 		trans match {
 			case Some(tr) =>
+				// Make into list of wells transferred to - single well unless from tube
 				val wells =
 					if (isTubeToMany)
 						Map(oneWell -> tr._2.values.toList)
