@@ -11,7 +11,7 @@ import scalax.collection.edge.LkDiEdge
 
 /**
  * TransferContent combines all the contents of components leading into a specified component.  First a graph is made
- * to know what inputs there are and then the graph is traversed to combine that contents.
+ * to know what inputs there are and then the graph is traversed to combine their contents.
  * Created by nnovod on 3/18/15.
  */
 object TransferContents {
@@ -359,7 +359,7 @@ object TransferContents {
 	  * @param isTubeToMany input is a tube being transferred to one or more wells in a multi-well component
 	  * @param getSameMapping return mapping of wells if transfer of entire components with same division
 	  * @tparam T type of parameter tracking results
-	  * @return original input (soFar) or result of makeOut callback if transfer is possible
+	  * @return result of makeOut callback or original input (soFar) if complete component move and getSameMapping false
 	  */
 	def getWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component,
 						  fromQuad: Option[Quad], toQuad: Option[Quad],
@@ -388,7 +388,7 @@ object TransferContents {
 					Some(DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
 				// Either a 96-well component (non-quadrant transfer)
 				// or a straight cherry picked 384-well component (no quadrants involved)
-				// or a tube to a divided compoment
+				// or a tube to a divided component
 				case (None, None, Some(slice), cher) =>
 					getLayout(divComponent) match {
 						case Some(DIM8x12) =>
