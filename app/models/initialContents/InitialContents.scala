@@ -24,9 +24,8 @@ object InitialContents {
 		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
 		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
-		//@TODO Update antibody list
 		// Antibodies (only for placement in single sample containers (e.g., tube))
-		val ABRnaPollII = Value("RNAPollII")
+		val ABRnaPollII = Value("RNA-Pol-II")
 		val ABH3K4me1 = Value("H3K4me1")
 		val ABH3K4me3 = Value("H3K4me3")
 		val ABH3K9me3 = Value("H3K9me3")
@@ -35,6 +34,9 @@ object InitialContents {
 		val ABH3K36me3 = Value("H3K36me3")
 		val ABV5 = Value("V5")
 		val ABBrd4 = Value("Brd4")
+		val ABMyb = Value("Myb")
+		val ABH3Cntrl = Value("H3")
+		val ABSirt6 = Value("Sirt6")
 
 		/**
 		 * List of all molecular barcode sets
@@ -48,7 +50,8 @@ object InitialContents {
 		 * List of all antibodies
 		 */
 		val antiBodies = List(
-			ABRnaPollII,ABH3K4me1,ABH3K4me3,ABH3K9me3,ABH3K27ac,ABH3K27me3,ABH3K36me3,ABV5,ABBrd4
+			ABRnaPollII,ABH3K4me1,ABH3K4me3,ABH3K9me3,ABH3K27ac,ABH3K27me3,ABH3K36me3,ABV5,ABBrd4,
+			ABMyb,ABH3Cntrl,ABSirt6
 		)
 
 		/**
@@ -136,4 +139,31 @@ object InitialContents {
 		// map of wells to contents
 		val contents: Map[String, C]
 	}
+
+	/**
+	  * Antibody data.
+	  * @param volume Volume (uL) to use
+	  * @param species species
+	  * @param isMono mono or poly clonal
+	  * @param isControl control antibody
+	  */
+	case class AntiBodyData(volume: Float, species: String, isMono: Boolean, isControl: Boolean)
+
+	/**
+	  * Map to get fixed information for each antibody
+	  */
+	lazy val antibodyMap = Map(
+		ABRnaPollII -> AntiBodyData(1, "Mouse", true, false),
+		ABH3K4me1 -> AntiBodyData(1, "Rabbit", true, false),
+		ABH3K4me3 -> AntiBodyData(1, "Rabbit", true, false),
+		ABH3K9me3 -> AntiBodyData(1, "Rabbit", true, false),
+		ABH3K27ac -> AntiBodyData(1, "Rabbit", true, false),
+		ABH3K27me3 -> AntiBodyData(1, "Rabbit", true, false),
+		ABH3K36me3 -> AntiBodyData(1, "Rabbit", true, false),
+		ABV5 -> AntiBodyData(5, "Mouse", true, false),
+		ABBrd4 -> AntiBodyData(5, "Rabbit", false, false),
+		ABMyb -> AntiBodyData(1, "Rabbit", true, false),
+		ABH3Cntrl -> AntiBodyData(1, "Rabbit", true, true),
+		ABSirt6 -> AntiBodyData(1, "Rabbit", true, false)
+	)
 }

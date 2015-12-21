@@ -95,7 +95,7 @@ object TransferContents {
 	def getContents(componentID: String) = {
 		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage
 		// through all the transfers that have been done.  We map that graph into our component's contents
-		TransferHistory.makeSourceGraph(componentID).map((graph) => {
+		TransferHistory.makeSourceGraph(componentID).map(f = (graph) => {
 			/*
 			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
 			 * @param c Component to find bsp sample information for
@@ -158,7 +158,7 @@ object TransferContents {
 			 */
 			def getComponentContent(component: Component) = {
 				// Make map with single MergeResult into a set of MergeResults
-				def mapWithSet(in: Map[String, MergeResult]) = in.map{case (k, v) => k -> Set(v)}
+				def mapWithSet(in: Map[String, MergeResult]) = in.map { case (k, v) => k -> Set(v) }
 
 				// Get bsp and initial content and then merge the results together
 				val bsps = getBspContent(component)
@@ -192,18 +192,17 @@ object TransferContents {
 			 * @param transfer transfer to be done from input
 			 * @return contents mapped to output wells (quadrant/slice/entire input mapped to quadrant/slice of output)
 			 */
-			def takeQuadrant(in: MergeTotalContents, out: MergeTotalContents, transfer: TransferEdge) = {
-				// Get input to output well mapping and add it to what's in input so far
-				getWellMapping(in, in.component, out.component, transfer.fromQuad, transfer.toQuad, transfer.slice,
-					transfer.cherries, transfer.isTubeToMany, false)
-				{
+			def takeQuadrant(in: MergeTotalContents, out: MergeTotalContents, transfer: TransferEdge) =
+				getWellMapping(soFar = in, fromComponent = in.component, toComponent = out.component,
+					fromQuad = transfer.fromQuad, toQuad = transfer.toQuad, quadSlice = transfer.slice,
+					cherries = transfer.cherries, isTubeToMany = transfer.isTubeToMany, getSameMapping = false) {
 					/*
-					 * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
-					 * @param in input component contents
-					 * @param layout layout we should be coming from if a divided component
-					 * @param wellMap map of well locations in input to well locations in output
-					 * @return input component contents mapped to destination wells
-					 */
+				     * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
+				     * @param in input component contents
+				     * @param layout layout we should be coming from if a divided component
+				     * @param wellMap map of well locations in input to well locations in output
+				     * @return input component contents mapped to destination wells
+				     */
 					(in: MergeTotalContents, layout: ContainerDivisions.Division.Division,
 					 wellMap: Map[String, List[String]]) => {
 						// See where to look if divided component
@@ -224,7 +223,6 @@ object TransferContents {
 						}
 					}
 				}
-			}
 
 			/*
 			 * Merge input into output.  When merging/folding for each well if there are MIDs that are not attached
@@ -269,7 +267,7 @@ object TransferContents {
 			 * @param output component node for which we want, taking into account transfers, the contents
 			 * @return contents of component, including both initial contents and what was transferred in
 			 */
-			def findContents(output: graph.NodeT) : MergeTotalContents = {
+			def findContents(output: graph.NodeT): MergeTotalContents = {
 				// Find all components directly transferred in to output, sorting them by when transfer occurred
 				val inputs = output.incoming.toList.sortWith((edge1, edge2) => edge1.label.time < edge2.label.time)
 				// Fold all the incoming components into output
