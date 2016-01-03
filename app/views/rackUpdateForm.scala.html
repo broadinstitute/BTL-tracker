@@ -1,6 +1,8 @@
 @**********************************************************************************
-* Screen to update an existing component                                          *
-* @param tubeForm form used to gather values for rack - must already have id set  *
+* Screen to update an existing rack                                               *
+* @param rackInput form used to gather values for rack                            *
+* @param id rack id                                                               *
+* @param hiddenFields hidden fields passed to form, e.g., project last set        *
 **********************************************************************************@
 @(rackInput: Form[Rack], id: String, hiddenFields: Option[Component.HiddenFields])
 @import helper._

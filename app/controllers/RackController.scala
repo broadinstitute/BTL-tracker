@@ -150,11 +150,14 @@ object RackController extends ComponentController[Rack] {
 					case Some(racks) if racks.list.isEmpty =>
 						Map(Some(Rack.rackScanKey) -> "Scan file contents invalid")
 					case Some(racks) if data.project.isEmpty =>
+						//@TODO if not bsp rack then project not needed
+						//perhaps have rack type in db/model: Sample (bsp); Antibody or Other
 						Map(Some(Component.formKey + "." + Component.projectKey) ->
 							"Project must be set before recording scan file")
 					case Some(racks) =>
 						if (racks.list.exists((r) => r.barcode == data.id)) {
 							// Racks file has at least one entry for wanted rack - let's put it into the DB
+							//@TODO If a bsp rack then as is but if not then all tubes found in scan must be registered
 							JiraProject.insertRackIssueCollection(racks, data.project.get)
 							Map.empty[Option[String], String]
 						} else {

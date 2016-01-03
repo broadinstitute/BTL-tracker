@@ -1,7 +1,9 @@
-@*********************************************************************************
-* Screen to update an existing component                                         *
-* @param tubeForm form used to gather values for tube - must already have id set *
-*********************************************************************************@
+@**********************************************************************************
+* Screen to update an existing tube                                               *
+* @param tubeInput form used to gather values for rube                            *
+* @param id tube id                                                               *
+* @param hiddenFields hidden fields passed to form, e.g., project last set        *
+**********************************************************************************@
 @(tubeInput: Form[Tube], id: String, hiddenFields: Option[Component.HiddenFields])
 @import models.Tube
 

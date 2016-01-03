@@ -1,8 +1,9 @@
-@********************************************************
-* Screen to update an existing component                *
-* @param tubeForm form used to gather values for plate  *
-* @param id component id                                *
-********************************************************@
+@**********************************************************************************
+* Screen to update an existing plate                                              *
+* @param plateInput form used to gather values for plate                          *
+* @param id plate id                                                              *
+* @param hiddenFields hidden fields passed to form, e.g., project last set        *
+**********************************************************************************@
 @(plateInput: Form[Plate], id: String, hiddenFields: Option[Component.HiddenFields])
 @import models.Plate
 
