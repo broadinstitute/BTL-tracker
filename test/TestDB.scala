@@ -19,6 +19,8 @@ object TestDB extends Controller with MongoController {
 	val testTrackerCollection = "trackerTest"
 	// Test transfer collection
 	val testTransferCollection = "transferTest"
+	// Test rack collection
+	val testRackCollection = "rackTest"
 	// Timeout for wait for async operations
 	val timeout = Duration(2000, MILLISECONDS)
 
@@ -47,4 +49,10 @@ object TestDB extends Controller with MongoController {
 	 * @return true if deletion went ok
 	 */
 	def cleanupTestTransferCollection = cleanupCollection(testTransferCollection)
+
+	/**
+	  * Delete test transfer collection.
+	  * @return true if deletion went ok
+	  */
+	def cleanupTestRackCollection = cleanupCollection(testRackCollection)
 }

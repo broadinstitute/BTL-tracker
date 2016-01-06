@@ -15,12 +15,13 @@ trait TestConfig extends SuiteMixin { this: Suite =>
 			"DBConfig.host" -> TestDB.testHost,
 			"DBConfig.jiraDB" -> TestDB.testJira,
 			"mongodb.collection.tracker" -> TestDB.testTrackerCollection,
-			"mongodb.collection.transfer" -> TestDB.testTransferCollection
+			"mongodb.collection.transfer" -> TestDB.testTransferCollection,
+			"mongodb.collection.rack" -> TestDB.testRackCollection
 		)
 	)
 
 	/**
-	 * Make a stacked method (abstract override) that will be called and then can call it's parent.  Here we point the
+	 * Make a stacked method (abstract override) that will be called and then can call its parent.  Here we point the
 	 * app to the fake application that includes our overwritten configuration settings.
 	 * @param testName name of test to run
 	 * @param args arguments to test

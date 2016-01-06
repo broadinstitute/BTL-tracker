@@ -37,6 +37,9 @@ object InitialContents {
 		val ABMyb = Value("Myb")
 		val ABH3Cntrl = Value("H3")
 		val ABSirt6 = Value("Sirt6")
+		// Rack initial contents
+		val BSPtubes = Value("BSP samples")
+		val ABtubes = Value("Antibodies")
 
 		/**
 		 * List of all molecular barcode sets
@@ -53,6 +56,11 @@ object InitialContents {
 			ABRnaPollII,ABH3K4me1,ABH3K4me3,ABH3K9me3,ABH3K27ac,ABH3K27me3,ABH3K36me3,ABV5,ABBrd4,
 			ABMyb,ABH3Cntrl,ABSirt6
 		)
+
+		/**
+		  * List of all rack tube types
+		  */
+		val rackTubes = List(BSPtubes, ABtubes)
 
 		/**
 		 * Is content type a molecular barcode set?

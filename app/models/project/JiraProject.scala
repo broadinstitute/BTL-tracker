@@ -98,6 +98,8 @@ object JiraProject {
 	 */
 	def makeRackScanList(file: String) = SSFList(file, RackScan)
 
+	//@TODO GET RID OF insertRackIssueCollection and getRackIssueCollection - use RackScan instead
+	// Then copy over (without project) the rack scans in the Jira DB
 	/**
 	 * Put rack scan results into the database.
 	 * @param racks list with rack scan contents

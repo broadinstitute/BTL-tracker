@@ -2,6 +2,8 @@ package models
 
 import models.Component.ComponentType
 import play.api.libs.json.JsObject
+import play.modules.reactivemongo.json.BSONFormats
+import reactivemongo.bson.BSONDocument
 
 /**
  * Little fellow to be able to convert from json to a model object
@@ -9,10 +11,10 @@ import play.api.libs.json.JsObject
  */
 object ComponentFromJson {
 	/**
-	 * Get a tube object from Json using a formatter from Tube.
-	 * @param json json to be converted
-	 * @return Tube created from json
-	 */
+	  * Get a tube object from Json using a formatter from Tube.
+	  * @param json json to be converted
+	  * @return Tube created from json
+	  */
 	private def tubeFromJson(json: JsObject) = {
 		// Play formatter for Json verification/conversion
 		implicit val formatter = Tube.formatter
@@ -20,20 +22,21 @@ object ComponentFromJson {
 	}
 
 	/**
-	 * Get a rack object from Json using a formatter from Rack.
-	 * @param json json to be converted
-	 * @return Rack created from json
-	 */
+	  * Get a rack object from Json using a formatter from Rack.
+	  * @param json json to be converted
+	  * @return Rack created from json
+	  */
 	private def rackFromJson(json: JsObject) = {
 		// Play formatter for Json verification/conversion
 		implicit val formatter = Rack.formatter
 		json.as[Rack]
 	}
+
 	/**
-	 * Get a freezer object from Json using a formatter from Freezer.
-	 * @param json json to be converted
-	 * @return Freezer created from json
-	 */
+	  * Get a freezer object from Json using a formatter from Freezer.
+	  * @param json json to be converted
+	  * @return Freezer created from json
+	  */
 	private def freezerFromJson(json: JsObject) = {
 		// Play formatter for Json verification/conversion
 		implicit val formatter = Freezer.formatter
@@ -41,10 +44,10 @@ object ComponentFromJson {
 	}
 
 	/**
-	 * Get a plate object from Json using a formatter from Plate.
-	 * @param json json to be converted
-	 * @return Plate created from json
-	 */
+	  * Get a plate object from Json using a formatter from Plate.
+	  * @param json json to be converted
+	  * @return Plate created from json
+	  */
 	private def plateFromJson(json: JsObject) = {
 		// Play formatter for Json verification/conversion
 		implicit val formatter = Plate.formatter
@@ -52,8 +55,8 @@ object ComponentFromJson {
 	}
 
 	/**
-	 * Map of calls to use for redirects to find (by id) or add a component and json to component conversions
-	 */
+	  * Map of calls to use for redirects to find (by id) or add a component and json to component conversions
+	  */
 	private val fromJson =
 		Map(
 			ComponentType.Freezer -> (freezerFromJson(_)),
@@ -63,19 +66,32 @@ object ComponentFromJson {
 		)
 
 	/**
-	 * Little check to make sure we didn't miss any components in the actions
-	 */
+	  * Little check to make sure we didn't miss any components in the actions
+	  */
 	private val fromJsonKeys = fromJson.keySet
 	assert(ComponentType.values.forall(fromJsonKeys.contains), "Incomplete fromJson map")
 
 	/**
-	 * Get component object from json.
-	 * @param json input json
-	 * @return component object
-	 */
+	  * Get component object from json.
+	  * @param json input json
+	  * @return component object
+	  */
 	def getComponent(json: JsObject) = {
 		import models.Component.ComponentType._
 		val componentType = (json \ Component.typeKey).as[ComponentType]
 		fromJson(componentType)(json)
 	}
+
+	/**
+	  * Get component objects from bson.
+	  * @param ids list of bson documents for components
+	  * @return list of component objects
+	  */
+	def bsonToComponents(ids: List[BSONDocument]) =
+		ids.map((bson) => {
+			// Get json since model conversions are setup to do json reads/writes
+			val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
+			// Do conversion to model component object
+			getComponent(json)
+		})
 }

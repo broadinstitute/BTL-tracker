@@ -6,14 +6,15 @@ package models
  */
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
+import models.initialContents.InitialContents
+import InitialContents.ContentType
 import models.project.JiraProject
-import org.broadinstitute.LIMStales.sampleRacks.{MatchFound, RackTube}
+import org.broadinstitute.LIMStales.sampleRacks.{MatchFound, RackTube => SampleRackTube}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
 import Component._
 import play.api.mvc.{AnyContent, Request}
-import initialContents.InitialContents.ContentType
 
 /**
  * Rack - it's a container (can have initial contents) and can have a location (e.g., a freezer) and
@@ -75,7 +76,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 
 	val validLocations = List(ComponentType.Freezer)
 	val validTransfers = List(ComponentType.Rack,ComponentType.Plate,ComponentType.Tube)
-	val validContents = List.empty[ContentType.ContentType]
+	val validContents = InitialContents.ContentType.rackTubes
 
 	/**
 	 * Keys to be used in forms (in views and elsewhere) for rack specific fields
@@ -115,7 +116,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 		m + dbErr
 	}
 
-	import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFIssueList, BSPTube, RackScan}
+	import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFIssueList, BSPTube, RackScan => SampleRackScan}
 
 	/**
 	 * Get matches for BSP rack.
@@ -125,7 +126,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 	 * @tparam R type returned by callback (and thus us)
 	 * @return callback return type
 	 */
-	def getBSPmatch[R](id: String, found: (RackScan#MatchByPos[BSPTube], SSFIssueList[BSPScan]) => R,
+	def getBSPmatch[R](id: String, found: (SampleRackScan#MatchByPos[BSPTube], SSFIssueList[BSPScan]) => R,
 					   notFound: (String) => R) = {
 		// Find the projects with scan of the rack
 		val (rack, err) = JiraProject.getRackIssueCollection(id)
@@ -160,7 +161,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 					 * @return
 					 */
 					def findMatch(scannedRackBarcode: String, bspRackBarcode: String,
-								  scannedRackTube: RackTube, bspTube: BSPTube, foundInPos: Option[Option[BSPTube]]) =
+								  scannedRackTube: SampleRackTube, bspTube: BSPTube, foundInPos: Option[Option[BSPTube]]) =
 						foundInPos match {
 							case Some(foundTube) =>
 								val isAbDifferent = foundTube match {

@@ -89,12 +89,7 @@ object Application extends Controller {
 			// Get components
 			TrackerCollection.findIds(List(from, to)).map((ids) => {
 				// Map bson to components (someday direct mapping should be possible but too painful for now)
-				val components = ids.map((bson) => {
-					// Get json since model conversions are setup to do json reads/writes
-					val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
-					// Do conversion to model component object
-					ComponentFromJson.getComponent(json)
-				})
+				val components = ComponentFromJson.bsonToComponents(ids)
 				// Find from and to components
 				val fromComponent = components.find(_.id == from)
 				val toComponent = components.find(_.id == to)

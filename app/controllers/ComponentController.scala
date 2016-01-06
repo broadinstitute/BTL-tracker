@@ -182,29 +182,29 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @return future update component (on error displays form with errors)
 	 */
 	def update(id: String, request: Request[AnyContent],
-	           preUpdate: (C) => Map[Option[String], String] = (_) => Map.empty) = {
+	           preUpdate: (C) => Future[Map[Option[String], String]] = (_) => Future.successful(Map.empty)) = {
 		doRequestFromForm(form,
 			afterBind = (c: C) => c,
 			// Note that onSuccess returns a future
 			onSuccess = (data: C) => {
 				// Allow caller to do some pre update checking
-				val errs = preUpdate(data)
-				if (errs.isEmpty) {
-					// Binding was successful - now go update the wanted item with data from the form
-					TrackerCollection.updateComponent(data,
-						// Go home and tell everyone what we've done
-						onSuccess = (msg) => MessageHandler.homeRedirect(msg),
-						// Recover from exception - return form with errors
-						onFailure = (err) => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
+				preUpdate(data).flatMap((errs) =>
+					if (errs.isEmpty) {
+						// Binding was successful - now go update the wanted item with data from the form
+						TrackerCollection.updateComponent(data,
+							// Go home and tell everyone what we've done
+							onSuccess = (msg) => MessageHandler.homeRedirect(msg),
+							// Recover from exception - return form with errors
+							onFailure = (err) => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
 							(form.withGlobalError(MessageHandler.exceptionMessage(err))))
-					)
-				} else {
-					// If pre-update returned errors then return form with those errors - remember original
-					// hidden fields so any changes made to them are ignored for now
-					Future.successful(
-						viewData(BadRequest, data, request,
-							htmlForUpdate(id, Component.getHiddenFields(request)), errs, MessageHandler.setFailureMsgs))
-				}
+						)
+					} else {
+						// If pre-update returned errors then return form with those errors - remember original
+						// hidden fields so any changes made to them are ignored for now
+						Future.successful(
+							viewData(BadRequest, data, request,
+								htmlForUpdate(id, Component.getHiddenFields(request)), errs, MessageHandler.setFailureMsgs))
+					})
 			},
 			// if trouble then show form that should be updated with error messages
 			onFailure = (f: Form[C]) => htmlForUpdate(id, Component.getHiddenFields(request))(f)
