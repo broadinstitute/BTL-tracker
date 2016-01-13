@@ -1,8 +1,11 @@
 package models
 
-import models.db.DBOpers
+import models.db.{TrackerCollection, DBOpers}
+import models.initialContents.InitialContents
 import reactivemongo.bson.{BSONDocumentWriter, BSONDocumentReader, Macros, BSONDocument}
-import org.broadinstitute.LIMStales.sampleRacks.{RackScan => SampleRackScan, RackTube => SampleRackTube}
+import org.broadinstitute.LIMStales.sampleRacks.{RackScan => SampleRackScan, RackTube => SampleRackTube, BarcodedContentList, BarcodedContent}
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+
 /**
   * Created by nnovod on 1/5/16.
   */
@@ -12,7 +15,7 @@ import org.broadinstitute.LIMStales.sampleRacks.{RackScan => SampleRackScan, Rac
   * @param barcode tube barcode
   * @param pos position of tube within rack
   */
-case class RackTube(barcode: String, pos: String)
+case class RackTube(barcode: String, pos: String) extends BarcodedContent
 
 /**
   * Companion object to define BSON converters
@@ -37,7 +40,7 @@ object RackTube {
   * @param barcode barcode of rack
   * @param contents list of tubes in rack
   */
-case class RackScan(barcode: String, contents: List[RackTube])
+case class RackScan(barcode: String, contents: List[RackTube]) extends BarcodedContentList[RackTube]
 
 /**
   * Companion object to define BSON converters
@@ -79,10 +82,83 @@ object RackScan extends DBOpers[RackScan] {
 	  */
 	def findRack(bc: String) = read(BSONDocument("barcode" -> bc))
 
+	//@TODO - Eliminate this (do it all async) once it's decided exactly when the rack scan will be read
+	//Also copy over (without project) the rack scans in the Jira DB as well as setting initial contents on Racks
+
+	import scala.concurrent.Await
+	import scala.concurrent.duration._
+	def findRackSync(bc: String) = {
+		val f = findRack(bc)
+		try {
+			val res = Await.result(f, Duration(5000, MILLISECONDS))
+			(res, None)
+		} catch {
+			case e: Exception => (List.empty, Some(e.getLocalizedMessage()))
+		}
+	}
+
 	/**
 	  * Replace rack entry in DB if it's there, otherwise insert a new entry.
 	  * @param rack rack to be inserted
 	  * @return upsert status
 	  */
 	def insertOrReplace(rack: RackScan) = upsert(BSONDocument("barcode" -> rack.barcode), rack)
+
+	/**
+	  * Get antibody tubes.
+	  * @param ids list of ids for wanted antibody tubes
+	  * @return (list of components found with ids, error message if there were problems)
+	  */
+	def getABTubes(ids: List[String]) =
+		TrackerCollection.findIds(ids).map((tubes) => {
+			// Get objects from bson
+			val rackContents = ComponentFromJson.bsonToComponents(tubes)
+			// Get list of ids found
+			val rackContentsIds = rackContents.map(_.id)
+			// See if there were any ids not found
+			val notFound = ids.diff(rackContentsIds)
+			if (notFound.isEmpty) {
+				// Check that all the components found are tubes with antibodies
+				// Make list of (components that are not tubes, tubes that do not contain an antibody)
+				val tubeErrs = rackContents.flatMap {
+					case t: Tube =>
+						if (t.initialContent.isEmpty ||
+							!InitialContents.ContentType.isAntibody(t.initialContent.get))
+							List((None, Some(t.id)))
+						else
+							List.empty
+					case c =>
+						List((Some(c.id), None))
+				}
+				// If there are no errors return list we got without an error, otherwise make error string
+				if (tubeErrs.isEmpty)
+					(rackContents, None)
+				else {
+					val notTubes = tubeErrs.flatMap {
+						case (Some(t), _) => List(t)
+						case _ => List.empty
+					}
+					val notABs = tubeErrs.flatMap {
+						case (_, Some(t)) => List(t)
+						case _ => List.empty
+					}
+					val notTubesErr =
+						if (notTubes.isEmpty)
+							""
+						else
+							"Scan entries not tubes: " + notTubes.mkString(", ")
+					val notABsErr =
+						if (notABs.isEmpty)
+							""
+						else
+							(if (notTubesErr.isEmpty) "" else "; ") +
+								"Scan entries do not contain an antibody: " +
+								notABs.mkString(", ")
+					(rackContents, Some(notTubesErr + notABsErr))
+				}
+			} else {
+				(rackContents, Some("Tubes from scan not registered: " + notFound.mkString(", ")))
+			}
+		})
+
 }

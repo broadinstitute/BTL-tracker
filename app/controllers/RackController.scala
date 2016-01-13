@@ -1,7 +1,6 @@
 package controllers
 
 import models.Component.{HiddenFields,ComponentType}
-import models.db.TrackerCollection
 import models.initialContents.InitialContents
 import models.project.JiraProject
 import models._
@@ -139,6 +138,11 @@ object RackController extends ComponentController[Rack] {
 		})
 	}
 
+	//@TODO Better error correction
+	private def insertRack(rackScan: RackScan) =
+		RackScan.insertOrReplace(rackScan).map((_) =>
+			Map.empty[Option[String], String])
+
 	/**
 	 * Go update a rack.  If all goes well the rack is updated in the DB and the user is redirected to
 	 * to the home page.  Before the update takes place we check if a scan file, with barcodes and positiions,
@@ -152,15 +156,16 @@ object RackController extends ComponentController[Rack] {
 			preUpdate = (data) => {
 				processRackScan(request.body.asMultipartFormData) match {
 					case Some(racks) =>
-						if (racks.list.isEmpty)
+						val rackList = racks.list
+						if (rackList.isEmpty)
 							Future.successful(Map(Some(Rack.rackScanKey) -> "Scan file contents invalid"))
 						else if (data.initialContent.isEmpty)
 							Future.successful(Map(Some(Rack.rackScanKey) ->
 								"Initial content must be set before entering a scan file"))
-						else if (racks.list.size != 1)
+						else if (rackList.size != 1)
 							Future.successful(Map(Some(Rack.rackScanKey) ->
 								"Scan file for multiple racks.  It must be for a single rack"))
-						else if (racks.list.head.barcode != data.id)
+						else if (rackList.head.barcode != data.id)
 							Future.successful(Map(Some(Rack.rackScanKey) ->
 								("Scan file is for the wrong rack: " + racks.list.head.barcode)))
 						else {
@@ -170,60 +175,18 @@ object RackController extends ComponentController[Rack] {
 									if (data.project.isEmpty)
 										Future.successful(Map(Some(Component.formKey + "." + Component.projectKey) ->
 											"Project must be set before recording scan file for BSP samples"))
-									else {
-										JiraProject.insertRackIssueCollection(racks, data.project.get)
-										Future.successful(Map.empty[Option[String], String])
-									}
+									else
+										insertRack(rackList.head)
 								case Some(InitialContents.ContentType.ABtubes) =>
 									val rackscan = racks.list.head
 									val ids = rackscan.contents.map((rackTube) => rackTube.barcode)
-									TrackerCollection.findIds(ids).flatMap((tubes) => {
-										val rackContents = ComponentFromJson.bsonToComponents(tubes)
-										val rackContentsIds = rackContents.map(_.id)
-										val notFound = ids.diff(rackContentsIds)
-										if (notFound.isEmpty) {
-											val tubeErrs = rackContents.flatMap {
-												case t: Tube =>
-													if (t.initialContent.isEmpty ||
-														!InitialContents.ContentType.isAntibody(t.initialContent.get))
-														List((None, Some(t.id)))
-													else
-														List.empty
-												case c =>
-													List((Some(c.id), None))
-											}
-											if (tubeErrs.isEmpty) {
-												//@TODO Better error correction
-												RackScan.insertOrReplace(rackscan).map((_) =>
-													Map.empty[Option[String], String])
-											} else {
-												val notTubes = tubeErrs.flatMap {
-													case (Some(t), _) => List(t)
-													case _ => List.empty
-												}
-												val notABs = tubeErrs.flatMap {
-													case (_, Some(t)) => List(t)
-													case _ => List.empty
-												}
-												val notTubesErr =
-													if (notTubes.isEmpty)
-														""
-													else
-														"Scan entries not tubes: " + notTubes.mkString(", ")
-												val notABsErr =
-													if (notABs.isEmpty)
-														""
-													else
-														(if (notTubesErr.isEmpty) "" else "; ") +
-															"Scan entries do not contain an antibody: " +
-															notABs.mkString(", ")
-												Future.successful(Map(Some(Rack.rackScanKey) -> (notTubesErr + notABsErr)))
-											}
-										} else {
-											Future.successful(Map(Some(Rack.rackScanKey) ->
-												("Tubes from scan not registered: " + notFound.mkString(", "))))
-										}
-									})
+									RackScan.getABTubes(ids).flatMap{
+										case (rackContents, err) =>
+											if (err.isEmpty)
+												insertRack(rackscan)
+											else
+												Future.successful(Map((Some(Rack.rackScanKey) -> (err.get))))
+									}
 								case _ => Future.successful(Map(Some(Rack.rackScanKey) ->
 									"Initial content must be set before entering a scan file"))
 							}

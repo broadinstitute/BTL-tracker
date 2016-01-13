@@ -19,7 +19,7 @@ import models.db.{TransferCollection, TrackerCollection}
 import play.api.libs.json.Format
 import org.scalatest.MustMatchers._
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 
 @RunWith(classOf[JUnitRunner])
 class EZPassSpec extends TestSpec with TestConfig {
@@ -38,11 +38,13 @@ class EZPassSpec extends TestSpec with TestConfig {
 			tubeList.size mustBe rackSize
 
 			// Insert rack scan into DB and make sure we can retrieve it and it looks ok
-			JiraProject.insertRackIssueCollection(racks, fakeProject)
-			val (rackBack, rackErr) = JiraProject.getRackIssueCollection(fakeRack)
+			//JiraProject.insertRackIssueCollection(racks, fakeProject)
+			Await.result(RackScan.insertOrReplace(racks.list.head), d3secs)
+			val (rackBack, rackErr) = RackScan.findRackSync(fakeRack)
+			//JiraProject.getRackIssueCollection(fakeRack)
 			rackErr mustBe None
-			rackBack.head.issue mustBe fakeProject
-			rackBack.head.list.head.contents.size mustBe tubeList.size
+			//rackBack.head.issue mustBe fakeProject
+			rackBack.head.contents.size mustBe tubeList.size
 
 			// Make bsp spreadsheet
 			val bspFileName = makeSpreadSheet(TestData.bspData)

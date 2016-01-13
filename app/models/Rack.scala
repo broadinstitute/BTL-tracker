@@ -9,7 +9,7 @@ import models.ContainerDivisions.Division
 import models.initialContents.InitialContents
 import InitialContents.ContentType
 import models.project.JiraProject
-import org.broadinstitute.LIMStales.sampleRacks.{MatchFound, RackTube => SampleRackTube}
+import org.broadinstitute.LIMStales.sampleRacks.MatchFound
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
@@ -116,7 +116,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 		m + dbErr
 	}
 
-	import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFIssueList, BSPTube, RackScan => SampleRackScan}
+	import org.broadinstitute.LIMStales.sampleRacks.{BSPScan, SSFIssueList, BSPTube}
 
 	/**
 	 * Get matches for BSP rack.
@@ -126,19 +126,19 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 	 * @tparam R type returned by callback (and thus us)
 	 * @return callback return type
 	 */
-	def getBSPmatch[R](id: String, found: (SampleRackScan#MatchByPos[BSPTube], SSFIssueList[BSPScan]) => R,
+	def getBSPmatch[R](id: String, found: (RackScan#MatchByPos[BSPTube], SSFIssueList[BSPScan]) => R,
 					   notFound: (String) => R) = {
 		// Find the projects with scan of the rack
-		val (rack, err) = JiraProject.getRackIssueCollection(id)
+		val (rack, err) = RackScan.findRackSync(id)
 		if (rack.isEmpty) {
 			// Looks like scan of rack never done
 			notFound(makeErrMsg("Scan File entry", id, err))
 		} else {
 			// Get list of projects containing original BSP scan of rack
 			val (bspRacks, bspErr) = JiraProject.getBspIssueCollection(id)
-			// Get first project list of scanned racks (should only be one there)
+			// Get first scanned rack (should only be one there)
 			val foundRack = rack.head
-			if (bspRacks.isEmpty || foundRack.list.isEmpty) {
+			if (bspRacks.isEmpty || foundRack.contents.isEmpty) {
 				// Looks like BSP results never entered
 				notFound(makeErrMsg("BSP Rack entry", id, bspErr))
 			} else {
@@ -161,7 +161,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 					 * @return
 					 */
 					def findMatch(scannedRackBarcode: String, bspRackBarcode: String,
-								  scannedRackTube: SampleRackTube, bspTube: BSPTube, foundInPos: Option[Option[BSPTube]]) =
+								  scannedRackTube: RackTube, bspTube: BSPTube, foundInPos: Option[Option[BSPTube]]) =
 						foundInPos match {
 							case Some(foundTube) =>
 								val isAbDifferent = foundTube match {
@@ -177,8 +177,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 					// (note heads are ok - should only be one rack scan and only one project for bsp rack(s))
 					val bspProject = bspRacks.head
 					val bspScans = bspProject.list
-					val rackScan = foundRack.list.head
-					val matches = rackScan.matchContent(bspScans, Some(findMatch(_, _, _, _, _)))
+					val matches = foundRack.matchContent(bspScans, Some(findMatch(_, _, _, _, _)))
 					found(matches, bspProject)
 				}
 			}

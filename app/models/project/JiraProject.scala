@@ -98,25 +98,6 @@ object JiraProject {
 	 */
 	def makeRackScanList(file: String) = SSFList(file, RackScan)
 
-	//@TODO GET RID OF insertRackIssueCollection and getRackIssueCollection - use RackScan instead
-	// Then copy over (without project) the rack scans in the Jira DB
-	/**
-	 * Put rack scan results into the database.
-	 * @param racks list with rack scan contents
-	 * @param project project (SSF ticket) to associate with rack scan
-	 */
-	def insertRackIssueCollection(racks: SSFList[RackScan], project: String) =
-		BtllimsRackOpers.insertRacks(SSFIssueList(project, List.empty, None, racks.list))
-
-	/**
-	 * Get the projects associated with a rack, along with the results of scans done of the racks.  For each rack scan
-	 * a list of the tubes that are part of the rack is included.
- 	 * @param id rack id
-	 * @return lists of projects found along with associated rack scans (optional error message returned as well)
-	 */
-	def getRackIssueCollection(id: String) =
-		getIssueCollection[RackScan](() => BtllimsRackOpers.retrieveOneRack(id).toList)
-
 	/**
 	 * Make a SSFList from a spreadsheet containing bsp info about a rack's contents.
 	 * @param file bsp spreadsheet

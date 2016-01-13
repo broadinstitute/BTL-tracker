@@ -8,4 +8,4 @@ db.transfer.createIndex({"from":1, "to":1, "fromQuad":1, "toQuad":1, "slice":1},
 // db.getCollection('transfer').update({}, {"$set": {"isTubeToMany" : false}}, {"multi": true})
 // Update to include rack tube type:
 // db.getCollection('tracker').update({"Component":"Rack"}, {"$set": {"initialContent" : "BSP samples"}}, {"multi": true})
-
+// Need to move rack scans out of Jira DB into Tracker DB
