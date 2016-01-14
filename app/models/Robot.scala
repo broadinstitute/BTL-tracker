@@ -107,21 +107,26 @@ object Robot {
 												case _ => List.empty
 											}
 											// We can finally get to work - we've got all the data we need
-											val sampleTubes = sampleTubesScan.head.contents
+											// Map maps to do efficient searches when looping through sample tubes
+											val abRackTubesMap =
+												abRackTubes.map((t) => t.initialContent.get.toString -> t).toMap
+											val bspTubesMap = bspTubes.map((t) => t.barcode -> t).toMap
+											val abTubesMap = abTubes.map((t) => t.barcode -> t).toMap
 											// Go through sample tubes found from scan
+											val sampleTubes = sampleTubesScan.head.contents
 											sampleTubes.map((sampleTube) => {
 												val sampleBarcode = sampleTube.barcode
 												// Find sample tube in Jira BSP tubes
-												bspTubes.find(_.barcode == sampleBarcode) match {
+												bspTubesMap.get(sampleBarcode) match {
 													case Some(bspTube) =>
 														bspTube.antiBody match {
 															// Find antibody tube wanted for sample
 															case Some(bspAB) =>
-																abRackTubes.find(_.initialContent.get.toString == bspAB) match {
+																abRackTubesMap.get(bspAB) match {
 																	case (Some(abRackTube)) =>
 																		val abType = abRackTube.initialContent.get
 																		// Find antibody position in rack
-																		abTubes.find(_.barcode == abRackTube.id) match {
+																		abTubesMap.get(abRackTube.id) match {
 																			case Some(abPos) =>
 																				val abRackPos = abPos.pos
 																				val abPlatePos = sampleTube.pos
