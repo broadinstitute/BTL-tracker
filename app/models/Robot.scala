@@ -5,6 +5,7 @@ import models.db.TrackerCollection
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
 import models.project.JiraProject
+import org.broadinstitute.LIMStales.sampleRacks.BSPTube
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
@@ -65,6 +66,68 @@ object Robot {
 			else
 				None
 
+		/*
+		 * Make the robot instructions for transferring antibodies (from tubes in a rack) to wells in a plate.  The
+		 * placement of the antibodies in the plate is based on the original sample information from bsp that links
+		 * an antibody with each sample.
+		 *
+		 * @param abContainers antibody tubes found in rack
+		 * @param bspTubes bsp info for sample tubes
+		 * @param abTubes antibody tubes barcode/position from rack scan
+		 * @param sampleTubesScan sample tubes barcode/position from bsp rack scan
+		 * @return (optional Transfer instruction, optional error message) - one or other should be set
+		 */
+		def makeInstructions(abContainers: List[Component], bspTubes: List[BSPTube],
+							 abTubes: List[RackTube],sampleTubesScan: List[RackScan]) = {
+			val abRackTubes = abContainers.flatMap{
+				case t: Tube if (t.initialContent.isDefined &&
+					ContentType.isAntibody(t.initialContent.get)) => List(t)
+				case _ => List.empty
+			}
+			// We can finally get to work - we've got all the data we need
+			// Map maps to do efficient searches when looping through sample tubes
+			val abRackTubesMap =
+				abRackTubes.map((t) => t.initialContent.get.toString -> t).toMap
+			val bspTubesMap = bspTubes.map((t) => t.barcode -> t).toMap
+			val abTubesMap = abTubes.map((t) => t.barcode -> t).toMap
+			// Go through sample tubes found from scan
+			val sampleTubes = sampleTubesScan.head.contents
+			sampleTubes.map((sampleTube) => {
+				val sampleBarcode = sampleTube.barcode
+				// Find sample tube in Jira BSP tubes
+				bspTubesMap.get(sampleBarcode) match {
+					case Some(bspTube) =>
+						bspTube.antiBody match {
+							// Find antibody tube wanted for sample
+							case Some(bspAB) =>
+								abRackTubesMap.get(bspAB) match {
+									case (Some(abRackTube)) =>
+										val abType = abRackTube.initialContent.get
+										// Find antibody position in rack
+										abTubesMap.get(abRackTube.id) match {
+											case Some(abPos) =>
+												val abRackPos = abPos.pos
+												val abPlatePos = sampleTube.pos
+												// Get volume for antibody
+												InitialContents.antibodyMap.get(abType) match {
+													// We've done it
+													// Create robot instruction for transfer of ab from Rack to Plate
+													case Some(abInfo) =>
+														(Some((abInfo.volume, abType,
+															abRackPos, abPlatePos, abRackTube.id)), None)
+													case None => (None, Some("Antibody not found"))
+												}
+											case None => (None, Some("Antibody tube not found in rack scan"))
+										}
+									case None => (None, Some("Antibody tube not found in ab tubes from rack"))
+								}
+							case None => (None, Some("No AB specified in bsp tube"))
+						}
+					case None => (None, Some("Couldn't find match in bsp tubes"))
+				}
+			})
+		}
+
 		// Get BSP rack data
 		JiraProject.getBspIssueCollection(bspRack.id) match {
 			case (_, Some(err)) =>
@@ -101,50 +164,7 @@ object Robot {
 										// Error found - go report it
 										case (_, Some(err)) => List((None, Some(err)))
 										case (abContainers, _) =>
-											val abRackTubes = abContainers.flatMap{
-												case t: Tube if (t.initialContent.isDefined &&
-													ContentType.isAntibody(t.initialContent.get)) => List(t)
-												case _ => List.empty
-											}
-											// We can finally get to work - we've got all the data we need
-											// Map maps to do efficient searches when looping through sample tubes
-											val abRackTubesMap =
-												abRackTubes.map((t) => t.initialContent.get.toString -> t).toMap
-											val bspTubesMap = bspTubes.map((t) => t.barcode -> t).toMap
-											val abTubesMap = abTubes.map((t) => t.barcode -> t).toMap
-											// Go through sample tubes found from scan
-											val sampleTubes = sampleTubesScan.head.contents
-											sampleTubes.map((sampleTube) => {
-												val sampleBarcode = sampleTube.barcode
-												// Find sample tube in Jira BSP tubes
-												bspTubesMap.get(sampleBarcode) match {
-													case Some(bspTube) =>
-														bspTube.antiBody match {
-															// Find antibody tube wanted for sample
-															case Some(bspAB) =>
-																abRackTubesMap.get(bspAB) match {
-																	case (Some(abRackTube)) =>
-																		val abType = abRackTube.initialContent.get
-																		// Find antibody position in rack
-																		abTubesMap.get(abRackTube.id) match {
-																			case Some(abPos) =>
-																				val abRackPos = abPos.pos
-																				val abPlatePos = sampleTube.pos
-																				// Get volume for antibody
-																				InitialContents.antibodyMap.get(abType) match {
-																					//** We've done it - get Robot instruction for transfer of ab from Rack to Plate
-																					case Some(abInfo) => (Some((abInfo.volume, abType, abRackPos, abPlatePos, abRackTube.id)), None)
-																					case None => (None, Some("Antibody not found"))
-																				}
-																			case None => (None, Some("Antibody tube not found in rack scan"))
-																		}
-																	case None => (None, Some("Antibody tube not found in ab tubes from rack"))
-																}
-															case None => (None, Some("No AB specified in bsp tube"))
-														}
-													case None => (None, Some("Couldn't find match in bsp tubes"))
-												}
-											})
+											makeInstructions(abContainers, bspTubes, abTubes, sampleTubesScan)
 									}
 							}
 					}
