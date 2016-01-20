@@ -23,23 +23,26 @@ case class Robot(robotType: RobotType.RobotType) {
 			// Exit if any errors - otherwise go make plate instructions
 			(abRackComponent, abPlateComponent, bspRackComponent) match {
 				case (Some(abR: Rack), Some(abP: Plate), Some(bspR: Rack)) =>
-					if (abR.initialContent != ContentType.antiBodies)
-						throw new Exception("Antibody rack initial content not set to antibody tubes")
-					if (abR.initialContent != ContentType.BSPtubes)
-						throw new Exception("BSP rack initial content not set to BSP tubes")
+					if (abR.initialContent.isEmpty || abR.initialContent.get != ContentType.ABtubes)
+						throw new Exception(s"Antibody rack $abRack initial content not set to antibody tubes")
+					if (bspR.initialContent.isEmpty || bspR.initialContent.get != ContentType.BSPtubes)
+						throw new Exception(s"BSP rack $bspRack initial content not set to BSP tubes")
 					robotType match {
 						case RobotType.HAMILTON => makeHamiltonABPlate(abR, abP, bspR)
 						case _ => throw new Exception("Invalid Robot Type")
 					}
-				case (None, _, _) => throw new Exception("Antibody rack not registered")
-				case (_, None, _) => throw new Exception("Antibody plate not registered")
-				case (_, _, None) => throw new Exception("BSP rack not registered")
-				case (Some(c), _, _) if !c.isInstanceOf[Rack] => throw new Exception("Antibody rack is not a rack")
-				case (_, Some(c), _) if !c.isInstanceOf[Plate] => throw new Exception("Antibody plate is not a plate")
-				case (_, _, Some(c)) if !c.isInstanceOf[Rack] => throw new Exception("BSP rack is not a rack")
+				case (None, _, _) => throw new Exception(s"Antibody rack $abRack not registered")
+				case (_, None, _) => throw new Exception(s"Antibody plate $abPlate not registered")
+				case (_, _, None) => throw new Exception(s"BSP rack $bspRack not registered")
+				case (Some(c), _, _) if !c.isInstanceOf[Rack] =>
+					throw new Exception(s"Antibody rack $abRack is not a rack")
+				case (_, Some(c), _) if !c.isInstanceOf[Plate] =>
+					throw new Exception(s"Antibody plate $abPlate is not a plate")
+				case (_, _, Some(c)) if !c.isInstanceOf[Rack] =>
+					throw new Exception(s"BSP rack $bspRack is not a rack")
 			}
 		}).recover {
-			case e => List((None, Some(e.getLocalizedMessage)))
+			case e => List((None, Some(s"Error making antibody plate: ${e.getLocalizedMessage}")))
 		}
 	}
 }
@@ -54,15 +57,28 @@ object Robot {
 		val HAMILTON = Value("Hamilton")
 	}
 
+	/**
+	  * Make the robot instructions for transferring antibodies (from tubes in a rack) to wells in a plate using a
+	  * Hamilton robot.  The placement of the antibodies in the plate is based on the original sample information from
+	  * bsp that links an antibody with each sample.  The instructions are returned as a list of tuples with two
+	  * optional components:
+	  * (transfer amount, antibody, antibody source tube position, antibody plate destination position, rack id) and
+	  * an error message.  Note either one but not both parts of the tuple can be None.
+	  *
+	  * @param abRack rack containing antibody tubes used as source for transfers
+	  * @param abPlate destination plate for antibodies
+	  * @param bspRack BSP sample rack containing original sample information
+	  * @return ((transfer amount, ab type, ab source tube position, ab plate destination position, rack id), error)
+	  */
 	private def makeHamiltonABPlate(abRack: Rack, abPlate: Plate, bspRack: Rack) = {
 
 		def checkRackScan(id: String, rs: List[RackScan]) =
 			if (rs.isEmpty)
-				Some("Rack scan not found for " + id)
+				Some(s"Rack scan not found for $id")
 			else if (rs.head.contents.isEmpty)
-				Some("Rack scan empty for " + id)
+				Some(s"Rack scan empty for $id")
 			else if (rs.size != 1)
-				Some("Multiple rack scans found for " + id)
+				Some(s"Multiple rack scans found for $id")
 			else
 				None
 
@@ -75,16 +91,16 @@ object Robot {
 		 * @param bspTubes bsp info for sample tubes
 		 * @param abTubes antibody tubes barcode/position from rack scan
 		 * @param sampleTubesScan sample tubes barcode/position from bsp rack scan
-		 * @return (optional Transfer instruction, optional error message) - one or other should be set
+		 * @return (optional Transfer instructions, optional error message) - one or other should be set
 		 */
 		def makeInstructions(abContainers: List[Component], bspTubes: List[BSPTube],
 							 abTubes: List[RackTube],sampleTubesScan: List[RackScan]) = {
+			// Make sure we've only got antibody tubes in the container list
 			val abRackTubes = abContainers.flatMap{
-				case t: Tube if (t.initialContent.isDefined &&
-					ContentType.isAntibody(t.initialContent.get)) => List(t)
+				case t: Tube if t.initialContent.isDefined &&
+					ContentType.isAntibody(t.initialContent.get) => List(t)
 				case _ => List.empty
 			}
-			// We can finally get to work - we've got all the data we need
 			// Map maps to do efficient searches when looping through sample tubes
 			val abRackTubesMap =
 				abRackTubes.map((t) => t.initialContent.get.toString -> t).toMap
@@ -92,7 +108,8 @@ object Robot {
 			val abTubesMap = abTubes.map((t) => t.barcode -> t).toMap
 			// Go through sample tubes found from scan
 			val sampleTubes = sampleTubesScan.head.contents
-			sampleTubes.map((sampleTube) => {
+			sampleTubes.map((sampleTube) =>
+			{
 				val sampleBarcode = sampleTube.barcode
 				// Find sample tube in Jira BSP tubes
 				bspTubesMap.get(sampleBarcode) match {
@@ -115,15 +132,16 @@ object Robot {
 													case Some(abInfo) =>
 														(Some((abInfo.volume, abType,
 															abRackPos, abPlatePos, abRackTube.id)), None)
-													case None => (None, Some("Antibody not found"))
+													case None => (None, Some(s"Antibody ${abType.toString} not found"))
 												}
-											case None => (None, Some("Antibody tube not found in rack scan"))
+											case None => (None,
+												Some(s"Antibody tube ${abRackTube.id} not found in rack scan"))
 										}
-									case None => (None, Some("Antibody tube not found in ab tubes from rack"))
+									case None => (None, Some(s"Antibody $bspAB not found in antibody tubes in rack"))
 								}
-							case None => (None, Some("No AB specified in bsp tube"))
+							case None => (None, Some(s"No AB specified in bsp tube ${bspTube.barcode}"))
 						}
-					case None => (None, Some("Couldn't find match in bsp tubes"))
+					case None => (None, Some(s"Couldn't find bsp tube $sampleBarcode"))
 				}
 			})
 		}
@@ -136,10 +154,11 @@ object Robot {
 			case (bspData, _) =>
 				// Check out that bsp data is there
 				if (bspData.isEmpty)
-					Future.successful(List((None, Some("Jira BSP issue not found for rack " + bspRack.id))))
+					Future.successful(List((None, Some(s"Jira BSP issue not found for rack ${bspRack.id}"))))
 				else if (bspData.head.list.isEmpty || bspData.head.list.head.contents.isEmpty)
-					Future.successful(List((None, Some("Jira BSP data empty for  " + bspRack.id))))
+					Future.successful(List((None, Some(s"Jira BSP data empty for ${bspRack.id}"))))
 				else {
+					// Get BSP tube data
 					val bspTubes = bspData.head.list.head.contents
 					// Get scan of BSP rack
 					val sampleTubesScanFuture = RackScan.findRack(bspRack.id)
@@ -163,6 +182,7 @@ object Robot {
 									RackScan.getABTubes(abTubeBarcodes).map {
 										// Error found - go report it
 										case (_, Some(err)) => List((None, Some(err)))
+										// We've got all the data - go make the instructions
 										case (abContainers, _) =>
 											makeInstructions(abContainers, bspTubes, abTubes, sampleTubesScan)
 									}
