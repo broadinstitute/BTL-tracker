@@ -366,6 +366,7 @@ object TransferHistory extends Controller with MongoController {
 				val component = getNodeComponent(node)
 				component.component match {
 					case ComponentType.Rack => "box3d"
+					case ComponentType.Tube => "box" // rounded box looked better vs. "ellipse"
 					case _ => "box"
 				}
 			}
@@ -417,9 +418,9 @@ object TransferHistory extends Controller with MongoController {
 				val idStr = "\"" + id + "\""
 				val labelStr = "label = \"" + label + "\""
 				val hrefStr = "href = \"" + href + "\""
-				val styleStr = if (style.isDefined) "style = \"" + style.get + "\"" else ""
-				val shapeStr = "shape = \"" + shape + "\"" + (if (styleStr.isEmpty) "" else (", " + styleStr))
-				s"digraph $idStr {\n$idStr [$labelStr, $hrefStr, $shapeStr]\n}"
+				val shapeStr = "shape = \"" + shape + "\""
+				val styleStr = style.map(", style = \"" + _ + "\"").getOrElse("")
+				s"digraph $idStr {\n$idStr [$labelStr, $hrefStr, $shapeStr$styleStr]\n}"
 			} else
 				// (note IDE gives error on toDot reference but it compiles without any problem)
 				graph.toDot(dotRoot = root, edgeTransformer = edgeHandler, cNodeTransformer = Some(nodeHandler))
