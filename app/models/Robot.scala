@@ -1,19 +1,26 @@
 package models
 
 import Robot._
-import models.db.TrackerCollection
+import models.db.{TransferCollection, TrackerCollection}
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
 import models.project.JiraProject
 import org.broadinstitute.LIMStales.sampleRacks.BSPTube
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import scala.concurrent.Future
 
 /**
   * Created by nnovod on 1/12/16.
   */
 case class Robot(robotType: RobotType.RobotType) {
 	def makeABPlate(abRack: String, abPlate: String, bspRack: String) = {
-		TrackerCollection.findIds(List(abRack, abPlate, bspRack)).flatMap((ids) => {
+		// Get components for racks and plate
+		val transIntoABPlate = TransferCollection.getSourceIDs(abPlate)
+		// Check if anything already transferred into plate
+		val components = TrackerCollection.findIds(List(abRack, abPlate, bspRack))
+		Future.sequence(List(transIntoABPlate, components)).flatMap((docs) => {
+			if (!docs.head.isEmpty) throw new Exception(s"Transfers already done into antibody plate $abPlate")
+			val ids = docs.tail.head
 			// Map bson to components (someday direct mapping should be possible but too painful for now)
 			val components = ComponentFromJson.bsonToComponents(ids)
 			// Find components

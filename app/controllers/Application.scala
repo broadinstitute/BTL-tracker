@@ -1,6 +1,7 @@
 package controllers
 
 import models.Component.ComponentType
+import models.Robot.RobotType
 import models.db.{TrackerCollection, TransferCollection}
 import play.api.Routes
 import play.api.libs.json._
@@ -15,25 +16,35 @@ import scala.concurrent.Future
 object Application extends Controller {
 
 	/**
-	 * Original play default action - brings up play documentation
-	 * @return action to show play documentation
-	 */
+	  * Original play default action - brings up play documentation
+	  *
+	  * @return action to show play documentation
+	  */
 	def playDoc = Action {
 		Ok(views.html.playDoc("Your new application is ready."))
 	}
 
 	/**
-	 * Home page
-	 * @return action to show initial choices on home page
-	 */
+	  * Home page
+	  *
+	  * @return action to show initial choices on home page
+	  */
 	def index = Action { request =>
 		Ok(views.html.index(MessageHandler.addStatusFlash(request,Component.blankForm)))
 	}
 
 	/**
-	 * Just a test form
-	 */
-	def test(id: String) = Action.async {
+	  * Just a test form
+	  */
+	def test(id: String) = Action {
+		Ok(s"Test $id")
+	}
+
+	//@TODO Make this real
+	/**
+	  * Display the contents for a component
+	  */
+	def contents(id: String) = Action.async {
 		TransferContents.getContents(id).map {
 			case Some(res) =>
 				val wellMap =
@@ -63,12 +74,19 @@ object Application extends Controller {
 		}
 	}
 
+	//@TODO Make this real
+	def makeABPlate(abRack: String, abPlate: String, sampleRack: String) = Action.async {
+		val robot = Robot(RobotType.HAMILTON)
+		robot.makeABPlate(abRack, abPlate, sampleRack).map((res) => Ok(res.toString))
+	}
+
 	/**
-	 * Display the graph of transfers, direct and indirect, from and to specified component.  First the graph is made
-	 * into "dot" format and then the view is called to convert it to pretty html.
-	 * @param id component id
-	 * @return puts up pretty picture of graph of transfers to and from a component
-	 */
+	  * Display the graph of transfers, direct and indirect, from and to specified component.  First the graph is made
+	  * into "dot" format and then the view is called to convert it to pretty html.
+	  *
+	  * @param id component id
+	  * @return puts up pretty picture of graph of transfers to and from a component
+	  */
 	def graphDisplay(id: String) = Action.async {
 		TransferHistory.makeBidirectionalDot(id, routes.Application.findByID(_: String),
 			routes.Application.transferDisplay(_: String, _: String)).map((dot) => {
@@ -78,11 +96,12 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Display the well transfers between two components.
-	 * @param from source component
-	 * @param to target component
-	 * @return puts up nice display of source plate with contents of wells set to destination wells
-	 */
+	  * Display the well transfers between two components.
+	  *
+	  * @param from source component
+	  * @param to target component
+	  * @return puts up nice display of source plate with contents of wells set to destination wells
+	  */
 	def transferDisplay(from: String, to: String) = Action.async {
 		// Get transfers between components (flatmap to avoid future of future)
 		TransferCollection.find(from, to).flatMap((trans) => {
@@ -155,26 +174,29 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Initial request to add.  We put up the form to get initial data for the add.
-	 * @param id component id
-	 * @return action to execute to initiate add of component
-	 */
+	  * Initial request to add.  We put up the form to get initial data for the add.
+	  *
+	  * @param id component id
+	  * @return action to execute to initiate add of component
+	  */
 	def add(id: String) = Action { request =>
 		Ok(views.html.add(MessageHandler.addStatusFlash(request,Component.idAndTypeForm), id))
 	}
 
 	/**
-	 * Initial request to get ids for a stack of components.  We put up the form to get the ids and type.
-	 * @return handler to bring up view to get stack IDs
-	 */
+	  * Initial request to get ids for a stack of components.  We put up the form to get the ids and type.
+	  *
+	  * @return handler to bring up view to get stack IDs
+	  */
 	def addStack() = Action { request =>
 		Ok(views.html.addStackStart(MessageHandler.addStatusFlash(request,Component.idAndTypeForm)))
 	}
 
 	/**
-	 * Request to add a stack of IDs.  We get the IDs and type and request to get detailed type information.
-	 * @return handler for stack of IDs
-	 */
+	  * Request to add a stack of IDs.  We get the IDs and type and request to get detailed type information.
+	  *
+	  * @return handler for stack of IDs
+	  */
 	def getStackIDs = Action { request =>
 		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
@@ -196,10 +218,11 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Using type supplied from form go to next step to fill in type specific data for components.
-	 * @param id component ID
-	 * @return action to execute to put up form to get component data
-	 */
+	  * Using type supplied from form go to next step to fill in type specific data for components.
+	  *
+	  * @param id component ID
+	  * @return action to execute to put up form to get component data
+	  */
 	def addFromForm(id: String) = Action { request =>
 		Component.idAndTypeForm.bindFromRequest()(request).fold(
 			formWithErrors =>
@@ -211,10 +234,11 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Go bring up view to confirm if delete is to proceed
-	 * @param id component id to delete
-	 * @return result with
-	 */
+	  * Go bring up view to confirm if delete is to proceed
+	  *
+	  * @param id component id to delete
+	  * @return result with
+	  */
 	def deleteCheck(id: String) = Action.async { request =>
 		TransferCollection.countTransfers(id).map((count) => {
 			Ok(views.html.deleteConfirm(id, count))
@@ -225,10 +249,11 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Delete component based on ID supplied in get request
-	 * @param id id of component to be deleted
-	 * @return action to deleted specified component
-	 */
+	  * Delete component based on ID supplied in get request
+	  *
+	  * @param id id of component to be deleted
+	  * @return action to deleted specified component
+	  */
 	def deleteByID(id: String) = Action.async { request =>
 		// Make result - redirect to home page and set flashing value (to be set as global error) to be picked up
 		// on home page
@@ -241,11 +266,12 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Get component for specified id (specified as parameter for GET).  First we get the component type and then
-	 * we redirect to the update screen for that component type.
-	 * @param id component ID
-	 * @return action to find and display wanted component
-	 */
+	  * Get component for specified id (specified as parameter for GET).  First we get the component type and then
+	  * we redirect to the update screen for that component type.
+	  *
+	  * @param id component ID
+	  * @return action to find and display wanted component
+	  */
 	def findByID(id: String) = Action.async { request =>
 		findRequestUsingID(id,request)(doUpdateRedirect(id,_,_,_)).recover {
 			case err => BadRequest(
@@ -254,10 +280,11 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Get html to display component for specified id.
-	 * @param id component ID
-	 * @return form filled in with component data requested
-	 */
+	  * Get html to display component for specified id.
+	  *
+	  * @param id component ID
+	  * @return form filled in with component data requested
+	  */
 	def findRequestUsingID(id: String,request: Request[_],okComponents: List[ComponentType.ComponentType] = List.empty)
 	                      (getResult: (ComponentType.ComponentType,JsObject,Request[_]) => Result): Future[Result] = {
 		ComponentController.findByID[JsObject,Result](id, okComponents,
@@ -269,19 +296,20 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Do a redirect to do an update for the given component.
-	 * @param id component ID
-	 * @param ct type of component
-	 * @param json json with data associated with component (fetched from DB)
-	 * @param request original request to do update
-	 * @return results now ready for update
-	 */
+	  * Do a redirect to do an update for the given component.
+	  *
+	  * @param id component ID
+	  * @param ct type of component
+	  * @param json json with data associated with component (fetched from DB)
+	  * @param request original request to do update
+	  * @return results now ready for update
+	  */
 	def doUpdateRedirect(id: String, ct: ComponentType.ComponentType, json: JsObject, request: Request[_]) =
 		Redirect(ComponentController.actions(ct).updateRoute(id))
 
 	/**
-	 * Get the list of tags - this is typically invoked as an ajax function
-	 */
+	  * Get the list of tags - this is typically invoked as an ajax function
+	  */
 	def tags = Action.async {
 		models.db.TrackerCollection.getTags.map {
 			// Return error if there is one
@@ -292,10 +320,11 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Make javascript script with ajax routes map.  Within javascript this can be invoked as follows:
-	 * <script type="text/javascript" src="@routes.Application.javascriptRoutes"></script>
-	 * @return script containing calls to listed http functions
-	 */
+	  * Make javascript script with ajax routes map.  Within javascript this can be invoked as follows:
+	  * <script type="text/javascript" src="@routes.Application.javascriptRoutes"></script>
+	  *
+	  * @return script containing calls to listed http functions
+	  */
 	def javascriptRoutes = Action { implicit request =>
 		Ok(
 			Routes.javascriptRouter("jsRoutes")(

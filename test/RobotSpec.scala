@@ -13,6 +13,7 @@ import ScanFileOpers._
 import play.api.libs.json.Format
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import RobotSpec._
+import scala.concurrent.Future
 
 import scala.concurrent.Await
 
@@ -122,6 +123,10 @@ class RobotSpec extends TestSpec with TestConfig {
 				t1 === t2
 
 			})
+			// Make sure inserts of transfers go ok
+			val transDone = Await.result(Future.sequence(madeTrans.map(insertTransfer(_))), d3secs)
+			transDone.size mustBe madeTrans.size
+			transDone.foreach(_.ok mustBe true)
 		}
 	}
 }

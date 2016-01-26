@@ -111,3 +111,10 @@ GET         /tags                                       controllers.Application.
 # Routes that can be called from javascript (e.g., ajax)
 GET         /javascriptRoutes                           controllers.Application.javascriptRoutes
 
+# Display contents
+GET         /contents/:id                               controllers.Application.contents(id: String)
+
+# Display robot instructions
+GET         /robot/:abRack/:abPlate/:sampleRack         controllers.Application.makeABPlate(abRack, abPlate, sampleRack)
+
+
