@@ -171,8 +171,7 @@ object Robot {
 					Future.successful(List((None, Some(s"Jira BSP data empty for ${bspRack.id}"))))
 				else {
 					// Get BSP tube data
-					val bspTubes = bspData.flatMap((issueList) =>
-						issueList.list.flatMap((scan) => if (scan.barcode == bspRack.id) scan.contents else List.empty))
+					val bspTubes = bspData.flatMap((issueList) => issueList.list.flatMap(_.contents))
 					// Get scan of BSP rack
 					val sampleTubesScanFuture = RackScan.findRack(bspRack.id)
 					// Get scan of antibody rack
@@ -220,18 +219,18 @@ object Robot {
 		val tubesMap = tubeToPlateList.groupBy(_.tubeID)
 		// Map tubes into transfers
 		tubesMap.map{
-			case (key, trans) =>
+			case (tube, wells) =>
 				// Get wells as indicies
 				val wellIdxs =
-					trans.map((t) => {
+					wells.map((t) => {
 						div match {
 							case ContainerDivisions.Division.DIM8x12 => TransferWells.make96IdxFromWellStr(t.platePos)
 							case ContainerDivisions.Division.DIM16x24 => TransferWells.make384IdxFromWellStr(t.platePos)
 						}
 					})
 				// Create transfer from tube to wells in plate
-				Transfer(key, plate, None, None, project, Some(Transfer.Slice.CP),
-					Some(wellIdxs), true)
+				Transfer(from = tube, to = plate, fromQuad = None, toQuad = None, project = project,
+					slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = true)
 		}.toList
 	}
 

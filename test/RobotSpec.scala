@@ -79,8 +79,10 @@ class RobotSpec extends TestSpec with TestConfig {
 			import scala.concurrent.Await
 			Await.result(inserts, d3secs) mustBe (None, None, None, None, None, None)
 
+			// Make instructions for creating ab plate
 			val robot = Robot(RobotType.HAMILTON)
 			val res = Await.result(robot.makeABPlate(fakeABrack, "AB-PLATE", fakeRack), d3secs)
+			// Make maps of results and what we expected
 			val resMap = res.map{
 				case (None, Some(err)) => err.hashCode() -> (None, Some(err))
 				case (Some(tran), None) => tran.hashCode() -> (Some(tran), None)
@@ -91,6 +93,7 @@ class RobotSpec extends TestSpec with TestConfig {
 				case (Some(tran), None) => tran.hashCode() -> (Some(tran), None)
 				case _ => "Noway".hashCode -> (None, None)
 			}.toMap
+			// Check that what we got back is what we expect
 			res.size mustBe TestData.abRobotInstructions.size
 			res.size mustBe resMap.size
 			resMap.size mustBe wantedMap.size
@@ -99,15 +102,19 @@ class RobotSpec extends TestSpec with TestConfig {
 					val resFound = resMap(hash)
 					resFound === found
 			}
+			// Now on to make tracker transfers - first get list of tube->well instructions
 			val trans = res.flatMap{
 				case (Some(tran), None) => List(tran)
 				case _ => List.empty
 			}
+			// Make transfers and check out what we get vs. what expected (sorting so order of lists doesn't matter)
 			val madeTrans =
-				Robot.makeABTransfers("AB-PLATE", trans, None, ContainerDivisions.Division.DIM8x12).sortWith(_.from < _.from)
+				Robot.makeABTransfers("AB-PLATE", trans, None, ContainerDivisions.Division.DIM8x12)
+					.sortWith(_.from < _.from)
 			val wantedTrans = TestData.abTransfers.sortWith(_.from < _.from)
 			madeTrans.size mustBe wantedTrans.size
 			wantedTrans.indices.foreach((i) => {
+				// Sort cherry lists so order doesn't matter there either
 				val wtCherries = wantedTrans(i).cherries.get.sortWith(_ < _)
 				val mCherries = madeTrans(i).cherries.get.sortWith(_ < _)
 				val t1 = wantedTrans(i).copy(cherries = Some(wtCherries))
