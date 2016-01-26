@@ -1,3 +1,7 @@
+import models.Robot.ABTubeToPlate
+import models.Transfer
+import models.initialContents.InitialContents
+
 /**
  * Created by nnovod on 4/30/15.
  */
@@ -113,34 +117,144 @@ object TestData {
 	val rackScan = rackScanHeader + '\n' + rackScanS1 + '\n' + rackScanS2 + '\n' + rackScanS3 + '\n' + rackScanS4
 	val rackScanSize = 96
 
+	val rackABdata =
+		"""12/22/2014 14:21:06,AB-RACK,A01,AB-T1
+12/22/2014 14:21:06,AB-RACK,B01,AB-T2
+12/22/2014 14:21:06,AB-RACK,C01,AB-T3
+"""
+	val rackABscan = rackScanHeader + '\n' + rackABdata
+	val rackABscanSize = 3
+	val abRobotInstructions =
+		List((Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A01","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B01","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A02","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B02","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A03","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B03","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A04","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B04","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A05","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B05","AB-T3")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A06","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B06","AB-T3")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A07","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B07","AB-T3")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A08","AB-T1")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B08","AB-T3")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A09","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B09","AB-T3")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A10","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B10","AB-T3")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A11","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B11","AB-T3")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A12","AB-T2")),None),
+			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B12","AB-T3")),None),
+			(None,Some("Couldn't find sample tube 0177195859")),
+			(None,Some("Couldn't find sample tube 0177195860")),
+			(None,Some("Couldn't find sample tube 0177195873")),
+			(None,Some("Couldn't find sample tube 0177195874")),
+			(None,Some("Couldn't find sample tube 0177195861")),
+			(None,Some("Couldn't find sample tube 0177195862")),
+			(None,Some("Couldn't find sample tube 0177195863")),
+			(None,Some("Couldn't find sample tube 0177195875")),
+			(None,Some("No antibody specified for sample tube 0177159431")),
+			(None,Some("No antibody specified for sample tube 0177159408")),
+			(None,Some("No antibody specified for sample tube 0177159407")),
+			(None,Some("No antibody specified for sample tube 0177159384")),
+			(None,Some("No antibody specified for sample tube 0177156115")),
+			(None,Some("No antibody specified for sample tube 0177159360")),
+			(None,Some("No antibody specified for sample tube 0177159430")),
+			(None,Some("No antibody specified for sample tube 0177159409")),
+			(None,Some("No antibody specified for sample tube 0177159406")),
+			(None,Some("No antibody specified for sample tube 0177159385")),
+			(None,Some("No antibody specified for sample tube 0177159382")),
+			(None,Some("No antibody specified for sample tube 0177159361")),
+			(None,Some("No antibody specified for sample tube 0177159429")),
+			(None,Some("No antibody specified for sample tube 0177159410")),
+			(None,Some("No antibody specified for sample tube 0177159405")),
+			(None,Some("No antibody specified for sample tube 0177159386")),
+			(None,Some("No antibody specified for sample tube 0177159381")),
+			(None,Some("No antibody specified for sample tube 0177159362")),
+			(None,Some("No antibody specified for sample tube 0177159428")),
+			(None,Some("No antibody specified for sample tube 0177159411")),
+			(None,Some("No antibody specified for sample tube 0177159404")),
+			(None,Some("No antibody specified for sample tube 0177159387")),
+			(None,Some("No antibody specified for sample tube 0177159380")),
+			(None,Some("No antibody specified for sample tube 0177159363")),
+			(None,Some("No antibody specified for sample tube 0177159427")),
+			(None,Some("No antibody specified for sample tube 0177159412")),
+			(None,Some("No antibody specified for sample tube 0177159403")),
+			(None,Some("No antibody specified for sample tube 0177159388")),
+			(None,Some("No antibody specified for sample tube 0177159379")),
+			(None,Some("No antibody specified for sample tube 0177159426")),
+			(None,Some("No antibody specified for sample tube 0177159413")),
+			(None,Some("No antibody specified for sample tube 0177159402")),
+			(None,Some("No antibody specified for sample tube 0177159389")),
+			(None,Some("No antibody specified for sample tube 0177159378")),
+			(None,Some("No antibody specified for sample tube 0177159425")),
+			(None,Some("No antibody specified for sample tube 0177159414")),
+			(None,Some("No antibody specified for sample tube 0177159401")),
+			(None,Some("No antibody specified for sample tube 0177159390")),
+			(None,Some("No antibody specified for sample tube 0177159377")),
+			(None,Some("No antibody specified for sample tube 0177159424")),
+			(None,Some("No antibody specified for sample tube 0177159415")),
+			(None,Some("No antibody specified for sample tube 0177159400")),
+			(None,Some("No antibody specified for sample tube 0177159391")),
+			(None,Some("No antibody specified for sample tube 0177159376")),
+			(None,Some("No antibody specified for sample tube 0177159423")),
+			(None,Some("No antibody specified for sample tube 0177159416")),
+			(None,Some("No antibody specified for sample tube 0177159399")),
+			(None,Some("No antibody specified for sample tube 0177159392")),
+			(None,Some("No antibody specified for sample tube 0177159375")),
+			(None,Some("No antibody specified for sample tube 0177159422")),
+			(None,Some("No antibody specified for sample tube 0177159417")),
+			(None,Some("No antibody specified for sample tube 0177159398")),
+			(None,Some("No antibody specified for sample tube 0177159393")),
+			(None,Some("No antibody specified for sample tube 0177159374")),
+			(None,Some("No antibody specified for sample tube 0177159421")),
+			(None,Some("No antibody specified for sample tube 0177159418")),
+			(None,Some("No antibody specified for sample tube 0177159397")),
+			(None,Some("No antibody specified for sample tube 0177159394")),
+			(None,Some("No antibody specified for sample tube 0177159373")),
+			(None,Some("No antibody specified for sample tube 0177159420")),
+			(None,Some("No antibody specified for sample tube 0177159419")),
+			(None,Some("No antibody specified for sample tube 0177159396")),
+			(None,Some("No antibody specified for sample tube 0177159395")),
+			(None,Some("No antibody specified for sample tube 0177159372")))
+
+	val abTransfers =
+		List(Transfer("AB-T1","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(0, 1, 2, 3, 4, 5, 6, 7)),true),
+			Transfer("AB-T3","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(16, 17, 18, 19, 20, 21, 22, 23)),true),
+			Transfer("AB-T2","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(12, 13, 14, 15, 8, 9, 10, 11)),true))
+
 	val bspDataHeader =
-		"""Sample ID	Stock Sample	Participant ID(s)	Collection	Volume	Conc	Manufacturer Tube Barcode	Container	Position	Container Name	Collaborator Participant ID	Collaborator Sample ID	Collaborator Sample ID_2	Country	State	Sample Collection Year	Tissue Site"""
+		"""Sample ID	Stock Sample	Participant ID(s)	Collection	Volume	Conc	Manufacturer Tube Barcode	Container	Position	Container Name	Collaborator Participant ID	Collaborator Sample ID	Collaborator Sample ID_2	Country	State	Sample Collection Year	Tissue Site	Antibody	Control Sample"""
 
 	val bspDataRows =
-		"""SM-7CUCN	SM-42XIV	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.60875	0177159455	XX-11227502	A01	GSPID_42009_C2_1	UMCG_SZ	9002000001391070	1082134849	Netherlands
-SM-7CUCO	SM-42X12	PT-12B2Y	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.35926	0177159454	XX-11227502	A02	GSPID_42009_C2_1	9002000001559598	9002000001559598		Netherlands	Groningen	2012	Stool
-SM-7CUCP	SM-42X2B	PT-12B48	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.499	0177159453	XX-11227502	A03	GSPID_42009_C2_1	9002000001545313	9002000001545313		Netherlands	Groningen	2012	Stool
-SM-7CUCQ	SM-42X2D	PT-12B4A	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.48967	0177159452	XX-11227502	A04	GSPID_42009_C2_1	9002000001522730	9002000001522730		Netherlands	Groningen	2012	Stool
-SM-7CUCR	SM-42X2N	PT-12B4K	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.5476	0177159451	XX-11227502	A05	GSPID_42009_C2_1	9002000001576552	9002000001576552		Netherlands	Groningen	2012	Stool
-SM-7CUCS	SM-42XGV	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.47852	0177159450	XX-11227502	A06	GSPID_42009_C2_1	UMCG_SZ	9002000001379650	1082134775	Netherlands
-SM-7CUCT	SM-42XH3	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.83368	0177159449	XX-11227502	A07	GSPID_42009_C2_1	UMCG_SZ	9002000001324530	1082134768	Netherlands
-SM-7CUCU	SM-42XHV	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	2.01745	0177159448	XX-11227502	A08	GSPID_42009_C2_1	UMCG_SZ	9002000001537690	1082134803	Netherlands
-SM-7CUCV	SM-42VG6	PT-12AQW	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.77015	0177159447	XX-11227502	A09	GSPID_42009_C2_1	9002000001483515	9002000001483515		Netherlands	Groningen	2012	Stool
-SM-7CUCW	SM-441KD	PT-12AXW	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.54426	0177159446	XX-11227502	A10	GSPID_42009_C2_1	9002000001250513	9002000001250513		Netherlands	Groningen	2012	Stool
-SM-7CUCX	SM-42VTP	PT-12AD2	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.33207	0177159445	XX-11227502	A11	GSPID_42009_C2_1	9002000001307240	9002000001307240		Netherlands	Groningen	2012	Stool
-SM-7CUCY	SM-42VSX	PT-12ACA	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.6535	0177159444	XX-11227502	A12	GSPID_42009_C2_1	9002000001283757	9002000001283757		Netherlands	Groningen	2012	Stool
-SM-7CUCZ	SM-441RG	PT-12A2M	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.38138	0177159432	XX-11227502	B01	GSPID_42009_C2_1	9002000001364111	9002000001364111		Netherlands	Groningen	2012	Stool
-SM-7CUD1	SM-441I6	PT-12AVP	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.47209	0177159433	XX-11227502	B02	GSPID_42009_C2_1	9002000001421675	9002000001421675		Netherlands	Groningen	2012	Stool
-SM-7CUD2	SM-441KG	PT-12AXZ	Genome Biology / Cisca Wijmenga - LLDeep	10.0	2.29692	0177159434	XX-11227502	B03	GSPID_42009_C2_1	9002000001459693	9002000001459693		Netherlands	Groningen	2012	Stool
-SM-7CUD3	SM-441JQ	PT-12AXA	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.39242	0177159435	XX-11227502	B04	GSPID_42009_C2_1	9002000001462201	9002000001462201		Netherlands	Groningen	2012	Stool
-SM-7CUD4	SM-441JS	PT-12AXC	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.31105	0177159436	XX-11227502	B05	GSPID_42009_C2_1	9002000001259312	9002000001259312		Netherlands	Groningen	2012	Stool
-SM-7CUD5	SM-441Q5	PT-12A1B	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.64797	0177159437	XX-11227502	B06	GSPID_42009_C2_1	9002000001296441	9002000001296441		Netherlands	Groningen	2012	Stool
-SM-7CUD6	SM-42WC9	PT-12B9C	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.36528	0177159438	XX-11227502	B07	GSPID_42009_C2_1	9002000001517041	9002000001517041		Netherlands	Groningen	2012	Stool
-SM-7CUD7	SM-441QG	PT-12A1M	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.41707	0177156117	XX-11227502	B08	GSPID_42009_C2_1	9002000001321947	9002000001321947		Netherlands	Groningen	2012	Stool
-SM-7CUD8	SM-42WC6	PT-12B99	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.82719	0177159440	XX-11227502	B09	GSPID_42009_C2_1	9002000001484871	9002000001484871		Netherlands	Groningen	2012	Stool
-SM-7CUD9	SM-42XZD	PT-12A98	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.53965	0177159441	XX-11227502	B10	GSPID_42009_C2_1	9002000001254174	9002000001254174		Netherlands	Groningen	2012	Stool
-SM-7CUDA	SM-42WC8	PT-12B9B	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.07342	0177159442	XX-11227502	B11	GSPID_42009_C2_1	9002000001470400	9002000001470400		Netherlands	Groningen	2012	Stool
-SM-7CUDB	SM-42WBZ	PT-12B93	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.07507	0177159443	XX-11227502	B12	GSPID_42009_C2_1	9002000001523405	9002000001523405		Netherlands	Groningen	2012	Stool
+		"""SM-7CUCN	SM-42XIV	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.60875	0177159455	XX-11227502	A01	GSPID_42009_C2_1	UMCG_SZ	9002000001391070	1082134849	Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCO	SM-42X12	PT-12B2Y	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.35926	0177159454	XX-11227502	A02	GSPID_42009_C2_1	9002000001559598	9002000001559598		Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCP	SM-42X2B	PT-12B48	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.499	0177159453	XX-11227502	A03	GSPID_42009_C2_1	9002000001545313	9002000001545313		Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCQ	SM-42X2D	PT-12B4A	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.48967	0177159452	XX-11227502	A04	GSPID_42009_C2_1	9002000001522730	9002000001522730		Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCR	SM-42X2N	PT-12B4K	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.5476	0177159451	XX-11227502	A05	GSPID_42009_C2_1	9002000001576552	9002000001576552		Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCS	SM-42XGV	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.47852	0177159450	XX-11227502	A06	GSPID_42009_C2_1	UMCG_SZ	9002000001379650	1082134775	Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCT	SM-42XH3	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.83368	0177159449	XX-11227502	A07	GSPID_42009_C2_1	UMCG_SZ	9002000001324530	1082134768	Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCU	SM-42XHV	PT-111S5	Genome Biology / Cisca Wijmenga - LLDeep	10.0	2.01745	0177159448	XX-11227502	A08	GSPID_42009_C2_1	UMCG_SZ	9002000001537690	1082134803	Netherlands	Groningen	2012	Stool	H3K4me1	XXX
+SM-7CUCV	SM-42VG6	PT-12AQW	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.77015	0177159447	XX-11227502	A09	GSPID_42009_C2_1	9002000001483515	9002000001483515		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUCW	SM-441KD	PT-12AXW	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.54426	0177159446	XX-11227502	A10	GSPID_42009_C2_1	9002000001250513	9002000001250513		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUCX	SM-42VTP	PT-12AD2	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.33207	0177159445	XX-11227502	A11	GSPID_42009_C2_1	9002000001307240	9002000001307240		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUCY	SM-42VSX	PT-12ACA	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.6535	0177159444	XX-11227502	A12	GSPID_42009_C2_1	9002000001283757	9002000001283757		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUCZ	SM-441RG	PT-12A2M	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.38138	0177159432	XX-11227502	B01	GSPID_42009_C2_1	9002000001364111	9002000001364111		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUD1	SM-441I6	PT-12AVP	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.47209	0177159433	XX-11227502	B02	GSPID_42009_C2_1	9002000001421675	9002000001421675		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUD2	SM-441KG	PT-12AXZ	Genome Biology / Cisca Wijmenga - LLDeep	10.0	2.29692	0177159434	XX-11227502	B03	GSPID_42009_C2_1	9002000001459693	9002000001459693		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUD3	SM-441JQ	PT-12AXA	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.39242	0177159435	XX-11227502	B04	GSPID_42009_C2_1	9002000001462201	9002000001462201		Netherlands	Groningen	2012	Stool	H3K4me3	XXX
+SM-7CUD4	SM-441JS	PT-12AXC	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.31105	0177159436	XX-11227502	B05	GSPID_42009_C2_1	9002000001259312	9002000001259312		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
+SM-7CUD5	SM-441Q5	PT-12A1B	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.64797	0177159437	XX-11227502	B06	GSPID_42009_C2_1	9002000001296441	9002000001296441		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
+SM-7CUD6	SM-42WC9	PT-12B9C	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.36528	0177159438	XX-11227502	B07	GSPID_42009_C2_1	9002000001517041	9002000001517041		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
+SM-7CUD7	SM-441QG	PT-12A1M	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.41707	0177156117	XX-11227502	B08	GSPID_42009_C2_1	9002000001321947	9002000001321947		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
+SM-7CUD8	SM-42WC6	PT-12B99	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.82719	0177159440	XX-11227502	B09	GSPID_42009_C2_1	9002000001484871	9002000001484871		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
+SM-7CUD9	SM-42XZD	PT-12A98	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.53965	0177159441	XX-11227502	B10	GSPID_42009_C2_1	9002000001254174	9002000001254174		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
+SM-7CUDA	SM-42WC8	PT-12B9B	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.07342	0177159442	XX-11227502	B11	GSPID_42009_C2_1	9002000001470400	9002000001470400		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
+SM-7CUDB	SM-42WBZ	PT-12B93	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.07507	0177159443	XX-11227502	B12	GSPID_42009_C2_1	9002000001523405	9002000001523405		Netherlands	Groningen	2012	Stool	H3K27ac	XXX
 SM-7CUDC	SM-441S9	PT-12A3F	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.23383	0177159431	XX-11227502	C01	GSPID_42009_C2_1	9002000001227239	9002000001227239		Netherlands	Groningen	2012	Stool
 SM-7CUDD	SM-42VT6	PT-12ACI	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.46718	0177159430	XX-11227502	C02	GSPID_42009_C2_1	9002000001261704	9002000001261704		Netherlands	Groningen	2012	Stool
 SM-7CUDE	SM-42VVM	PT-12AEY	Genome Biology / Cisca Wijmenga - LLDeep	10.0	1.54472	0177159429	XX-11227502	C03	GSPID_42009_C2_1	9002000001347021	9002000001347021		Netherlands	Groningen	2012	Stool

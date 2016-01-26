@@ -20,6 +20,34 @@ object TransferWells {
 	private val colsPer384 = colLast384 - col1 + 1
 	private val wellsPer96 = rowsPer96 * colsPer96
 	private val wellsPer384 = rowsPer384 * colsPer384
+	private val wellRegexp = """^([A-Z])(\d+)$""".r
+
+	/**
+	  * Make an index from a well string
+	  * @param well well (A01, A02, ...)
+	  * @param colsPerRow # of columns per row in welled component
+	  * @return index for well (A01 = 0, A02 = 1, ...)
+	  */
+	private def wellToIdx(well: String, colsPerRow: Int) = {
+		well.toUpperCase() match {
+			case wellRegexp(row, col) => ((row.last - row1) * colsPerRow) + (col.toInt - 1)
+			case _ => throw new Exception(s"Invalid well $well")
+		}
+	}
+
+	/**
+	  * Make an index from a well string for a 96-welled component
+	  * @param well well (A01, A02, ...)
+	  * @return index for well (A01 = 0, A02 = 1, ...)
+	  */
+	def make96IdxFromWellStr(well: String) = wellToIdx(well, colsPer96)
+
+	/**
+	  * Make an index from a well string for a 384-welled component
+	  * @param well well (A01, A02, ...)
+	  * @return index for well (A01 = 0, A02 = 1, ...)
+	  */
+	def make384IdxFromWellStr(well: String) = wellToIdx(well, colsPer384)
 
 	import Quad._
 	/**
@@ -251,7 +279,7 @@ object TransferWells {
 	private lazy val slice384to96map = getQuadSliceMap(slice384to96)
 
 	/**
-	 * Get a map of wells for a slice of a 96-well plate going into a 3384-well plate.
+	 * Get a map of wells for a slice of a 96-well plate going into a 384-well plate.
 	 * @param quad quadrant of plate to put slice into
 	 * @param slice slice of quadrant wanted
 	 * @param cherries list of indicies (A01 is 0, A02 is 1, ...) to individual wells picked within quadrant

@@ -58,6 +58,18 @@ object Robot {
 	}
 
 	/**
+	  * Transfer of antibody tube (in rack) to position in plate being made
+	  *
+	  * @param volume volumne to transfer
+	  * @param abType antibody type
+	  * @param rackPos tube position in rack
+	  * @param platePos well position in plate
+	  * @param tubeID antibody tube barcode
+	  */
+	case class ABTubeToPlate(volume: Float, abType: InitialContents.ContentType.ContentType,
+							 rackPos: String, platePos: String, tubeID: String)
+
+	/**
 	  * Make the robot instructions for transferring antibodies (from tubes in a rack) to wells in a plate using a
 	  * Hamilton robot.  The placement of the antibodies in the plate is based on the original sample information from
 	  * bsp that links an antibody with each sample.  The instructions are returned as a list of tuples with two
@@ -94,7 +106,7 @@ object Robot {
 		 * @return (optional Transfer instructions, optional error message) - one or other should be set
 		 */
 		def makeInstructions(abContainers: List[Component], bspTubes: List[BSPTube],
-							 abTubes: List[RackTube],sampleTubesScan: List[RackScan]) = {
+							 abTubes: List[RackTube], sampleTubesScan: List[RackScan]) = {
 			// Make sure we've only got antibody tubes in the container list
 			val abRackTubes = abContainers.flatMap{
 				case t: Tube if t.initialContent.isDefined &&
@@ -130,7 +142,7 @@ object Robot {
 													// We've done it
 													// Create robot instruction for transfer of ab from Rack to Plate
 													case Some(abInfo) =>
-														(Some((abInfo.volume, abType,
+														(Some(ABTubeToPlate(abInfo.volume, abType,
 															abRackPos, abPlatePos, abRackTube.id)), None)
 													case None => (None, Some(s"Antibody ${abType.toString} not found"))
 												}
@@ -139,9 +151,9 @@ object Robot {
 										}
 									case None => (None, Some(s"Antibody $bspAB not found in antibody tubes in rack"))
 								}
-							case None => (None, Some(s"No AB specified in bsp tube ${bspTube.barcode}"))
+							case None => (None, Some(s"No antibody specified for sample tube ${bspTube.barcode}"))
 						}
-					case None => (None, Some(s"Couldn't find bsp tube $sampleBarcode"))
+					case None => (None, Some(s"Couldn't find sample tube $sampleBarcode"))
 				}
 			})
 		}
@@ -159,7 +171,8 @@ object Robot {
 					Future.successful(List((None, Some(s"Jira BSP data empty for ${bspRack.id}"))))
 				else {
 					// Get BSP tube data
-					val bspTubes = bspData.head.list.head.contents
+					val bspTubes = bspData.flatMap((issueList) =>
+						issueList.list.flatMap((scan) => if (scan.barcode == bspRack.id) scan.contents else List.empty))
 					// Get scan of BSP rack
 					val sampleTubesScanFuture = RackScan.findRack(bspRack.id)
 					// Get scan of antibody rack
@@ -190,6 +203,36 @@ object Robot {
 					}
 				}
 		}
+	}
+
+	/**
+	  * Make a list of transfers from a list of robot instructions to make a antibody plate
+	  *
+	  * @param plate antibody plate ID
+	  * @param tubeToPlateList list of tube to plate transfers done on robot
+	  * @param project optional project to associate with the transfer
+	  * @param div plate division (96 or 384 well plate)
+	  * @return tube to plate transfers done on robot
+	  */
+	def makeABTransfers(plate: String, tubeToPlateList: List[ABTubeToPlate], project: Option[String],
+					  div: ContainerDivisions.Division.Division) = {
+		// Group transfers by tube
+		val tubesMap = tubeToPlateList.groupBy(_.tubeID)
+		// Map tubes into transfers
+		tubesMap.map{
+			case (key, trans) =>
+				// Get wells as indicies
+				val wellIdxs =
+					trans.map((t) => {
+						div match {
+							case ContainerDivisions.Division.DIM8x12 => TransferWells.make96IdxFromWellStr(t.platePos)
+							case ContainerDivisions.Division.DIM16x24 => TransferWells.make384IdxFromWellStr(t.platePos)
+						}
+					})
+				// Create transfer from tube to wells in plate
+				Transfer(key, plate, None, None, project, Some(Transfer.Slice.CP),
+					Some(wellIdxs), true)
+		}.toList
 	}
 
 }

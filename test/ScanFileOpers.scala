@@ -10,6 +10,12 @@ import org.scalatest.MustMatchers._
   * Created by nnovod on 1/5/16.
   */
 object ScanFileOpers {
+	// Fake antibody rack
+	val fakeABrack = "AB-RACK"
+	// Fake antibody tubes
+	val fakeABtube1 = "AB-T1"
+	val fakeABtube2 = "AB-T2"
+	val fakeABtube3 = "AB-T3"
 	// Fake project
 	val fakeProject = "FakeProject"
 	// Fake rack barcode
