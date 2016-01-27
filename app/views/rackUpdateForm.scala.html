@@ -5,16 +5,20 @@
 * @param hiddenFields hidden fields passed to form, e.g., project last set        *
 **********************************************************************************@
 @(rackInput: Form[Rack], id: String, hiddenFields: Option[Component.HiddenFields])
-@rackType = @{rackInput(Component.formKey + "." + Container.contentKey)}
+@optionList = @{
+	val bspRep =(routes.RackController.doBSPReport(
+		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report")
+	if (rackInput(Container.contentKey).value.getOrElse("XxX") == ContentType.ABtubes.toString)
+		Seq(bspRep, (routes.RobotController.antibodyPlate(id), "Create Antibody Plate"))
+	else Seq(bspRep)
+}
 @import helper._
 @import models.Rack
 @import models.Component
+@import models.initialContents.InitialContents.ContentType
 
 @updateForm("Rack", rackInput, routes.RackController.updateRackFromForm(id), id,
-	Component.ComponentType.Rack, hiddenFields, Some(Rack.validContents), true,
-	Seq((routes.RackController.doBSPReport(
-		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report"),
-		(routes.RobotController.antibodyPlate(id), "Create antibody plate")),
+	Component.ComponentType.Rack, hiddenFields, Some(Rack.validContents), true, optionList,
 	List('enctype -> "multipart/form-data")){
 	@inputFile(rackInput(Rack.rackScanKey), '_label -> "Scan File")
 }

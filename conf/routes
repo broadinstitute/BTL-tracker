@@ -118,7 +118,4 @@ GET         /contents/:id                               controllers.Application.
 GET         /robot/:abRack                              controllers.RobotController.antibodyPlate(abRack: String)
 POST        /robot/:abRack                              controllers.RobotController.createABPlate(abRack: String)
 
-# Display robot instructions
-GET         /robot/:abRack/:abPlate/:sampleRack         controllers.Application.makeABPlate(abRack: String, abPlate: String, sampleRack: String)
-
 

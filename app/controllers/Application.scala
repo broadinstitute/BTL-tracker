@@ -2,7 +2,6 @@ package controllers
 
 import controllers.RackController._
 import models.Component.ComponentType
-import models.Robot.RobotType
 import models.db.{TrackerCollection, TransferCollection}
 import play.api.Routes
 import play.api.libs.json._
@@ -83,12 +82,6 @@ object Application extends Controller {
 			case None =>
 				BadRequest(views.html.index(Component.blankForm.withGlobalError(s"ID $id not found")))
 		}
-	}
-
-	//@TODO Make this real
-	def makeABPlate(abRack: String, abPlate: String, sampleRack: String) = Action.async {
-		val robot = Robot(RobotType.HAMILTON)
-		robot.makeABPlate(abRack, abPlate, sampleRack).map((res) => Ok(res.toString))
 	}
 
 	/**
