@@ -114,7 +114,11 @@ GET         /javascriptRoutes                           controllers.Application.
 # Display contents
 GET         /contents/:id                               controllers.Application.contents(id: String)
 
+# Get antibody plate creation input data
+GET         /robot/:abRack                              controllers.RobotController.antibodyPlate(abRack: String)
+POST        /robot/:abRack                              controllers.RobotController.createABPlate(abRack: String)
+
 # Display robot instructions
-GET         /robot/:abRack/:abPlate/:sampleRack         controllers.Application.makeABPlate(abRack, abPlate, sampleRack)
+GET         /robot/:abRack/:abPlate/:sampleRack         controllers.Application.makeABPlate(abRack: String, abPlate: String, sampleRack: String)
 
 

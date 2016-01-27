@@ -1,5 +1,6 @@
 package controllers
 
+import controllers.RackController._
 import models.Component.ComponentType
 import models.Robot.RobotType
 import models.db.{TrackerCollection, TransferCollection}
@@ -8,8 +9,8 @@ import play.api.libs.json._
 import play.api.mvc._
 import models._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import play.modules.reactivemongo.json.BSONFormats
 import utils.MessageHandler
+import utils.MessageHandler.FlashingKeys
 
 import scala.concurrent.Future
 
@@ -40,13 +41,19 @@ object Application extends Controller {
 		Ok(s"Test $id")
 	}
 
-	//@TODO Make this real
 	/**
 	  * Display the contents for a component
 	  */
-	def contents(id: String) = Action.async {
+	def contents(id: String) = Action.async { request =>
 		TransferContents.getContents(id).map {
+			case Some(res) if res.wells.isEmpty && res.errs.nonEmpty =>
+				// Redirect to component update (note not simple find by id to avoid multiple redirects)
+				val result = Redirect(ComponentController.actions(res.component.component).updateRoute(id))
+				// Set error to be picked up
+				FlashingKeys.setFlashingValue(result, FlashingKeys.Status, res.errs.mkString(";"))
+
 			case Some(res) =>
+				// Map well-by-well results to html to display library name/mid/antibody
 				val wellMap =
 					res.wells.map{
 						case (well, contents) =>
@@ -62,6 +69,7 @@ object Application extends Controller {
 										(if (abs.isEmpty) "" else "<br>") + abs
 								}).mkString("<br><br>"))
 					}
+				// Get component division (for display)
 				val (rows, cols) =
 					res.component match {
 						case c: ContainerDivisions =>
@@ -69,8 +77,11 @@ object Application extends Controller {
 							(div.rows, div.columns)
 						case _ => (1,1) // If component isn't divided then a single "well"
 					}
+				// Go display contents
 				Ok(views.html.contentDisplay(res.component.id, "Contents", wellMap, "", rows, cols))
-			case None => Ok("ID not found")
+
+			case None =>
+				BadRequest(views.html.index(Component.blankForm.withGlobalError(s"ID $id not found")))
 		}
 	}
 
@@ -89,10 +100,11 @@ object Application extends Controller {
 	  */
 	def graphDisplay(id: String) = Action.async {
 		TransferHistory.makeBidirectionalDot(id, routes.Application.findByID(_: String),
-			routes.Application.transferDisplay(_: String, _: String)).map((dot) => {
-			val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
-			Ok(views.html.graphDisplay(htmlStr, id))
-		})
+			routes.Application.transferDisplay(_: String, _: String))
+			.map((dot) => {
+				val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
+				Ok(views.html.graphDisplay(htmlStr, id))
+			})
 	}
 
 	/**

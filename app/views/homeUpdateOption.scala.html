@@ -7,7 +7,8 @@
 	}
 	@homeOption(Seq[(Call, String, Option[String])]
 		((routes.Application.findByID(id), "Graph", Some(routes.Application.graphDisplay(id).url)),
-				(routes.Application.deleteCheck(id), "Delete", None),
-				(routes.TransferDeleteController.deleteTransfer(id), "Delete Transfers", None)
-			)++others.map((other)=>(other._1,other._2,None)))
+			(routes.Application.contents(id), "Contents", None),
+			(routes.Application.deleteCheck(id), "Delete", None),
+			(routes.TransferDeleteController.deleteTransfer(id), "Delete Transfers", None)
+		)++others.map((other)=>(other._1,other._2,None)))
 }

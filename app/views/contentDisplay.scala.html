@@ -4,8 +4,8 @@
 	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 	<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/tableSelect.css")">
 }{
-	<h2>Content of @component</h2>
-	@plateDisplay(tableID, grid, "", rows, cols)
+	<h2>Contents of @component</h2>
+	@plateDisplay(tableID, grid, none, rows, cols)
 	<br>
-	@homeOption(Seq.empty)
+	@homeOption(Seq((routes.Application.findByID(component), "Go to " + component, None)))
 }

@@ -1,0 +1,19 @@
+@(robotForm: Form[RobotForm], abRack: String, output: String)
+@import helper._
+@import models.RobotForm
+
+@main("Create Robot Instructions") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Create Robot Instructions", robotForm)
+	@form(routes.RobotController.createRobotABInstructions(abRack, output), 'style -> "display:inline;") {
+		@inputText(robotForm(RobotForm.abRackKey).copy(value=Some(abRack)), 'readonly -> "readonly",
+			'_showConstraints -> false, '_label -> "Antibody source rack ID")
+		@inputText(robotForm(RobotForm.bspRackKey), '_label -> "BSP sample rack ID")
+		@inputText(robotForm(RobotForm.abPlateKey), '_label -> "Antibody destination plate ID")
+		@inputText(robotForm(RobotForm.fileNameKey).copy(value=Some("Robot_" + output)), '_label -> "Output filename")
+		<input type="submit" value="Download Robot Instructions" style="display:inline;">
+	}
+	@homeOption(Seq.empty)
+}
+@()

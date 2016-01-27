@@ -128,7 +128,6 @@ object RackController extends ComponentController[Rack] {
 					// Show the results
 					Ok(views.html.rackScanForm("Rack Scan")(foundRack.issue, id, matches,
 						layoutData.rows, layoutData.columns, legend))
-
 				},
 				(err) => {
 					val result = Redirect(routes.RackController.findRackByID(id))
@@ -170,13 +169,14 @@ object RackController extends ComponentController[Rack] {
 								("Scan file is for the wrong rack: " + racks.list.head.barcode)))
 						else {
 							data.initialContent match {
-								// BSP tubes - project must be set
+								// BSP tubes - make sure project is set and then enter scan results in DB
 								case Some(InitialContents.ContentType.BSPtubes) =>
 									if (data.project.isEmpty)
 										Future.successful(Map(Some(Component.formKey + "." + Component.projectKey) ->
 											"Project must be set before recording scan file for BSP samples"))
 									else
 										insertRack(rackList.head)
+								// Antibody tubes - make sure all entries are ab tubes and then enter scan results in DB
 								case Some(InitialContents.ContentType.ABtubes) =>
 									val rackscan = racks.list.head
 									val ids = rackscan.contents.map((rackTube) => rackTube.barcode)
@@ -185,7 +185,7 @@ object RackController extends ComponentController[Rack] {
 											if (err.isEmpty)
 												insertRack(rackscan)
 											else
-												Future.successful(Map((Some(Rack.rackScanKey) -> (err.get))))
+												Future.successful(Map(Some(Rack.rackScanKey) -> (err.get)))
 									}
 								case _ => Future.successful(Map(Some(Rack.rackScanKey) ->
 									"Initial content must be set before entering a scan file"))

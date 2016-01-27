@@ -5,6 +5,7 @@
 * @param hiddenFields hidden fields passed to form, e.g., project last set        *
 **********************************************************************************@
 @(rackInput: Form[Rack], id: String, hiddenFields: Option[Component.HiddenFields])
+@rackType = @{rackInput(Component.formKey + "." + Container.contentKey)}
 @import helper._
 @import models.Rack
 @import models.Component
@@ -12,7 +13,8 @@
 @updateForm("Rack", rackInput, routes.RackController.updateRackFromForm(id), id,
 	Component.ComponentType.Rack, hiddenFields, Some(Rack.validContents), true,
 	Seq((routes.RackController.doBSPReport(
-		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report")),
+		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report"),
+		(routes.RobotController.antibodyPlate(id), "Create antibody plate")),
 	List('enctype -> "multipart/form-data")){
 	@inputFile(rackInput(Rack.rackScanKey), '_label -> "Scan File")
 }

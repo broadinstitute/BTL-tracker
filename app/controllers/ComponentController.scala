@@ -257,7 +257,7 @@ object ComponentController extends Controller {
 				Json.obj(Component.idKey -> id,Component.typeKey -> Json.obj("$in" -> componentType.map(_.toString)))
 		// Using implicit reader and execution context
 		val item = TrackerCollection.findOneWithJsonQuery(Json.toJson(findMap))
-		// First map for future (returns new future that will map original future results into new results)
+		// First map for future (maps initial future results into new results set by found callback)
 		// Next map for option that is returned when original future completes
 		// When original future completes callback is used to get results
 		item.map { _.map(found).getOrElse(notFound(id, componentType)) }
