@@ -21,6 +21,7 @@ import scala.concurrent.Await
 class RobotSpec extends TestSpec with TestConfig {
 	"The robot" must {
 		"make instructions" in {
+			val fakeABPlate = "AB-PLATE"
 			// Make BSP rack scan file from set data
 			val scanFileName = makeRackScanFile(TestData.rackScan)
 			val rackSize = TestData.rackScanSize
@@ -67,24 +68,26 @@ class RobotSpec extends TestSpec with TestConfig {
 				Some(InitialContents.ContentType.ABH3K4me3)))
 			val a3Tube = insertComponent(Tube(fakeABtube3, None, None, List.empty, None,
 				Some(InitialContents.ContentType.ABH3K27ac)))
-			val abPlate = insertComponent(Plate("AB-PLATE", None, None, List.empty,
-				None, None, ContainerDivisions.Division.DIM8x12))
+			// Note abPlate created automatically by makeABPlate if it's not already registered
+			// val abPlate = insertComponent(Plate(fakeABPlate, None, None, List.empty,
+			//  None, None, ContainerDivisions.Division.DIM8x12))
 			val inserts = for {
 				r <- bspRack
 				abR <- abRack
 				a1T <- a1Tube
 				a2T <- a2Tube
 				a3T <- a3Tube
-				abP <- abPlate
-			} yield {(r, abR, a1T, a2T, a3T, abP)}
+			} yield {(r, abR, a1T, a2T, a3T)}
 			import scala.concurrent.Await
-			Await.result(inserts, d3secs) mustBe (None, None, None, None, None, None)
+			Await.result(inserts, d3secs) mustBe (None, None, None, None, None)
 
 			// Make instructions for creating ab plate
 			val robot = Robot(RobotType.HAMILTON)
-			val res = Await.result(robot.makeABPlate(fakeABrack, "AB-PLATE", fakeRack), d3secs)
+			val res = Await.result(robot.makeABPlate(fakeABrack, fakeABPlate, fakeRack), d3secs)
+			// Make sure there wasn't one big error
+			if (res.size == 1) res.head._2 mustBe None
 			// Make maps of results and what we expected
-			val resMap = res.map{
+			val resMap = res.map {
 				case (None, Some(err)) => err.hashCode() -> (None, Some(err))
 				case (Some(tran), None) => tran.hashCode() -> (Some(tran), None)
 				case _ => "Noway".hashCode -> (None, None)
@@ -98,19 +101,19 @@ class RobotSpec extends TestSpec with TestConfig {
 			res.size mustBe TestData.abRobotInstructions.size
 			res.size mustBe resMap.size
 			resMap.size mustBe wantedMap.size
-			wantedMap.foreach{
+			wantedMap.foreach {
 				case (hash, found) =>
 					val resFound = resMap(hash)
 					resFound === found
 			}
 			// Now on to make tracker transfers - first get list of tube->well instructions
-			val trans = res.flatMap{
+			val trans = res.flatMap {
 				case (Some(tran), None) => List(tran)
 				case _ => List.empty
 			}
 			// Make transfers and check out what we get vs. what expected (sorting so order of lists doesn't matter)
 			val madeTrans =
-				Robot.makeABTransfers("AB-PLATE", trans, None, ContainerDivisions.Division.DIM8x12)
+				Robot.makeABTransfers(fakeABPlate, trans, None, ContainerDivisions.Division.DIM8x12)
 					.sortWith(_.from < _.from)
 			val wantedTrans = TestData.abTransfers.sortWith(_.from < _.from)
 			madeTrans.size mustBe wantedTrans.size
@@ -124,7 +127,7 @@ class RobotSpec extends TestSpec with TestConfig {
 
 			})
 			// Make sure inserts of transfers go ok
-			val transDone = Await.result(Future.sequence(madeTrans.map(insertTransfer(_))), d3secs)
+			val transDone = Await.result(Future.sequence(madeTrans.map(insertTransfer)), d3secs)
 			transDone.size mustBe madeTrans.size
 			transDone.foreach(_.ok mustBe true)
 		}

@@ -14,33 +14,52 @@ import scala.concurrent.Future
   */
 case class Robot(robotType: RobotType.RobotType) {
 	def makeABPlate(abRack: String, abPlate: String, bspRack: String) = {
+		def checkRacks(abR: Rack, bspR: Rack) = {
+			if (abR.initialContent.isEmpty || abR.initialContent.get != ContentType.ABtubes)
+				throw new Exception(s"Antibody rack $abRack initial content not set to antibody tubes")
+			if (bspR.initialContent.isEmpty || bspR.initialContent.get != ContentType.BSPtubes)
+				throw new Exception(s"BSP rack $bspRack initial content not set to BSP tubes")
+		}
+		def makePlate(abR: Rack, abP: Plate, bspR: Rack) = {
+			robotType match {
+				case RobotType.HAMILTON => makeHamiltonABPlate(abR, abP, bspR)
+				case _ => throw new Exception("Invalid Robot Type")
+			}
+		}
+
 		// Get components for racks and plate
 		val transIntoABPlate = TransferCollection.getSourceIDs(abPlate)
 		// Check if anything already transferred into plate
 		val components = TrackerCollection.findIds(List(abRack, abPlate, bspRack))
 		Future.sequence(List(transIntoABPlate, components)).flatMap((docs) => {
-			if (!docs.head.isEmpty) throw new Exception(s"Transfers already done into antibody plate $abPlate")
+			if (docs.head.nonEmpty) throw new Exception(s"Transfers already done into antibody plate $abPlate")
 			val ids = docs.tail.head
 			// Map bson to components (someday direct mapping should be possible but too painful for now)
 			val components = ComponentFromJson.bsonToComponents(ids)
 			// Find components
 			val abRackComponent = components.find(_.id == abRack)
-			val abPlateComponent = components.find(_.id == abPlate)
 			val bspRackComponent = components.find(_.id == bspRack)
+			val abPlateComponent = components.find(_.id == abPlate)
 			// Exit if any errors - otherwise go make plate instructions
 			(abRackComponent, abPlateComponent, bspRackComponent) match {
 				case (Some(abR: Rack), Some(abP: Plate), Some(bspR: Rack)) =>
-					if (abR.initialContent.isEmpty || abR.initialContent.get != ContentType.ABtubes)
-						throw new Exception(s"Antibody rack $abRack initial content not set to antibody tubes")
-					if (bspR.initialContent.isEmpty || bspR.initialContent.get != ContentType.BSPtubes)
-						throw new Exception(s"BSP rack $bspRack initial content not set to BSP tubes")
-					robotType match {
-						case RobotType.HAMILTON => makeHamiltonABPlate(abR, abP, bspR)
-						case _ => throw new Exception("Invalid Robot Type")
-					}
+					// Check that racks are ok
+					checkRacks(abR, bspR)
+					// Make plate instructions
+					makePlate(abR, abP, bspR)
 				case (None, _, _) => throw new Exception(s"Antibody rack $abRack not registered")
-				case (_, None, _) => throw new Exception(s"Antibody plate $abPlate not registered")
 				case (_, _, None) => throw new Exception(s"BSP rack $bspRack not registered")
+				case (Some(abR: Rack), None, Some(bspR: Rack)) =>
+					// Check that racks are ok
+					checkRacks(abR, bspR)
+					// Register antibody plate not there yet and then make plate instructions
+					val abP =
+						Plate(id = abPlate, description = Some(s"Antibody plate generated for sample rack $bspRack"),
+							project = bspR.project, tags = List.empty, locationID = None, initialContent = None,
+							layout = bspR.layout)
+					TrackerCollection.insertComponent(data = abP,
+						onSuccess = (_) => abP, onFailure = throw _)
+					    .flatMap(makePlate(abR, _, bspR))
 				case (Some(c), _, _) if !c.isInstanceOf[Rack] =>
 					throw new Exception(s"Antibody rack $abRack is not a rack")
 				case (_, Some(c), _) if !c.isInstanceOf[Plate] =>
