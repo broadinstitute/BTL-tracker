@@ -9,7 +9,7 @@ import play.api.libs.json.Format
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
  *
- * Initial contents for a container.  For now these are just Molecular Barcode sets but someday there can be more.
+ * Initial contents for a container.
  */
 object InitialContents {
 	object ContentType extends Enumeration {
@@ -25,7 +25,7 @@ object InitialContents {
 		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
 		// Antibodies (only for placement in single sample containers (e.g., tube))
-		val ABRnaPollII = Value("RNAPolII")
+		val ABRnaPolII = Value("RNAPolII")
 		val ABH3K4me1 = Value("H3K4me1")
 		val ABH3K4me3 = Value("H3K4me3")
 		val ABH3K9me3 = Value("H3K9me3")
@@ -53,7 +53,7 @@ object InitialContents {
 		 * List of all antibodies
 		 */
 		val antiBodies = List(
-			ABRnaPollII,ABH3K4me1,ABH3K4me3,ABH3K9me3,ABH3K27ac,ABH3K27me3,ABH3K36me3,ABV5,ABBrd4,
+			ABRnaPolII,ABH3K4me1,ABH3K4me3,ABH3K9me3,ABH3K27ac,ABH3K27me3,ABH3K36me3,ABV5,ABBrd4,
 			ABMyb,ABH3Cntrl,ABSirt6
 		)
 
@@ -64,6 +64,7 @@ object InitialContents {
 
 		/**
 		 * Is content type a molecular barcode set?
+ *
 		 * @param ct content type to check
 		 * @return true if content type is a molecular barcode set
 		 */
@@ -71,6 +72,7 @@ object InitialContents {
 
 		/**
 		 * Is content type a antibody?
+ *
 		 * @param ct content type to check
 		 * @return true if content type is a antibody
 		 */
@@ -82,6 +84,7 @@ object InitialContents {
 
 		/**
 		 * Get optional content type from string.  Set as None if missing or invalid.
+ *
 		 * @param content content type as string
 		 * @return optional content type found
 		 */
@@ -113,6 +116,7 @@ object InitialContents {
 
 	/**
 	 * Is the content valid for the division?
+ *
 	 * @param content content of container
 	 * @param div division type of container
 	 * @return true if container with division can hold content
@@ -141,6 +145,7 @@ object InitialContents {
 
 	/**
 	 * Initial contents
+ *
 	 * @tparam C content class type
 	 */
 	trait ContentsMap[C] {
@@ -150,18 +155,19 @@ object InitialContents {
 
 	/**
 	  * Antibody data.
+	  *
 	  * @param volume Volume (uL) to use
 	  * @param species species
 	  * @param isMono mono or poly clonal
 	  * @param isControl control antibody
 	  */
-	case class AntiBodyData(volume: Float, species: String, isMono: Boolean, isControl: Boolean)
+	case class AntiBodyData(volume: Int, species: String, isMono: Boolean, isControl: Boolean)
 
 	/**
 	  * Map to get fixed information for each antibody
 	  */
 	lazy val antibodyMap = Map(
-		ABRnaPollII -> AntiBodyData(1, "Mouse", true, false),
+		ABRnaPolII -> AntiBodyData(1, "Mouse", true, false),
 		ABH3K4me1 -> AntiBodyData(1, "Rabbit", true, false),
 		ABH3K4me3 -> AntiBodyData(1, "Rabbit", true, false),
 		ABH3K9me3 -> AntiBodyData(1, "Rabbit", true, false),

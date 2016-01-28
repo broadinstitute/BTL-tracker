@@ -1,12 +1,8 @@
 package models
 
-import java.io.{FileOutputStream, File}
-
 import models.TransferContents.{MergeMid, MergeBsp, MergeResult}
 import models.project.SquidProject
-import org.apache.poi.ss.usermodel.Cell
 import org.broadinstitute.spreadsheets.HeadersToValues
-import play.Play
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.{Format, Json}
@@ -111,9 +107,8 @@ object EZPass {
 		 * @return context containing spreadsheet information for setting sample information in spreadsheet
 		 */
 		def initData(component: String, fileHeaders: List[String]) = {
-			val inFile = Play.application().path().getCanonicalPath + "/conf/data/EZPass.xlsx"
-			DataSource(
-				HeadersToValues(inFile, 0, fileHeaders, Map.empty[String, (List[String], List[String])]), component)
+			val sheet = spreadsheets.Utils.initSheet("/conf/data/EZPass.xlsx", fileHeaders)
+			DataSource(sheet, component)
 		}
 
 		/**
@@ -128,37 +123,8 @@ object EZPass {
 		 */
 		def setFields(context: DataSource, strData: Map[String, String], intData: Map[String, Int],
 					  floatData: Map[String, Float], index: Int): DataSource = {
-			/*
-			 * Set values in spreadsheet cells
-			 * @param fields fields to set (header name -> value to set)
-			 * @param index sample number
-			 * @param setCell callback to set cell value
-			 * @tparam T type of cell value
-			 */
-			def setValues[T](context: DataSource, fields: Map[String, T], index: Int, setCell: (Cell, T) => Unit) = {
-				val headerParameters = context.headersToValues
-				val sheet = headerParameters.getSheet.get
-				fields.foreach {
-					case (header, value) => headerParameters.getHeaderLocation(header) match {
-						case Some((r, c)) =>
-							val row = sheet.getRow(r + index) match {
-								case null => sheet.createRow(r + index)
-								case rowFound => rowFound
-							}
-							val cell = row.getCell(c) match {
-								case null => row.createCell(c)
-								case cellFound => cellFound
-							}
-							setCell(cell, value)
-						case _ =>
-					}
-				}
-			}
-			// Set the values into the spreadsheet
-			setValues[String](context, strData, index, (cell, value) => cell.setCellValue(value))
-			setValues[Int](context, intData, index, (cell, value) => cell.setCellValue(value))
-			setValues[Float](context, floatData, index, (cell, value) => cell.setCellValue(value))
-			context
+			val sheet = spreadsheets.Utils.setSheetValues(context.headersToValues, strData, intData, floatData, index)
+			context.copy(headersToValues = sheet)
 		}
 
 		/**
@@ -170,22 +136,7 @@ object EZPass {
 		 * @return (path of output file, list of errors)
 		 */
 		def allDone(context: DataSource, samplesFound: Int, errs: List[String]) = {
-			Future {
-				context.headersToValues.getSheet match {
-					case Some(sheet) =>
-						if (samplesFound != 0) {
-							// Create temporary file and write new EZPASS there
-							val tFile = File.createTempFile("TRACKER_", ".xlsx")
-							val outFile = new FileOutputStream(tFile)
-							sheet.getWorkbook.write(outFile)
-							outFile.close()
-							(Some(tFile.getCanonicalPath), errs)
-						} else
-							(None, List(s"No samples found") ++ errs)
-					case None =>
-						(None, errs)
-				}
-			}
+			spreadsheets.Utils.makeFile(context.headersToValues, samplesFound, errs, Some("No samples found"))
 		}
 	}
 

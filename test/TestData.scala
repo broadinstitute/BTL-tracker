@@ -3,8 +3,9 @@ import models.Transfer
 import models.initialContents.InitialContents
 
 /**
- * Created by nnovod on 4/30/15.
- */
+  * Created by nnovod on 4/30/15.
+  * Test data for unit tests
+  */
 object TestData {
 
 	val rackScanHeader = "DATETIME,RACK,TUBE,BARCODE"
@@ -125,30 +126,30 @@ object TestData {
 	val rackABscan = rackScanHeader + '\n' + rackABdata
 	val rackABscanSize = 3
 	val abRobotInstructions =
-		List((Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A01","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B01","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A02","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B02","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A03","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B03","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A04","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","B04","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A05","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B05","AB-T3")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A06","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B06","AB-T3")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A07","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B07","AB-T3")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me1,"A01","A08","AB-T1")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B08","AB-T3")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A09","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B09","AB-T3")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A10","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B10","AB-T3")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A11","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B11","AB-T3")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K4me3,"B01","A12","AB-T2")),None),
-			(Some(ABTubeToPlate(1.0f,InitialContents.ContentType.ABH3K27ac,"C01","B12","AB-T3")),None),
+		List((Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A01","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","B01","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A02","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","B02","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A03","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","B03","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A04","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","B04","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A05","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B05","AB-T3")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A06","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B06","AB-T3")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A07","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B07","AB-T3")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me1,"A01","A08","AB-T1")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B08","AB-T3")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","A09","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B09","AB-T3")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","A10","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B10","AB-T3")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","A11","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B11","AB-T3")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K4me3,"B01","A12","AB-T2")),None),
+			(Some(ABTubeToPlate(1,InitialContents.ContentType.ABH3K27ac,"C01","B12","AB-T3")),None),
 			(None,Some("No antibody specified for sample tube 0177195859")),
 			(None,Some("No antibody specified for sample tube 0177195860")),
 			(None,Some("No antibody specified for sample tube 0177195873")),

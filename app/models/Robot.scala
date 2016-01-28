@@ -6,7 +6,9 @@ import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
 import models.project.JiraProject
 import org.broadinstitute.LIMStales.sampleRacks.BSPTube
+import org.broadinstitute.spreadsheets.HeadersToValues
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import scala.annotation.tailrec
 import scala.concurrent.Future
 
 /**
@@ -21,10 +23,10 @@ case class Robot(robotType: RobotType.RobotType) {
 				throw new Exception(s"BSP rack $bspRack initial content not set to BSP tubes")
 		}
 		def makePlate(abR: Rack, abP: Plate, bspR: Rack) = {
-			robotType match {
+			(robotType match {
 				case RobotType.HAMILTON => makeHamiltonABPlate(abR, abP, bspR)
 				case _ => throw new Exception("Invalid Robot Type")
-			}
+			}).map((t) => (Some(ABTrans(abR, abP, bspR, t)), None))
 		}
 
 		// Get components for racks and plate
@@ -68,7 +70,7 @@ case class Robot(robotType: RobotType.RobotType) {
 					throw new Exception(s"BSP rack $bspRack is not a rack")
 			}
 		}).recover {
-			case e => List((None, Some(s"Error making antibody plate: ${e.getLocalizedMessage}")))
+			case e => (None, Some(s"Error making antibody plate: ${e.getLocalizedMessage}"))
 		}
 	}
 }
@@ -92,8 +94,19 @@ object Robot {
 	  * @param platePos well position in plate
 	  * @param tubeID antibody tube barcode
 	  */
-	case class ABTubeToPlate(volume: Float, abType: InitialContents.ContentType.ContentType,
+	case class ABTubeToPlate(volume: Int, abType: InitialContents.ContentType.ContentType,
 							 rackPos: String, platePos: String, tubeID: String)
+
+	/**
+	  * Antibody rack->plate transfer info.
+	  *
+	  * @param abRack source ab rack
+	  * @param abPlate destination ab plate
+	  * @param bspRack destination ab rack
+	  * @param trans tube->rack transfers along with error messages
+	  */
+	case class ABTrans(abRack: Rack, abPlate: Plate, bspRack: Rack,
+					   trans: List[(Option[ABTubeToPlate], Option[String])])
 
 	/**
 	  * Make the robot instructions for transferring antibodies (from tubes in a rack) to wells in a plate using a
@@ -139,7 +152,7 @@ object Robot {
 					ContentType.isAntibody(t.initialContent.get) => List(t)
 				case _ => List.empty
 			}
-			// Map maps to do efficient searches when looping through sample tubes
+			// Make maps to do efficient searches when looping through sample tubes
 			val abRackTubesMap =
 				abRackTubes.map((t) => t.initialContent.get.toString -> t).toMap
 			val bspTubesMap = bspTubes.map((t) => t.barcode -> t).toMap
@@ -208,7 +221,7 @@ object Robot {
 							// Check out results of retrieving rack scans
 							(checkRackScan(abRack.id, abTubesScan), checkRackScan(bspRack.id, sampleTubesScan)) match {
 								case (Some(err), Some(err1)) =>
-									Future.successful(List((None, Some(err + ";" + err1))))
+									Future.successful(List((None, Some(err + "; " + err1))))
 								case (Some(err), _) =>
 									Future.successful(List((None, Some(err))))
 								case (_, Some(err)) =>
@@ -240,7 +253,7 @@ object Robot {
 	  * @return tube to plate transfers done on robot
 	  */
 	def makeABTransfers(plate: String, tubeToPlateList: List[ABTubeToPlate], project: Option[String],
-					  div: ContainerDivisions.Division.Division) = {
+						div: ContainerDivisions.Division.Division) = {
 		// Group transfers by tube
 		val tubesMap = tubeToPlateList.groupBy(_.tubeID)
 		// Map tubes into transfers
@@ -258,6 +271,46 @@ object Robot {
 				Transfer(from = tube, to = plate, fromQuad = None, toQuad = None, project = project,
 					slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = true)
 		}.toList
+	}
+
+	/**
+	  * Make a spreadsheet with instructions for the robot to transfer antibodies from a rack of antibody tubes to
+	  * a plate.
+	  *
+	  * @param trans transfers wanted
+	  * @param fileName output file name
+	  * @return (name of file created, if it went ok, errors found)
+	  */
+	def makeABSpreadSheet(trans: List[ABTubeToPlate], fileName: String) = {
+		// Spreadsheet headers
+		val vol = "Volume in ul"
+		val abType = "Source ab type"
+		val abLoc = "Source ab location"
+		val destLoc = "Destination location"
+		/*
+		 * Set values in spreadsheet for transfers from antibody tubes to make an antibody plate
+		 * @param sheet spreadsheet values are being put into
+		 * @param trans ab tube->plate transfers
+		 * @param done # of entries done so far
+		 * @return
+		 */
+		@tailrec
+		def setValue(sheet: HeadersToValues, trans: List[ABTubeToPlate], done: Int) : (HeadersToValues, Int) = {
+			if (trans.isEmpty)
+				(sheet, done)
+			else {
+				val next = trans.head
+				val nextIndex = done + 1
+				setValue(
+					spreadsheets.Utils.setSheetValues(sheet,
+						Map(abType -> next.abType.toString, abLoc -> next.rackPos, destLoc -> next.platePos),
+						Map(vol -> next.volume), Map.empty, nextIndex), trans.tail, nextIndex)
+			}
+		}
+
+		val sheet = spreadsheets.Utils.initSheet(fileName, List(vol, abType, abLoc, destLoc))
+		val dataSheet = setValue(sheet, trans, 0)
+		spreadsheets.Utils.makeFile(dataSheet._1, dataSheet._2, List.empty, Some("No antibodies found"))
 	}
 
 }

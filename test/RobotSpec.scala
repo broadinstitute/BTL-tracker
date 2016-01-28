@@ -85,9 +85,11 @@ class RobotSpec extends TestSpec with TestConfig {
 			val robot = Robot(RobotType.HAMILTON)
 			val res = Await.result(robot.makeABPlate(fakeABrack, fakeABPlate, fakeRack), d3secs)
 			// Make sure there wasn't one big error
-			if (res.size == 1) res.head._2 mustBe None
+			res._2 mustBe None
 			// Make maps of results and what we expected
-			val resMap = res.map {
+			val transEntries = res._1.get.trans
+			transEntries.size mustBe TestData.abRobotInstructions.size
+			val resMap = transEntries.map {
 				case (None, Some(err)) => err.hashCode() -> (None, Some(err))
 				case (Some(tran), None) => tran.hashCode() -> (Some(tran), None)
 				case _ => "Noway".hashCode -> (None, None)
@@ -98,8 +100,6 @@ class RobotSpec extends TestSpec with TestConfig {
 				case _ => "Noway".hashCode -> (None, None)
 			}.toMap
 			// Check that what we got back is what we expect
-			res.size mustBe TestData.abRobotInstructions.size
-			res.size mustBe resMap.size
 			resMap.size mustBe wantedMap.size
 			wantedMap.foreach {
 				case (hash, found) =>
@@ -107,7 +107,7 @@ class RobotSpec extends TestSpec with TestConfig {
 					resFound === found
 			}
 			// Now on to make tracker transfers - first get list of tube->well instructions
-			val trans = res.flatMap {
+			val trans = transEntries.flatMap {
 				case (Some(tran), None) => List(tran)
 				case _ => List.empty
 			}
