@@ -2,7 +2,6 @@ package controllers
 
 import java.io.File
 
-import controllers.Application._
 import models.Robot.RobotType
 import models.{Robot, RobotForm}
 import play.api.mvc.{Action, Controller}
@@ -34,7 +33,24 @@ object RobotController extends Controller {
 			},
 			data => {
 				val robot = Robot(RobotType.HAMILTON)
-				robot.makeABPlate(data.abRack, data.abPlate, data.bspRack).map((res) => Ok(res.toString))
+				robot.makeABPlate(data.abRack, data.abPlate, data.bspRack).map(
+					(res) => {
+						val errs = res.flatMap((r) => r._2.toList)
+						if (errs.nonEmpty)
+							BadRequest(
+								views.html.abRobot(RobotForm.form.fill(data).withGlobalError(errs.mkString(";")), id)
+							)
+						else {
+							"Volume in ul,Source ab type,Source ab location,Destination location"
+							Ok(res.toString)
+						}
+					}
+				)
+			}.recover {
+				case err =>
+					BadRequest(views.html.abRobot(
+						RobotForm.form.fill(data).withGlobalError(MessageHandler.exceptionMessage(err)), id
+					))
 			}
 		)
 	}

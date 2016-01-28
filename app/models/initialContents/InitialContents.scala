@@ -25,7 +25,7 @@ object InitialContents {
 		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
 		// Antibodies (only for placement in single sample containers (e.g., tube))
-		val ABRnaPollII = Value("RNA-Pol-II")
+		val ABRnaPollII = Value("RNAPolII")
 		val ABH3K4me1 = Value("H3K4me1")
 		val ABH3K4me3 = Value("H3K4me3")
 		val ABH3K9me3 = Value("H3K9me3")
