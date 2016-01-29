@@ -1,11 +1,10 @@
 package models
 
 import Robot._
+import models.TransferContents.MergeTotalContents
 import models.db.{TransferCollection, TrackerCollection}
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
-import models.project.JiraProject
-import org.broadinstitute.LIMStales.sampleRacks.BSPTube
 import org.broadinstitute.spreadsheets.HeadersToValues
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import scala.annotation.tailrec
@@ -15,61 +14,66 @@ import scala.concurrent.Future
   * Created by nnovod on 1/12/16.
   */
 case class Robot(robotType: RobotType.RobotType) {
-	def makeABPlate(abRack: String, abPlate: String, bspRack: String) = {
-		def checkRacks(abR: Rack, bspR: Rack) = {
+	def makeABPlate(abRack: String, abPlate: String, sampleContainer: String) = {
+		def checkRacks(abR: Rack) = {
 			if (abR.initialContent.isEmpty || abR.initialContent.get != ContentType.ABtubes)
 				throw new Exception(s"Antibody rack $abRack initial content not set to antibody tubes")
-			if (bspR.initialContent.isEmpty || bspR.initialContent.get != ContentType.BSPtubes)
-				throw new Exception(s"BSP rack $bspRack initial content not set to BSP tubes")
 		}
-		def makePlate(abR: Rack, abP: Plate, bspR: Rack) = {
+		def makePlate(contents: MergeTotalContents, abR: Rack, abP: Plate, sampleC: Component with ContainerDivisions) = {
 			(robotType match {
-				case RobotType.HAMILTON => makeHamiltonABPlate(abR, abP, bspR)
+				case RobotType.HAMILTON => makeHamiltonABPlate(contents, abR, abP, sampleC)
 				case _ => throw new Exception("Invalid Robot Type")
-			}).map((t) => (Some(ABTrans(abR, abP, bspR, t)), None))
+			}).map((t) => (Some(ABTrans(abR, abP, sampleC, t)), None))
 		}
 
-		// Get components for racks and plate
-		val transIntoABPlate = TransferCollection.getSourceIDs(abPlate)
-		// Check if anything already transferred into plate
-		val components = TrackerCollection.findIds(List(abRack, abPlate, bspRack))
-		Future.sequence(List(transIntoABPlate, components)).flatMap((docs) => {
-			if (docs.head.nonEmpty) throw new Exception(s"Transfers already done into antibody plate $abPlate")
-			val ids = docs.tail.head
-			// Map bson to components (someday direct mapping should be possible but too painful for now)
-			val components = ComponentFromJson.bsonToComponents(ids)
-			// Find components
-			val abRackComponent = components.find(_.id == abRack)
-			val bspRackComponent = components.find(_.id == bspRack)
-			val abPlateComponent = components.find(_.id == abPlate)
-			// Exit if any errors - otherwise go make plate instructions
-			(abRackComponent, abPlateComponent, bspRackComponent) match {
-				case (Some(abR: Rack), Some(abP: Plate), Some(bspR: Rack)) =>
-					// Check that racks are ok
-					checkRacks(abR, bspR)
-					// Make plate instructions
-					makePlate(abR, abP, bspR)
-				case (None, _, _) => throw new Exception(s"Antibody rack $abRack not registered")
-				case (_, _, None) => throw new Exception(s"BSP rack $bspRack not registered")
-				case (Some(abR: Rack), None, Some(bspR: Rack)) =>
-					// Check that racks are ok
-					checkRacks(abR, bspR)
-					// Register antibody plate not there yet and then make plate instructions
-					val abP =
-						Plate(id = abPlate, description = Some(s"Antibody plate generated for sample rack $bspRack"),
-							project = bspR.project, tags = List.empty, locationID = None, initialContent = None,
-							layout = bspR.layout)
-					TrackerCollection.insertComponent(data = abP,
-						onSuccess = (_) => abP, onFailure = throw _)
-					    .flatMap(makePlate(abR, _, bspR))
-				case (Some(c), _, _) if !c.isInstanceOf[Rack] =>
-					throw new Exception(s"Antibody rack $abRack is not a rack")
-				case (_, Some(c), _) if !c.isInstanceOf[Plate] =>
-					throw new Exception(s"Antibody plate $abPlate is not a plate")
-				case (_, _, Some(c)) if !c.isInstanceOf[Rack] =>
-					throw new Exception(s"BSP rack $bspRack is not a rack")
-			}
-		}).recover {
+		TransferContents.getContents(sampleContainer).flatMap {
+			case None => throw new Exception(s"$sampleContainer has no contents")
+			case Some(contents) if contents.errs.nonEmpty =>
+				throw new Exception(s"Error getting contents for $sampleContainer: ${contents.errs.mkString("; ")}")
+			case Some(contents) if contents.wells.nonEmpty =>
+				// Check if anything already transferred into plate
+				val transIntoABPlate = TransferCollection.getSourceIDs(abPlate)
+				// Get components for racks and plate
+				val components = TrackerCollection.findIds(List(abRack, abPlate, sampleContainer))
+				Future.sequence(List(transIntoABPlate, components)).flatMap((docs) => {
+					if (docs.head.nonEmpty) throw new Exception(s"Transfers already done into antibody plate $abPlate")
+					val ids = docs.tail.head
+					// Map bson to components (someday direct mapping should be possible but too painful for now)
+					val components = ComponentFromJson.bsonToComponents(ids)
+					// Find components
+					val abRackComponent = components.find(_.id == abRack)
+					val sampleComponent = components.find(_.id == sampleContainer)
+					val abPlateComponent = components.find(_.id == abPlate)
+					// Exit if any errors - otherwise go make plate instructions
+					(abRackComponent, abPlateComponent, sampleComponent) match {
+						case (Some(abR: Rack), Some(abP: Plate), Some(sampleC: Component with ContainerDivisions)) =>
+							// Check that racks are ok
+							checkRacks(abR)
+							// Make plate instructions
+							makePlate(contents, abR, abP, sampleC)
+						case (None, _, _) => throw new Exception(s"Antibody rack $abRack not registered")
+						case (_, _, None) => throw new Exception(s"Sample container $sampleContainer not registered")
+						case (Some(abR: Rack), None, Some(sampleC: Component with ContainerDivisions)) =>
+							// Check that racks are ok
+							checkRacks(abR)
+							// Register antibody plate not there yet and then make plate instructions
+							val abP =
+								Plate(id = abPlate,
+									description = Some(s"Antibody plate generated for sample rack $sampleContainer"),
+									project = sampleC.project, tags = List.empty, locationID = None,
+									initialContent = None, layout = sampleC.layout)
+							TrackerCollection.insertComponent(data = abP,
+								onSuccess = (_) => abP, onFailure = throw _)
+								.flatMap(makePlate(contents, abR, _, sampleC))
+						case (Some(c), _, _) if !c.isInstanceOf[Rack] =>
+							throw new Exception(s"Antibody rack $abRack is not a rack")
+						case (_, Some(c), _) if !c.isInstanceOf[Plate] =>
+							throw new Exception(s"Antibody plate $abPlate is not a plate")
+						case (_, _, Some(c)) if !c.isInstanceOf[Component with ContainerDivisions] =>
+							throw new Exception(s"Sample container $sampleContainer is not a valid container type")
+					}
+				})
+		}.recover {
 			case e => (None, Some(s"Error making antibody plate: ${e.getLocalizedMessage}"))
 		}
 	}
@@ -102,10 +106,10 @@ object Robot {
 	  *
 	  * @param abRack source ab rack
 	  * @param abPlate destination ab plate
-	  * @param bspRack destination ab rack
+	  * @param sampleContainer destination sample plate
 	  * @param trans tube->rack transfers along with error messages
 	  */
-	case class ABTrans(abRack: Rack, abPlate: Plate, bspRack: Rack,
+	case class ABTrans(abRack: Rack, abPlate: Plate, sampleContainer: Component with ContainerDivisions,
 					   trans: List[(Option[ABTubeToPlate], Option[String])])
 
 	/**
@@ -116,12 +120,14 @@ object Robot {
 	  * (transfer amount, antibody, antibody source tube position, antibody plate destination position, rack id) and
 	  * an error message.  Note either one but not both parts of the tuple can be None.
 	  *
+	  * @param contents contents of sample container
 	  * @param abRack rack containing antibody tubes used as source for transfers
 	  * @param abPlate destination plate for antibodies
-	  * @param bspRack BSP sample rack containing original sample information
+	  * @param sampleContainer BSP sample rack containing original sample information
 	  * @return ((transfer amount, ab type, ab source tube position, ab plate destination position, rack id), error)
 	  */
-	private def makeHamiltonABPlate(abRack: Rack, abPlate: Plate, bspRack: Rack) = {
+	private def makeHamiltonABPlate(contents: MergeTotalContents, abRack: Rack, abPlate: Plate,
+									sampleContainer: Component with ContainerDivisions) = {
 
 		def checkRackScan(id: String, rs: List[RackScan]) =
 			if (rs.isEmpty)
@@ -139,108 +145,86 @@ object Robot {
 		 * an antibody with each sample.
 		 *
 		 * @param abContainers antibody tubes found in rack
-		 * @param bspTubes bsp info for sample tubes
 		 * @param abTubes antibody tubes barcode/position from rack scan
-		 * @param sampleTubesScan sample tubes barcode/position from bsp rack scan
 		 * @return (optional Transfer instructions, optional error message) - one or other should be set
 		 */
-		def makeInstructions(abContainers: List[Component], bspTubes: List[BSPTube],
-							 abTubes: List[RackTube], sampleTubesScan: List[RackScan]) = {
+		def makeInstructions(abContainers: List[Component], abTubes: List[RackTube]) = {
 			// Make sure we've only got antibody tubes in the container list
 			val abRackTubes = abContainers.flatMap{
 				case t: Tube if t.initialContent.isDefined &&
 					ContentType.isAntibody(t.initialContent.get) => List(t)
 				case _ => List.empty
 			}
-			// Make maps to do efficient searches when looping through sample tubes
+			// Make maps to do efficient searches when looping through samples
 			val abRackTubesMap =
 				abRackTubes.map((t) => t.initialContent.get.toString -> t).toMap
-			val bspTubesMap = bspTubes.map((t) => t.barcode -> t).toMap
 			val abTubesMap = abTubes.map((t) => t.barcode -> t).toMap
-			// Go through sample tubes found from scan
-			val sampleTubes = sampleTubesScan.head.contents
-			sampleTubes.map((sampleTube) =>
-			{
-				val sampleBarcode = sampleTube.barcode
-				// Find sample tube in Jira BSP tubes
-				bspTubesMap.get(sampleBarcode) match {
-					case Some(bspTube) =>
-						bspTube.antiBody match {
-							// Find antibody tube wanted for sample
-							case Some(bspAB) =>
-								abRackTubesMap.get(bspAB) match {
-									case (Some(abRackTube)) =>
-										val abType = abRackTube.initialContent.get
-										// Find antibody position in rack
-										abTubesMap.get(abRackTube.id) match {
-											case Some(abPos) =>
-												val abRackPos = abPos.pos
-												val abPlatePos = sampleTube.pos
-												// Get volume for antibody
-												InitialContents.antibodyMap.get(abType) match {
-													// We've done it
-													// Create robot instruction for transfer of ab from Rack to Plate
-													case Some(abInfo) =>
-														(Some(ABTubeToPlate(abInfo.volume, abType,
-															abRackPos, abPlatePos, abRackTube.id)), None)
-													case None => (None, Some(s"Antibody ${abType.toString} not found"))
+			contents.wells.toList.map {
+				case (well, sample) =>
+					if (sample.isEmpty)
+						(None, Some(s"No sample found in well $well of ${sampleContainer.id}"))
+					else if (sample.size != 1)
+						(None, Some(s"Multiple samples found in well $well of ${sampleContainer.id}"))
+					else {
+						sample.head.bsp match {
+							case None =>
+								(None, Some(s"No sample assigned to well $well of ${sampleContainer.id}"))
+							case Some(bsp) =>
+								bsp.antibody match {
+									case None =>
+										(None, Some(s"No antibody assigned to sample tube ${bsp.sampleTube}"))
+									case Some(ab) =>
+										// Find antibody tube in rack
+										abRackTubesMap.get(ab) match {
+											case (Some(abRackTube)) =>
+												val abType = abRackTube.initialContent.get
+												// Find antibody position in rack
+												abTubesMap.get(abRackTube.id) match {
+													case Some(abPos) =>
+														val abRackPos = abPos.pos
+														val abPlatePos = well
+														// Get volume for antibody
+														InitialContents.antibodyMap.get(abType) match {
+															// We've done it
+															// Create instruction for transfer of ab from Rack to Plate
+															case Some(abInfo) =>
+																(Some(ABTubeToPlate(abInfo.volume, abType,
+																	abRackPos, abPlatePos, abRackTube.id)), None)
+															case None =>
+																(None, Some(s"Antibody ${abType.toString} not found"))
+														}
+													case None =>
+														(None, Some(
+															s"Antibody tube ${abRackTube.id} not found in rack scan"))
 												}
-											case None => (None,
-												Some(s"Antibody tube ${abRackTube.id} not found in rack scan"))
+											case None =>
+												(None, Some(s"Antibody $ab not found in antibody tubes in rack"))
 										}
-									case None => (None, Some(s"Antibody $bspAB not found in antibody tubes in rack"))
 								}
-							case None => (None, Some(s"No antibody specified for sample tube ${bspTube.barcode}"))
 						}
-					case None => (None, Some(s"Couldn't find sample tube $sampleBarcode"))
-				}
-			})
+					}
+			}
 		}
 
-		// Get BSP rack data
-		JiraProject.getBspIssueCollection(bspRack.id) match {
-			case (_, Some(err)) =>
-				// Error getting bsp data
-				Future.successful(List((None, Some(err))))
-			case (bspData, _) =>
-				// Check out that bsp data is there
-				if (bspData.isEmpty)
-					Future.successful(List((None, Some(s"Jira BSP issue not found for rack ${bspRack.id}"))))
-				else if (bspData.head.list.isEmpty || bspData.head.list.head.contents.isEmpty)
-					Future.successful(List((None, Some(s"Jira BSP data empty for ${bspRack.id}"))))
-				else {
-					// Get BSP tube data
-					val bspTubes = bspData.flatMap((issueList) => issueList.list.flatMap(_.contents))
-					// Get scan of BSP rack
-					val sampleTubesScanFuture = RackScan.findRack(bspRack.id)
-					// Get scan of antibody rack
-					val abTubesScanFuture = RackScan.findRack(abRack.id)
-					// Wait for async activity to complete and then take next step
-					Future.sequence(List(sampleTubesScanFuture, abTubesScanFuture)).flatMap {
-						case (List(sampleTubesScan, abTubesScan)) =>
-							// Check out results of retrieving rack scans
-							(checkRackScan(abRack.id, abTubesScan), checkRackScan(bspRack.id, sampleTubesScan)) match {
-								case (Some(err), Some(err1)) =>
-									Future.successful(List((None, Some(err + "; " + err1))))
-								case (Some(err), _) =>
-									Future.successful(List((None, Some(err))))
-								case (_, Some(err)) =>
-									Future.successful(List((None, Some(err))))
-								case _ =>
-									// Rack scans look good - now go get contents of ab tubes
-									val abTubes = abTubesScan.head.contents
-									val abTubeBarcodes = abTubes.map(_.barcode)
-									RackScan.getABTubes(abTubeBarcodes).map {
-										// Error found - go report it
-										case (_, Some(err)) => List((None, Some(err)))
-										// We've got all the data - go make the instructions
-										case (abContainers, _) =>
-											makeInstructions(abContainers, bspTubes, abTubes, sampleTubesScan)
-									}
-							}
+		// Get scan of antibody rack
+		RackScan.findRack(abRack.id).flatMap((abTubesScan) => {
+			// Check out results of retrieving rack scans
+			checkRackScan(abRack.id, abTubesScan) match {
+				case (Some(err)) =>
+					Future.successful(List((None, Some(err))))
+				case _ =>
+					// Rack scans look good - now go get contents of ab tubes
+					val abTubes = abTubesScan.head.contents
+					val abTubeBarcodes = abTubes.map(_.barcode)
+					RackScan.getABTubes(abTubeBarcodes).map {
+						// Error found - go report it
+						case (_, Some(err)) => List((None, Some(err)))
+						// We've got all the data - go make the instructions
+						case (abContainers, _) =>
+							makeInstructions(abContainers, abTubes)
 					}
-				}
-		}
+			}
+		})
 	}
 
 	/**
@@ -257,7 +241,7 @@ object Robot {
 		// Group transfers by tube
 		val tubesMap = tubeToPlateList.groupBy(_.tubeID)
 		// Map tubes into transfers
-		tubesMap.map{
+		tubesMap.map {
 			case (tube, wells) =>
 				// Get wells as indicies
 				val wellIdxs =

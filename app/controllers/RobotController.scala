@@ -17,6 +17,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 object RobotController extends Controller {
 	/**
 	  * Simple action to put up the form to get the antibody plate creation parameters.
+	  *
 	  * @param id id of antibody rack
 	  * @return form to get ezpass parameters
 	  */
@@ -26,6 +27,7 @@ object RobotController extends Controller {
 
 	/**
 	  * Return bad request for attempt to make robot instructions
+	  *
 	  * @param data data from input form
 	  * @param err error reporting
 	  * @param id id of antibody rack
@@ -38,6 +40,7 @@ object RobotController extends Controller {
 	/**
 	  * Create robot instructions, to be uploaded, for the antibody plate and insert the transfers that will be done
 	  * between the antibody tubes and plate.
+	  *
 	  * @param id id of antibody rack
 	  * @return either upload results or redisplay of form with error
 	  */
@@ -49,7 +52,7 @@ object RobotController extends Controller {
 			},
 			data => {
 				val robot = Robot(RobotType.HAMILTON)
-				robot.makeABPlate(data.abRack, data.abPlate, data.bspRack).flatMap {
+				robot.makeABPlate(data.abRack, data.abPlate, data.sampleContainer).flatMap {
 					case (_, Some(err)) =>
 						Future.successful(badRequest(data, err, id))
 					case (Some(res), _) =>
@@ -63,7 +66,7 @@ object RobotController extends Controller {
 							val tubeToPlateTrans = res.trans.flatMap((r) => r._1.toList)
 							// Make transfer entries and put them in the DB
 							val trans = Robot.makeABTransfers(res.abPlate.id, tubeToPlateTrans,
-								res.bspRack.project, res.abPlate.layout)
+								res.sampleContainer.project, res.abPlate.layout)
 							val transDBOpers = Future.sequence(trans.map(TransferCollection.insert))
 							// Next make spreadsheet to be uploaded
 							val spreadSheet = Robot.makeABSpreadSheet(tubeToPlateTrans, data.fileName)
@@ -71,15 +74,22 @@ object RobotController extends Controller {
 							(for {
 								transDone <- transDBOpers
 								sheetDone <- spreadSheet
-							} yield sheetDone).map {
-								case (Some(file), _) =>
+							} yield (transDone, sheetDone)).map {
+								case (transStat, (Some(file), _)) =>
 									// Upload the file using wanted filename
-									val outFile = new File(file)
-									val fileNameReturned = data.fileName.trim()
-									val fileName = if (fileNameReturned.isEmpty) data.abPlate else fileNameReturned
-									Ok.sendFile(content = outFile, inline = false,
-										fileName = (_) => s"$fileName.xlsx", onClose = () => outFile.delete())
-								case (_, sheetErrs) =>
+									val tranErrs = transStat.filterNot(_.ok)
+										.map(_.errMsg.getOrElse("Unknown DB Error"))
+									if (tranErrs.nonEmpty) {
+										badRequest(data,
+											s"Errors inserting transfers into DB: ${tranErrs.mkString("; ")}", id)
+									} else {
+										val outFile = new File(file)
+										val fileNameReturned = data.fileName.trim()
+										val fileName = if (fileNameReturned.isEmpty) data.abPlate else fileNameReturned
+										Ok.sendFile(content = outFile, inline = false,
+											fileName = (_) => s"$fileName.xlsx", onClose = () => outFile.delete())
+									}
+								case (_, (_, sheetErrs)) =>
 									// Errors making sheet
 									badRequest(data, sheetErrs.mkString("; "), id)
 							}

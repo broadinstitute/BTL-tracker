@@ -97,7 +97,8 @@ object TransferContents {
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		TransferHistory.makeSourceGraph(componentID).map(f = (graph) => {
 			/*
-			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the component.
+			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the
+			 * component.
 			 * @param c Component to find bsp sample information for
 			 * @return optional match, by well, of bsp sample information found
 			 */
