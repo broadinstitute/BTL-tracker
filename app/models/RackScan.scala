@@ -1,64 +1,67 @@
 package models
 
-import models.db.{TrackerCollection, DBOpers}
+import models.db.{ TrackerCollection, DBOpers }
 import models.initialContents.InitialContents
-import reactivemongo.bson.{BSONDocumentWriter, BSONDocumentReader, Macros, BSONDocument}
-import org.broadinstitute.LIMStales.sampleRacks.{RackScan => SampleRackScan, RackTube => SampleRackTube, BarcodedContentList, BarcodedContent}
+import reactivemongo.bson.{ BSONDocumentWriter, BSONDocumentReader, Macros, BSONDocument }
+import org.broadinstitute.LIMStales.sampleRacks.{ RackScan => SampleRackScan, RackTube => SampleRackTube, BarcodedContentList, BarcodedContent }
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
-  * Created by nnovod on 1/5/16.
-  */
+ * Created by nnovod on 1/5/16.
+ */
 
 /**
-  * Tube that's in a rack
-  * @param barcode tube barcode
-  * @param pos position of tube within rack
-  */
+ * Tube that's in a rack
+ *
+ * @param barcode tube barcode
+ * @param pos position of tube within rack
+ */
 case class RackTube(barcode: String, pos: String) extends BarcodedContent
 
 /**
-  * Companion object to define BSON converters
-  */
+ * Companion object to define BSON converters
+ */
 object RackTube {
 	/**
-	  * To convert between RackTubes and BSON
-	  */
+	 * To convert between RackTubes and BSON
+	 */
 	implicit val rackTubeHandler = Macros.handler[RackTube]
 
 	/**
-	  * Implicit conversion from LIMStales RackTube to our RackTube.  They are pretty much the same but we need
-	  * to declare our own to make a companion object that can do BSON conversions
-	  * @param rt LIMStales RackTube
-	  * @return our RackTube
-	  */
+	 * Implicit conversion from LIMStales RackTube to our RackTube.  They are pretty much the same but we need
+	 * to declare our own to make a companion object that can do BSON conversions
+	 *
+	 * @param rt LIMStales RackTube
+	 * @return our RackTube
+	 */
 	implicit def sampleRackTubeToRackTube(rt: SampleRackTube) = RackTube(rt.barcode, rt.pos)
 }
 
 /**
-  * Rack holding tubes
-  * @param barcode barcode of rack
-  * @param contents list of tubes in rack
-  */
+ * Rack holding tubes
+ *
+ * @param barcode barcode of rack
+ * @param contents list of tubes in rack
+ */
 case class RackScan(barcode: String, contents: List[RackTube]) extends BarcodedContentList[RackTube]
 
 /**
-  * Companion object to define BSON converters
-  */
+ * Companion object to define BSON converters
+ */
 object RackScan extends DBOpers[RackScan] {
 	/**
-	  * Configuration key for collection
-	  */
+	 * Configuration key for collection
+	 */
 	protected val collectionNameKey = "mongodb.collection.rack"
 
 	/**
-	  * Default collection name if none found in configuration
-	  */
+	 * Default collection name if none found in configuration
+	 */
 	protected val collectionNameDefault = "rack"
 
 	/**
-	  * To convert between RackScan and BSON
-	  */
+	 * To convert between RackScan and BSON
+	 */
 	implicit val rackScanHandler = Macros.handler[RackScan]
 
 	// Define reader and writer for RackScan used by DB operations.
@@ -67,19 +70,21 @@ object RackScan extends DBOpers[RackScan] {
 	val writer = implicitly[BSONDocumentWriter[RackScan]]
 
 	/**
-	  * Implicit conversion from LIMStales RackScan to our RackScan.  They are pretty much the same but we need
-	  * to declare our own to make a companion object that can do BSON conversions
-	  * @param rs LIMStales RackScan
-	  * @return our RackScan
-	  */
+	 * Implicit conversion from LIMStales RackScan to our RackScan.  They are pretty much the same but we need
+	 * to declare our own to make a companion object that can do BSON conversions
+	 *
+	 * @param rs LIMStales RackScan
+	 * @return our RackScan
+	 */
 	implicit def sampleRackScanToRackScan(rs: SampleRackScan) =
 		RackScan(rs.barcode, rs.contents.map((rt) => RackTube.sampleRackTubeToRackTube(rt)))
 
 	/**
-	  * Find a rack based on barcode
-	  * @param bc barcode of rack being looked for
-	  * @return list of racks found (should only be one or none)
-	  */
+	 * Find a rack based on barcode
+	 *
+	 * @param bc barcode of rack being looked for
+	 * @return list of racks found (should only be one or none)
+	 */
 	def findRack(bc: String) = read(BSONDocument("barcode" -> bc))
 
 	//@TODO - Eliminate this (do it all async) once it's decided exactly when the rack scan will be read
@@ -98,17 +103,29 @@ object RackScan extends DBOpers[RackScan] {
 	}
 
 	/**
-	  * Replace rack entry in DB if it's there, otherwise insert a new entry.
-	  * @param rack rack to be inserted
-	  * @return upsert status
-	  */
+	 * Replace rack entry in DB if it's there, otherwise insert a new entry.
+	 *
+	 * @param rack rack to be inserted
+	 * @return upsert status
+	 */
 	def insertOrReplace(rack: RackScan) = upsert(BSONDocument("barcode" -> rack.barcode), rack)
 
+	//@TODO Eliminate sync version of this
+	def getABTubesSync(ids: List[String]) = {
+		val f = getABTubes(ids)
+		try {
+			Await.result(f, Duration(5000, MILLISECONDS))
+		} catch {
+			case e: Exception => (List.empty, Some(e.getLocalizedMessage()))
+		}
+	}
+
 	/**
-	  * Get antibody tubes.
-	  * @param ids list of ids for wanted antibody tubes
-	  * @return (list of components found with ids, error message if there were problems)
-	  */
+	 * Get antibody tubes.
+	 *
+	 * @param ids list of ids for wanted antibody tubes
+	 * @return (list of components found with ids, error message if there were problems)
+	 */
 	def getABTubes(ids: List[String]) =
 		TrackerCollection.findIds(ids).map((tubes) => {
 			// Get objects from bson

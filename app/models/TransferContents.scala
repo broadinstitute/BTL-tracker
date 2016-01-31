@@ -136,6 +136,33 @@ object TransferContents {
 			 */
 			def getInitialContent(c: Component) =
 				c match {
+					// @TODO Clean this up - make async and maybe put more smarts in RackScan
+					case rack: Rack if rack.initialContent.isDefined && rack.initialContent.get == ContentType.ABtubes =>
+						RackScan.findRackSync(rack.id) match {
+							case (_, Some(err)) => (Map.empty[String, MergeResult], List(err))
+							case (racks, _) =>
+								val abtubes = racks.flatMap((r) => if (r.barcode == rack.id) r.contents else List.empty)
+								RackScan.getABTubesSync(abtubes.map(_.barcode)) match {
+									case (_, Some(err)) => (Map.empty[String, MergeResult], List(err))
+									case (tubes, _) =>
+										val tubeMap = abtubes.map((t) => t.barcode -> t.pos).toMap
+										val ics = tubes.flatMap {
+											case (tube: Tube) =>
+												tube.initialContent match {
+													case Some(ic) if ContentType.isAntibody(ic) =>
+														tubeMap.get(tube.id) match {
+															case Some(pos) =>
+																List(pos -> MergeResult(bsp = None, mid = Set.empty,
+																	antibody = Set(ic.toString)))
+															case None => List.empty
+														}
+													case _ => List.empty
+												}
+											case _ => List.empty
+										}
+										(ics.toMap, List.empty[String])
+								}
+						}
 					case container: Container =>
 						container.initialContent match {
 							case Some(ic) if ContentType.isMolBarcode(ic) =>
