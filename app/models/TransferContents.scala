@@ -6,6 +6,7 @@ import models.Transfer.Quad._
 import models.Transfer.Slice._
 import models.initialContents.InitialContents
 import models.TransferHistory.TransferEdge
+import InitialContents.ContentType
 
 import scalax.collection.edge.LkDiEdge
 
@@ -27,13 +28,13 @@ object TransferContents {
 	 * @param library bsp collaborator library ID
 	 * @param antibody antibody requested for sample
 	 */
-	case class MergeBsp(project: String,projectDescription: Option[String],sampleTube: String,
-						gssrSample: Option[String],collabSample: Option[String],individual: Option[String],
-						library: Option[String], antibody: Option[String]) {
+	case class MergeBsp(project: String, projectDescription: Option[String], sampleTube: String,
+		gssrSample: Option[String], collabSample: Option[String], individual: Option[String],
+		library: Option[String], antibody: Option[String]) {
 		// Override equals and hash to make it simpler
 		override def equals(arg: Any) = {
 			arg match {
-				case MergeBsp(p,_,s,_,_,_,_,_) => p == project && s == sampleTube
+				case MergeBsp(p, _, s, _, _, _, _, _) => p == project && s == sampleTube
 				case _ => false
 			}
 		}
@@ -58,11 +59,11 @@ object TransferContents {
 	}
 
 	/**
-	  * Single sample and associated MIDs and antibodies.
-	  * @param bsp sample information
-	  * @param mid MIDs associated with sample
-	  * @param antibody antibodies associated with sample
-	  */
+	 * Single sample and associated MIDs and antibodies.
+	 * @param bsp sample information
+	 * @param mid MIDs associated with sample
+	 * @param antibody antibodies associated with sample
+	 */
 	case class MergeResult(bsp: Option[MergeBsp], mid: Set[MergeMid], antibody: Set[String])
 
 	/**
@@ -72,7 +73,7 @@ object TransferContents {
 	 * @param errs list of errors encountered
 	 */
 	case class MergeTotalContents(component: Component,
-								  wells: Map[String, Set[MergeResult]], errs: List[String])
+		wells: Map[String, Set[MergeResult]], errs: List[String])
 
 	// Need this to have label on edge be converted to a TransferEdge - making an implicit to be used for edge
 	import scalax.collection.edge.LBase._
@@ -104,25 +105,26 @@ object TransferContents {
 			 */
 			def getBspContent(c: Component) =
 				c match {
-					case rack: Rack => Rack.getBSPmatch(rack.id,
-						found = (matches, ssfIssue) => {
-							// Get results of bsp matching into a map of wells to sample info
-							val bspMatches = matches.flatMap {
-								case ((well, (matchFound, Some(tube)))) =>
-									List(well -> MergeResult(
-										Some(MergeBsp(project = ssfIssue.issue, projectDescription = ssfIssue.summary,
-											sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
-											collabSample = tube.collaboratorSample,
-											individual = tube.collaboratorParticipant, library = tube.sampleID,
-											antibody = tube.antiBody)),
-										Set.empty, Set.empty))
-								case _ => List.empty
-							}
-							// Return our sample map and that no errors found
-							(bspMatches, List.empty[String])
-						},
-						// BSP info not found for rack - return empty map and error
-						notFound = (err) => (Map.empty[String, MergeResult], List(err)))
+					case rack: Rack if rack.initialContent.isEmpty || rack.initialContent.get == ContentType.BSPtubes =>
+						Rack.getBSPmatch(id = rack.id,
+							found = (matches, ssfIssue) => {
+								// Get results of bsp matching into a map of wells to sample info
+								val bspMatches = matches.flatMap {
+									case ((well, (matchFound, Some(tube)))) =>
+										List(well -> MergeResult(
+											Some(MergeBsp(project = ssfIssue.issue, projectDescription = ssfIssue.summary,
+												sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
+												collabSample = tube.collaboratorSample,
+												individual = tube.collaboratorParticipant, library = tube.sampleID,
+												antibody = tube.antiBody)),
+											Set.empty, Set.empty))
+									case _ => List.empty
+								}
+								// Return our sample map and that no errors found
+								(bspMatches, List.empty[String])
+							},
+							// BSP info not found for rack - return empty map and error
+							notFound = (err) => (Map.empty[String, MergeResult], List(err)))
 					// Not a rack - nothing to return
 					case _ => (Map.empty[String, MergeResult], List.empty[String])
 				}
@@ -136,16 +138,18 @@ object TransferContents {
 				c match {
 					case container: Container =>
 						container.initialContent match {
-							case Some(ic) if InitialContents.ContentType.isMolBarcode(ic) =>
+							case Some(ic) if ContentType.isMolBarcode(ic) =>
 								val mids = InitialContents.contents(ic).contents.map {
 									case (well, mbw) =>
-										well -> MergeResult(None,
-											Set(MergeMid(mbw.getSeq, mbw.getName, mbw.isNextera)), Set.empty)
+										well -> MergeResult(bsp = None,
+											mid = Set(MergeMid(sequence = mbw.getSeq, name = mbw.getName,
+												isNextera = mbw.isNextera)), antibody = Set.empty)
 								}
 								(mids, List.empty[String])
 							// Antibody can only be initial content of an undivided container
-							case Some(ic) if InitialContents.ContentType.isAntibody(ic) =>
-								(Map(oneWell -> MergeResult(None, Set.empty, Set(ic.toString))), List.empty[String])
+							case Some(ic) if ContentType.isAntibody(ic) =>
+								(Map(oneWell -> MergeResult(bsp = None, mid = Set.empty,
+									antibody = Set(ic.toString))), List.empty[String])
 							case _ => (Map.empty[String, MergeResult], List.empty[String])
 						}
 					case _ => (Map.empty[String, MergeResult], List.empty[String])
@@ -165,18 +169,20 @@ object TransferContents {
 				val bsps = getBspContent(component)
 				val midsAndAbs = getInitialContent(component)
 				val errs = bsps._2 ++ midsAndAbs._2
-				if (bsps._1.isEmpty) MergeTotalContents(component, mapWithSet(midsAndAbs._1), errs)
-				else if (midsAndAbs._1.isEmpty) MergeTotalContents(component, mapWithSet(bsps._1), errs)
+				if (bsps._1.isEmpty) MergeTotalContents(component = component, wells = mapWithSet(midsAndAbs._1),
+					errs = errs)
+				else if (midsAndAbs._1.isEmpty) MergeTotalContents(component = component, wells = mapWithSet(bsps._1),
+					errs = errs)
 				else {
 					// Merge together bsp and initial contents maps
 					//@TODO Check that abs is right for sample?
 					val wellMap = bsps._1 ++ midsAndAbs._1.map {
 						case (well, res) => bsps._1.get(well) match {
-							case Some(bsp) => well -> MergeResult(bsp.bsp, res.mid, res.antibody)
+							case Some(bsp) => well -> MergeResult(bsp = bsp.bsp, mid = res.mid, antibody = res.antibody)
 							case _ => well -> res
 						}
 					}
-					MergeTotalContents(component, mapWithSet(wellMap), errs)
+					MergeTotalContents(component = component, wells = mapWithSet(wellMap), errs = errs)
 				}
 			}
 
@@ -197,33 +203,34 @@ object TransferContents {
 				getWellMapping(soFar = in, fromComponent = in.component, toComponent = out.component,
 					fromQuad = transfer.fromQuad, toQuad = transfer.toQuad, quadSlice = transfer.slice,
 					cherries = transfer.cherries, isTubeToMany = transfer.isTubeToMany, getSameMapping = false) {
-					/*
+						/*
 				     * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
 				     * @param in input component contents
 				     * @param layout layout we should be coming from if a divided component
 				     * @param wellMap map of well locations in input to well locations in output
 				     * @return input component contents mapped to destination wells
 				     */
-					(in: MergeTotalContents, layout: ContainerDivisions.Division.Division,
-					 wellMap: Map[String, List[String]]) => {
-						// See where to look if divided component
-						val divComponent = if (transfer.isTubeToMany) out.component else in.component
-						getLayout(divComponent) match {
-							case Some(foundLayout) if foundLayout == layout =>
-								// See which wells we want and make new mapping for them
-								val newWells =
-									in.wells.flatMap {
-										case (well, contents) if wellMap.get(well).isDefined =>
-											wellMap(well).map(_ -> contents)
-										case _ => List.empty
-									}
-								// Create the new input contents
-								MergeTotalContents(in.component, newWells, in.errs)
-							// Input not a divided component - take single input
-							case _ => in
-						}
+						(in: MergeTotalContents, layout: ContainerDivisions.Division.Division,
+						wellMap: Map[String, List[String]]) =>
+							{
+								// See where to look if divided component
+								val divComponent = if (transfer.isTubeToMany) out.component else in.component
+								getLayout(divComponent) match {
+									case Some(foundLayout) if foundLayout == layout =>
+										// See which wells we want and make new mapping for them
+										val newWells =
+											in.wells.flatMap {
+												case (well, contents) if wellMap.get(well).isDefined =>
+													wellMap(well).map(_ -> contents)
+												case _ => List.empty
+											}
+										// Create the new input contents
+										MergeTotalContents(component = in.component, wells = newWells, errs = in.errs)
+									// Input not a divided component - take single input
+									case _ => in
+								}
+							}
 					}
-				}
 
 			/*
 			 * Merge input into output.  When merging/folding for each well if there are MIDs that are not attached
@@ -237,7 +244,7 @@ object TransferContents {
 			def mergeResults(input: MergeTotalContents, output: MergeTotalContents, transfer: TransferEdge) = {
 				// Make sure we only get quadrants transferred (either one quadrant of input or reassign of wells
 				// if full plate only going to one quadrant of output)
-				val inWithQuads = takeQuadrant(input, output, transfer).wells
+				val inWithQuads = takeQuadrant(in = input, out = output, transfer = transfer).wells
 				// If going to a component without divisions (e.g., a tube) put all of input into one "well"
 				val inContent =
 					if (output.component.isInstanceOf[ContainerDivisions]) inWithQuads
@@ -259,7 +266,7 @@ object TransferContents {
 					}
 				}
 				// Finally return total contents with input merged into output
-				MergeTotalContents(output.component, newResults, input.errs ++ output.errs)
+				MergeTotalContents(component = output.component, wells = newResults, errs = input.errs ++ output.errs)
 			}
 
 			/*
@@ -279,7 +286,7 @@ object TransferContents {
 							// We recurse to look for transfers into the input (output for recursion)
 							// Note: IDE thinks input isn't a graph.NodeT but compiler is perfectly happy
 							val inputContents = findContents(input)
-							mergeResults(inputContents, soFar, label)
+							mergeResults(input = inputContents, output = soFar, transfer = label)
 						case _ => soFar
 					}
 				})
@@ -294,20 +301,20 @@ object TransferContents {
 	}
 
 	/**
-	  * Merge together all the contents going into a single well.  In particular, if there any unattached MIDs or
-	  * antibodies, then they should now be attached to any samples in the well.
-	  * @param results contents going into well
-	  * @return merged contents going into well
-	  */
+	 * Merge together all the contents going into a single well.  In particular, if there any unattached MIDs or
+	 * antibodies, then they should now be attached to any samples in the well.
+	 * @param results contents going into well
+	 * @return merged contents going into well
+	 */
 	private def mergeWellResults(results: Set[MergeResult]) = {
 		// Separate those with and without initial values
 		val initialsVsSamples = results.groupBy(_.bsp.isDefined)
-		val initials = initialsVsSamples.getOrElse(false, Set.empty)
-		val samples = initialsVsSamples.getOrElse(true, Set.empty)
+		val initials = initialsVsSamples.getOrElse(key = false, default = Set.empty)
+		val samples = initialsVsSamples.getOrElse(key = true, default = Set.empty)
 		// Merge together lists attaching MIDs/ABs not yet associated with samples
 		if (initials.isEmpty || samples.isEmpty) results
-		else samples.map((sample) => MergeResult(sample.bsp,
-			sample.mid ++ initials.flatMap(_.mid), sample.antibody ++ initials.flatMap(_.antibody)))
+		else samples.map((sample) => MergeResult(bsp = sample.bsp, mid = sample.mid ++ initials.flatMap(_.mid),
+			antibody = sample.antibody ++ initials.flatMap(_.antibody)))
 	}
 
 	/**
@@ -320,7 +327,7 @@ object TransferContents {
 	 * @return single result set combining all the wells' result sets
 	 */
 	private def getAsOneResult(in: Map[String, Set[MergeResult]]) =
-		mergeWellResults(in.foldLeft(Set.empty[MergeResult]) ((soFar, next) => soFar ++ next._2))
+		mergeWellResults(in.foldLeft(Set.empty[MergeResult])((soFar, next) => soFar ++ next._2))
 
 	/*
 	 * Get a components layout if it is divided
@@ -329,42 +336,41 @@ object TransferContents {
 	 */
 	private def getLayout(c: Component) =
 		c match {
-			case cd:ContainerDivisions => Some(cd.layout)
+			case cd: ContainerDivisions => Some(cd.layout)
 			case _ => None
 		}
 
 	/**
-	  * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
-	  * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice, other than
-	  * cherry picking, is a subset of a quadrant (for components that have quadrants) or an entire component
-	  * (for non-quadrant components, such as 96-well components, in which case the entire component can be
-	  * thought of as a single quadrant).
-	  * This method, taking in account the quadrants/slices wanted determines where the selected input wells
-	  * will wind up in the output component.
-	  * If the input or output is not a divided component (e.g., a tube) and the other side of the transfer is
-	  * divided then the "wells" for the non-divided component will simply match up with the divided component's wells.
-	  * For example a transfer from wells A01 and D12 from a plate to a tube will be set as A01->A01, D12->D12.
-	  * Similarly, a transfer from a tube to wells A01 and D12 on a plate will get the results A01->A01, D12->D12
-	  * (this should only happen if isTubeToMany is set).
-	  *
-	  * @param soFar initial object with results so far to add to to return results of merging in new wells
-	  * @param fromComponent component being transferred from
-	  * @param toComponent component being transferred to
-	  * @param fromQuad quadrant transfer is coming from
-	  * @param toQuad quadrant transfer is going to
-	  * @param quadSlice slice of quadrant being transferred
-	  * @param cherries cherry picked wells being transferred
-	  * @param makeOut callback to return result - called with (soFar, component, input->output wells picked)
-	  * @param isTubeToMany input is a tube being transferred to one or more wells in a multi-well component
-	  * @param getSameMapping return mapping of wells if transfer of entire components with same division
-	  * @tparam T type of parameter tracking results
-	  * @return result of makeOut callback or original input (soFar) if complete component move and getSameMapping false
-	  */
+	 * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
+	 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice, other than
+	 * cherry picking, is a subset of a quadrant (for components that have quadrants) or an entire component
+	 * (for non-quadrant components, such as 96-well components, in which case the entire component can be
+	 * thought of as a single quadrant).
+	 * This method, taking in account the quadrants/slices wanted determines where the selected input wells
+	 * will wind up in the output component.
+	 * If the input or output is not a divided component (e.g., a tube) and the other side of the transfer is
+	 * divided then the "wells" for the non-divided component will simply match up with the divided component's wells.
+	 * For example a transfer from wells A01 and D12 from a plate to a tube will be set as A01->A01, D12->D12.
+	 * Similarly, a transfer from a tube to wells A01 and D12 on a plate will get the results A01->A01, D12->D12
+	 * (this should only happen if isTubeToMany is set).
+	 *
+	 * @param soFar initial object with results so far to add to to return results of merging in new wells
+	 * @param fromComponent component being transferred from
+	 * @param toComponent component being transferred to
+	 * @param fromQuad quadrant transfer is coming from
+	 * @param toQuad quadrant transfer is going to
+	 * @param quadSlice slice of quadrant being transferred
+	 * @param cherries cherry picked wells being transferred
+	 * @param makeOut callback to return result - called with (soFar, component, input->output wells picked)
+	 * @param isTubeToMany input is a tube being transferred to one or more wells in a multi-well component
+	 * @param getSameMapping return mapping of wells if transfer of entire components with same division
+	 * @tparam T type of parameter tracking results
+	 * @return result of makeOut callback or original input (soFar) if complete component move and getSameMapping false
+	 */
 	def getWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component,
-						  fromQuad: Option[Quad], toQuad: Option[Quad],
-						  quadSlice: Option[Slice], cherries: Option[List[Int]],
-						  isTubeToMany: Boolean, getSameMapping: Boolean)
-						 (makeOut: (T, Division.Division, Map[String, List[String]]) => T) = {
+		fromQuad: Option[Quad], toQuad: Option[Quad],
+		quadSlice: Option[Slice], cherries: Option[List[Int]],
+		isTubeToMany: Boolean, getSameMapping: Boolean)(makeOut: (T, Division.Division, Map[String, List[String]]) => T) = {
 		// Get destination component to look at divisions, unless we're coming from a tube to a divided compoment
 		val divComponent = if (isTubeToMany) toComponent else fromComponent
 		val trans =
@@ -375,25 +381,26 @@ object TransferContents {
 				case (None, Some(to), None, _) => Some(DIM8x12, TransferWells.qTo384(to))
 				// Slice of quadrant to an entire component - should be 384-well component to 96-well component
 				case (Some(from), None, Some(slice), cher) =>
-					Some(DIM16x24, TransferWells.slice384to96wells(from, slice, cher))
+					Some(DIM16x24, TransferWells.slice384to96wells(quad = from, slice = slice, cherries = cher))
 				// Quadrant to quadrant - must be 384-well component to 384-well component
 				case (Some(from), Some(to), None, _) =>
 					Some(DIM16x24, TransferWells.q384to384map(from, to))
 				// Quadrant to quadrant with slice - must be 384-well component to 384-well component
 				case (Some(from), Some(to), Some(slice), cher) =>
-					Some(DIM16x24, TransferWells.slice384to384wells(from, to, slice, cher))
+					Some(DIM16x24, TransferWells.slice384to384wells(fromQ = from, toQ = to,
+						slice = slice, cherries = cher))
 				// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
 				case (None, Some(to), Some(slice), cher) =>
-					Some(DIM8x12, TransferWells.slice96to384wells(to, slice, cher))
+					Some(DIM8x12, TransferWells.slice96to384wells(quad = to, slice = slice, cherries = cher))
 				// Either a 96-well component (non-quadrant transfer)
 				// or a straight cherry picked 384-well component (no quadrants involved)
 				// or a tube to a divided component
 				case (None, None, Some(slice), cher) =>
 					getLayout(divComponent) match {
 						case Some(DIM8x12) =>
-							Some(DIM8x12, TransferWells.slice96to96wells(slice, cher))
+							Some(DIM8x12, TransferWells.slice96to96wells(slice = slice, cherries = cher))
 						case Some(DIM16x24) =>
-							Some(DIM16x24, TransferWells.slice384to384wells(slice, cher))
+							Some(DIM16x24, TransferWells.slice384to384wells(slice = slice, cherries = cher))
 						case _ => None
 					}
 				// Transfer to entire divided component either from a tube or between same size components
@@ -414,7 +421,7 @@ object TransferContents {
 					if (isTubeToMany)
 						Map(oneWell -> tr._2.values.toList)
 					else
-						tr._2.map{case (k, v) => k -> List(v)}
+						tr._2.map { case (k, v) => k -> List(v) }
 				makeOut(soFar, tr._1, wells)
 			case None => soFar
 		}

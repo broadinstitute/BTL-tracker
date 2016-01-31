@@ -2,7 +2,7 @@ package models
 
 import Robot._
 import models.TransferContents.MergeTotalContents
-import models.db.{TransferCollection, TrackerCollection}
+import models.db.{ TransferCollection, TrackerCollection }
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
 import org.broadinstitute.spreadsheets.HeadersToValues
@@ -11,9 +11,17 @@ import scala.annotation.tailrec
 import scala.concurrent.Future
 
 /**
-  * Created by nnovod on 1/12/16.
-  */
+ * Instructions are made for the robots to follow.
+ * Created by nnovod on 1/12/16.
+ */
 case class Robot(robotType: RobotType.RobotType) {
+	/**
+	 * Make transfers to create an antibody plate for a plate of samples.
+	 * @param abRack rack containing antibody tubes
+	 * @param abPlate plate to be made with antibodies for samples
+	 * @param sampleContainer container with samples
+	 * @return (transfers, error)
+	 */
 	def makeABPlate(abRack: String, abPlate: String, sampleContainer: String) = {
 		def checkRacks(abR: Rack) = {
 			if (abR.initialContent.isEmpty || abR.initialContent.get != ContentType.ABtubes)
@@ -21,9 +29,10 @@ case class Robot(robotType: RobotType.RobotType) {
 		}
 		def makePlate(contents: MergeTotalContents, abR: Rack, abP: Plate, sampleC: Component with ContainerDivisions) = {
 			(robotType match {
-				case RobotType.HAMILTON => makeHamiltonABPlate(contents, abR, abP, sampleC)
+				case RobotType.HAMILTON => makeHamiltonABPlate(contents = contents,
+					abRack = abR, abPlate = abP, sampleContainer = sampleC)
 				case _ => throw new Exception("Invalid Robot Type")
-			}).map((t) => (Some(ABTrans(abR, abP, sampleC, t)), None))
+			}).map((t) => (Some(ABTrans(abRack = abR, abPlate = abP, sampleContainer = sampleC, trans = t)), None))
 		}
 
 		TransferContents.getContents(sampleContainer).flatMap {
@@ -35,7 +44,7 @@ case class Robot(robotType: RobotType.RobotType) {
 				val transIntoABPlate = TransferCollection.getSourceIDs(abPlate)
 				// Get components for racks and plate
 				val components = TrackerCollection.findIds(List(abRack, abPlate, sampleContainer))
-				Future.sequence(List(transIntoABPlate, components)).flatMap((docs) => {
+				Future.sequence(List(transIntoABPlate, components)).flatMap(f = (docs) => {
 					if (docs.head.nonEmpty) throw new Exception(s"Transfers already done into antibody plate $abPlate")
 					val ids = docs.tail.head
 					// Map bson to components (someday direct mapping should be possible but too painful for now)
@@ -50,7 +59,7 @@ case class Robot(robotType: RobotType.RobotType) {
 							// Check that racks are ok
 							checkRacks(abR)
 							// Make plate instructions
-							makePlate(contents, abR, abP, sampleC)
+							makePlate(contents = contents, abR = abR, abP = abP, sampleC = sampleC)
 						case (None, _, _) => throw new Exception(s"Antibody rack $abRack not registered")
 						case (_, _, None) => throw new Exception(s"Sample container $sampleContainer not registered")
 						case (Some(abR: Rack), None, Some(sampleC: Component with ContainerDivisions)) =>
@@ -82,52 +91,52 @@ case class Robot(robotType: RobotType.RobotType) {
 import scala.concurrent.Future
 object Robot {
 	/**
-	  * Enumeration for all division types
-	  */
+	 * Enumeration for all division types
+	 */
 	object RobotType extends Enumeration {
 		type RobotType = Value
 		val HAMILTON = Value("Hamilton")
 	}
 
 	/**
-	  * Transfer of antibody tube (in rack) to position in plate being made
-	  *
-	  * @param volume volumne to transfer
-	  * @param abType antibody type
-	  * @param rackPos tube position in rack
-	  * @param platePos well position in plate
-	  * @param tubeID antibody tube barcode
-	  */
+	 * Transfer of antibody tube (in rack) to position in plate being made
+	 *
+	 * @param volume volume to transfer
+	 * @param abType antibody type
+	 * @param rackPos tube position in rack
+	 * @param platePos well position in plate
+	 * @param tubeID antibody tube barcode
+	 */
 	case class ABTubeToPlate(volume: Int, abType: InitialContents.ContentType.ContentType,
-							 rackPos: String, platePos: String, tubeID: String)
+		rackPos: String, platePos: String, tubeID: String)
 
 	/**
-	  * Antibody rack->plate transfer info.
-	  *
-	  * @param abRack source ab rack
-	  * @param abPlate destination ab plate
-	  * @param sampleContainer destination sample plate
-	  * @param trans tube->rack transfers along with error messages
-	  */
+	 * Antibody rack->plate transfer info.
+	 *
+	 * @param abRack source ab rack
+	 * @param abPlate destination ab plate
+	 * @param sampleContainer destination sample plate
+	 * @param trans tube->rack transfers along with error messages
+	 */
 	case class ABTrans(abRack: Rack, abPlate: Plate, sampleContainer: Component with ContainerDivisions,
-					   trans: List[(Option[ABTubeToPlate], Option[String])])
+		trans: List[(Option[ABTubeToPlate], Option[String])])
 
 	/**
-	  * Make the robot instructions for transferring antibodies (from tubes in a rack) to wells in a plate using a
-	  * Hamilton robot.  The placement of the antibodies in the plate is based on the original sample information from
-	  * bsp that links an antibody with each sample.  The instructions are returned as a list of tuples with two
-	  * optional components:
-	  * (transfer amount, antibody, antibody source tube position, antibody plate destination position, rack id) and
-	  * an error message.  Note either one but not both parts of the tuple can be None.
-	  *
-	  * @param contents contents of sample container
-	  * @param abRack rack containing antibody tubes used as source for transfers
-	  * @param abPlate destination plate for antibodies
-	  * @param sampleContainer BSP sample rack containing original sample information
-	  * @return ((transfer amount, ab type, ab source tube position, ab plate destination position, rack id), error)
-	  */
+	 * Make the robot instructions for transferring antibodies (from tubes in a rack) to wells in a plate using a
+	 * Hamilton robot.  The placement of the antibodies in the plate is based on the original sample information from
+	 * bsp that links an antibody with each sample.  The instructions are returned as a list of tuples with two
+	 * optional components:
+	 * (transfer amount, antibody, antibody source tube position, antibody plate destination position, rack id) and
+	 * an error message.  Note either one but not both parts of the tuple can be None.
+	 *
+	 * @param contents contents of sample container
+	 * @param abRack rack containing antibody tubes used as source for transfers
+	 * @param abPlate destination plate for antibodies
+	 * @param sampleContainer BSP sample rack containing original sample information
+	 * @return ((transfer amount, ab type, ab source tube position, ab plate destination position, rack id), error)
+	 */
 	private def makeHamiltonABPlate(contents: MergeTotalContents, abRack: Rack, abPlate: Plate,
-									sampleContainer: Component with ContainerDivisions) = {
+		sampleContainer: Component with ContainerDivisions) = {
 
 		def checkRackScan(id: String, rs: List[RackScan]) =
 			if (rs.isEmpty)
@@ -150,7 +159,7 @@ object Robot {
 		 */
 		def makeInstructions(abContainers: List[Component], abTubes: List[RackTube]) = {
 			// Make sure we've only got antibody tubes in the container list
-			val abRackTubes = abContainers.flatMap{
+			val abRackTubes = abContainers.flatMap {
 				case t: Tube if t.initialContent.isDefined &&
 					ContentType.isAntibody(t.initialContent.get) => List(t)
 				case _ => List.empty
@@ -188,8 +197,10 @@ object Robot {
 															// We've done it
 															// Create instruction for transfer of ab from Rack to Plate
 															case Some(abInfo) =>
-																(Some(ABTubeToPlate(abInfo.volume, abType,
-																	abRackPos, abPlatePos, abRackTube.id)), None)
+																(Some(ABTubeToPlate(volume = abInfo.volume,
+																	abType = abType, rackPos = abRackPos,
+																	platePos = abPlatePos, tubeID = abRackTube.id)),
+																	None)
 															case None =>
 																(None, Some(s"Antibody ${abType.toString} not found"))
 														}
@@ -209,7 +220,7 @@ object Robot {
 		// Get scan of antibody rack
 		RackScan.findRack(abRack.id).flatMap((abTubesScan) => {
 			// Check out results of retrieving rack scans
-			checkRackScan(abRack.id, abTubesScan) match {
+			checkRackScan(id = abRack.id, rs = abTubesScan) match {
 				case (Some(err)) =>
 					Future.successful(List((None, Some(err))))
 				case _ =>
@@ -221,23 +232,23 @@ object Robot {
 						case (_, Some(err)) => List((None, Some(err)))
 						// We've got all the data - go make the instructions
 						case (abContainers, _) =>
-							makeInstructions(abContainers, abTubes)
+							makeInstructions(abContainers = abContainers, abTubes = abTubes)
 					}
 			}
 		})
 	}
 
 	/**
-	  * Make a list of transfers from a list of robot instructions to make a antibody plate
-	  *
-	  * @param plate antibody plate ID
-	  * @param tubeToPlateList list of tube to plate transfers done on robot
-	  * @param project optional project to associate with the transfer
-	  * @param div plate division (96 or 384 well plate)
-	  * @return tube to plate transfers done on robot
-	  */
+	 * Make a list of transfers from a list of robot instructions to make a antibody plate
+	 *
+	 * @param plate antibody plate ID
+	 * @param tubeToPlateList list of tube to plate transfers done on robot
+	 * @param project optional project to associate with the transfer
+	 * @param div plate division (96 or 384 well plate)
+	 * @return tube to plate transfers done on robot
+	 */
 	def makeABTransfers(plate: String, tubeToPlateList: List[ABTubeToPlate], project: Option[String],
-						div: ContainerDivisions.Division.Division) = {
+		div: ContainerDivisions.Division.Division) = {
 		// Group transfers by tube
 		val tubesMap = tubeToPlateList.groupBy(_.tubeID)
 		// Map tubes into transfers
@@ -258,14 +269,13 @@ object Robot {
 	}
 
 	/**
-	  * Make a spreadsheet with instructions for the robot to transfer antibodies from a rack of antibody tubes to
-	  * a plate.
-	  *
-	  * @param trans transfers wanted
-	  * @param fileName output file name
-	  * @return (name of file created, if it went ok, errors found)
-	  */
-	def makeABSpreadSheet(trans: List[ABTubeToPlate], fileName: String) = {
+	 * Make a spreadsheet with instructions for the robot to transfer antibodies from a rack of antibody tubes to
+	 * a plate.
+	 *
+	 * @param trans transfers wanted
+	 * @return (name of file created, if it went ok, errors found)
+	 */
+	def makeABSpreadSheet(trans: List[ABTubeToPlate]) = {
 		// Spreadsheet headers
 		val vol = "Volume in ul"
 		val abType = "Source ab type"
@@ -279,22 +289,25 @@ object Robot {
 		 * @return
 		 */
 		@tailrec
-		def setValue(sheet: HeadersToValues, trans: List[ABTubeToPlate], done: Int) : (HeadersToValues, Int) = {
+		def setValue(sheet: HeadersToValues, trans: List[ABTubeToPlate], done: Int): (HeadersToValues, Int) = {
 			if (trans.isEmpty)
 				(sheet, done)
 			else {
 				val next = trans.head
 				val nextIndex = done + 1
 				setValue(
-					spreadsheets.Utils.setSheetValues(sheet,
-						Map(abType -> next.abType.toString, abLoc -> next.rackPos, destLoc -> next.platePos),
-						Map(vol -> next.volume), Map.empty, nextIndex), trans.tail, nextIndex)
+					sheet = spreadsheets.Utils.setSheetValues(sheet = sheet,
+						strData = Map(abType -> next.abType.toString, abLoc -> next.rackPos, destLoc -> next.platePos),
+						intData = Map(vol -> next.volume), floatData = Map.empty, index = nextIndex),
+					trans = trans.tail, done = nextIndex)
 			}
 		}
 
-		val sheet = spreadsheets.Utils.initSheet(fileName, List(vol, abType, abLoc, destLoc))
-		val dataSheet = setValue(sheet, trans, 0)
-		spreadsheets.Utils.makeFile(dataSheet._1, dataSheet._2, List.empty, Some("No antibodies found"))
+		val sheet = spreadsheets.Utils.initSheet(fileName = "/conf/data/ABRobotInstructions.xlsx",
+			fileHeaders = List(vol, abType, abLoc, destLoc))
+		val dataSheet = setValue(sheet = sheet, trans = trans, done = 0)
+		spreadsheets.Utils.makeFile(sheet = dataSheet._1, entriesFound = dataSheet._2,
+			errs = List.empty, noneFound = Some("No antibodies found"))
 	}
 
 }

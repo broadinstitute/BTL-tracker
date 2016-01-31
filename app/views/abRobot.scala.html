@@ -13,6 +13,8 @@
 		@inputText(robotForm(RobotForm.abPlateKey), '_label -> "Antibody destination plate ID")
 		@inputText(robotForm(RobotForm.fileNameKey).copy(value=Some(abRack + "_AB_Plate")),
 			'_label -> "Output filename")
+		@checkbox(robotForm(RobotForm.continueOnErrorKey),
+			'_label -> "Continue on non-fatal errors", '_showConstraints -> false)
 		<input type="submit" value="Download Robot Instructions" style="display:inline;">
 	}
 	@homeOption(Seq.empty)
