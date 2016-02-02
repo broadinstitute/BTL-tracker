@@ -101,7 +101,7 @@ POST        /EZPASS/create/:id/:output                  controllers.EZPassContro
 GET         /display/:id                                controllers.Application.graphDisplay(id: String)
 
 # Make a display of the graph of transfers into and out of a component
-GET         /displayTransfer/:from/:to                  controllers.Application.transferDisplay(from: String, to: String)
+GET         /displayTransfer/:from/:to                  controllers.TransferController.transferDisplay(from: String, to: String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET         /assets/*file                               controllers.Assets.at(path="/public", file)
@@ -117,5 +117,8 @@ GET         /contents/:id                               controllers.Application.
 # Get antibody plate creation input data
 GET         /robot/:abRack                              controllers.RobotController.antibodyPlate(abRack: String)
 POST        /robot/:abRack                              controllers.RobotController.createABPlate(abRack: String)
+
+# Create Walkup Sequencing file
+GET        /WUS/:id                                     controllers.Application.walkup(id: String)
 
 

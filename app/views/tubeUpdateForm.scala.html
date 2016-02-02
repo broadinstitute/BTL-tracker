@@ -9,8 +9,13 @@
 
 @updateForm("Tube", tubeInput, routes.TubeController.updateTubeFromForm(id), id,
 	Component.ComponentType.Tube, hiddenFields, Some(Tube.validContents), false,
-	Seq((routes.EZPassController.ezpass(
-		tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")),
-		"Create EZPASS")), List.empty){
+	Seq(
+		(routes.EZPassController.ezpass(
+			tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")),
+			"Create EZPASS"),
+		(routes.Application.walkup(
+			tubeInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")),
+			"Create Walk Up File")
+	), List.empty){
 	@play.twirl.api.HtmlFormat.empty
 }

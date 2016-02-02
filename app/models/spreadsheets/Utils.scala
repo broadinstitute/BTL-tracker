@@ -1,6 +1,6 @@
 package models.spreadsheets
 
-import java.io.{FileOutputStream, File}
+import java.io.{FileWriter, BufferedWriter, FileOutputStream, File}
 
 import org.apache.poi.ss.usermodel.Cell
 import org.broadinstitute.spreadsheets.HeadersToValues
@@ -8,6 +8,7 @@ import play.Play
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
 
 /**
@@ -18,13 +19,15 @@ import scala.concurrent.Future
 object Utils {
 	/**
 	  * Initialize what's needed to write output to a new spreadsheet.
-	  * @param fileName name of template spreadsheet, in play config path, with headers set
+	 *
+	 * @param fileName name of template spreadsheet, in play config path, with headers set
 	  * @param fileHeaders keys for data to set in EZPass
 	  * @return context containing spreadsheet information for setting entries in spreadsheet
 	  */
 	def initSheet(fileName: String, fileHeaders: List[String]) = {
 		val inFile = Play.application().path().getCanonicalPath + fileName
-		HeadersToValues(inFile, 0, fileHeaders, Map.empty[String, (List[String], List[String])])
+		HeadersToValues(inpFile = inFile, sheetIndex = 0, headers = fileHeaders,
+			outsideValues = Map.empty[String, (List[String], List[String])])
 	}
 
 	/**
@@ -61,7 +64,7 @@ object Utils {
 							case null => row.createCell(c)
 							case cellFound => cellFound
 						}
-						setCell(cell, value)
+						setCell(v1 = cell, v2 = value)
 					case _ =>
 				}
 			}
@@ -77,21 +80,21 @@ object Utils {
 	  * All done setting data into the sheet.  If any entries present then write out a new file and shut things
 	  * down.  The output file is a temp file that is ready to be uploaded to the user.
 	  *
-	  * @param sheet context kept for handling of data
+	  * @param headerValues context kept for handling of data
 	  * @param entriesFound # of entries found
 	  * @param errs list of errors found
 	  * @param noneFound error to be set if no entries found to be considered an error
 	  * @return (path of output file, list of errors)
 	  */
-	def makeFile(sheet: HeadersToValues, entriesFound: Int, errs: List[String], noneFound: Option[String]) = {
+	def makeFile(headerValues: HeadersToValues, entriesFound: Int, errs: List[String], noneFound: Option[String]) = {
 		Future {
-			sheet.getSheet match {
+			headerValues.getSheet match {
 				case Some(sheet) =>
 					if (entriesFound == 0 && noneFound.isDefined)
 						(None, List(noneFound.get) ++ errs)
 					else {
 						// Create temporary file and write data there
-						val tFile = File.createTempFile("TRACKER_", ".xlsx")
+						val tFile = makeTempFile(".xlsx")
 						val outFile = new FileOutputStream(tFile)
 						sheet.getWorkbook.write(outFile)
 						outFile.close()
@@ -103,5 +106,65 @@ object Utils {
 		}
 	}
 
+	/**
+	 * Make a temporary file
+	 * @param ext file extension
+	 * @return temporary file
+	 */
+	private def makeTempFile(ext: String) = File.createTempFile("TRACKER_", ext)
+
+	/**
+	 * Set files in a csv file.
+	 * @param headers headers to put in file
+	 * @param input input data to use for putting data into file
+	 * @param getValues callback to set values for a single input entry.
+	 *                  Note input array is header labels in same order output must be set
+	 * @param noneMsg error message if no output created
+	 * @tparam T type of input
+	 * @return (file name (if created), error messages)
+	 */
+	def setCSVValues[T](headers: Array[String], input: Iterable[T],
+						getValues: (T, Array[String]) => Option[Array[String]], noneMsg: String) = {
+		/*
+		 * Set values in file for input
+		 * @param files values are being put into
+		 * @param input we are basing file on
+		 * @param done # of entries done so far
+		 * @return
+		 */
+		@tailrec
+		def setValue(file: BufferedWriter, inputLeft: Iterable[T], done: Int): Int = {
+			if (inputLeft.isEmpty)
+				done
+			else {
+				val next = inputLeft.head
+				val nextDone = getValues(next, headers) match {
+					case Some(vals) =>
+						file.write(vals.mkString(","))
+						file.newLine()
+						done + 1
+					case None =>
+						done
+				}
+				setValue(file = file, inputLeft = inputLeft.tail, done = nextDone)
+			}
+		}
+
+		// Setup to write to temp file
+		val file = makeTempFile(".csv")
+		val fileWriter = new BufferedWriter(new FileWriter(file))
+		// Write out headers
+		fileWriter.write(headers.mkString(","))
+		fileWriter.newLine()
+		// Set values in file
+		val entries = setValue(file = fileWriter, inputLeft = input, done = 0)
+		// Close file and return status
+		fileWriter.close()
+		if (entries == 0) {
+			file.delete()
+			(None, List(noneMsg))
+		} else
+			(Some(file.getCanonicalPath), List.empty[String])
+	}
 
 }

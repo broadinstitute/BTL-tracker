@@ -303,10 +303,13 @@ object Robot {
 			}
 		}
 
+		// Init spreadsheet as copy of template, finding headers
 		val sheet = spreadsheets.Utils.initSheet(fileName = "/conf/data/ABRobotInstructions.xlsx",
 			fileHeaders = List(vol, abType, abLoc, destLoc))
+		// Set data in spreadsheet under headers
 		val dataSheet = setValue(sheet = sheet, trans = trans, done = 0)
-		spreadsheets.Utils.makeFile(sheet = dataSheet._1, entriesFound = dataSheet._2,
+		// Go make a new file from the spreadsheet data
+		spreadsheets.Utils.makeFile(headerValues = dataSheet._1, entriesFound = dataSheet._2,
 			errs = List.empty, noneFound = Some("No antibodies found"))
 	}
 

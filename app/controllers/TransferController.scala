@@ -36,10 +36,11 @@ object TransferController extends Controller {
 	 */
 	def transfer(fromID: Option[String], toID: Option[String], project: Option[String]) = Action.async { request =>
 		if (fromID.isDefined && toID.isDefined)
-			doTransfer(TransferStart(fromID.get, toID.get, project))
+			doTransfer(TransferStart(from = fromID.get, to = toID.get, project = project))
 		else
-			Future.successful(Ok(views.html.transferStart(MessageHandler.addStatusFlash(request, Transfer.startForm),
-				fromID, toID, project, true)))
+			Future.successful(Ok(views.html.transferStart(
+				transferForm = MessageHandler.addStatusFlash(request = request, data = Transfer.startForm),
+				fromID = fromID, toID = toID, project = project, readOnly = true)))
 	}
 
 	/**
@@ -62,8 +63,11 @@ object TransferController extends Controller {
 						   dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean,
 						   isTubeToQuad: Boolean, isTubeToMany: Boolean) = {
 		Action { request =>
-			Ok(views.html.transfer(MessageHandler.addStatusFlash(request, Transfer.form), fromID, toID, project,
-				fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube, isTubeToQuad, isTubeToMany))
+			Ok(views.html.transfer(
+				transferForm = MessageHandler.addStatusFlash(request = request, data = Transfer.form),
+				fromID = fromID, toID = toID, project = project,
+				fromQuad = fromQuad, toQuad = toQuad, dataMandatory = dataMandatory, isQuadToQuad = isQuadToQuad,
+				isQuadToTube = isQuadToTube, isTubeToQuad = isTubeToQuad, isTubeToMany = isTubeToMany))
 		}
 	}
 
@@ -85,7 +89,7 @@ object TransferController extends Controller {
 			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
 			def missingIDs(errs: List[String]) = {
 				val notFoundErrs: Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
-				MessageHandler.fillAndSetFailureMsgs(notFoundErrs, Transfer.startForm, data)
+				MessageHandler.fillAndSetFailureMsgs(msgs = notFoundErrs, form = Transfer.startForm, data = data)
 			}
 			// Check out results from DB queries
 			(from, to) match {
@@ -122,7 +126,7 @@ object TransferController extends Controller {
 	 * @return redirect to home page with wanted message
 	 */
 	private def transferComplete(getMsg: () => String) =
-		FlashingKeys.setFlashingValue(Redirect(routes.Application.index()), FlashingKeys.Status, getMsg())
+		FlashingKeys.setFlashingValue(r = Redirect(routes.Application.index()), k = FlashingKeys.Status, s = getMsg())
 
 	/**
 	 * Result when transfer needs more information.  Based on the quadrant information wanted we set parameters for
@@ -140,14 +144,16 @@ object TransferController extends Controller {
 	private def transferIncomplete(data: TransferStart, fromQuad: Boolean, toQuad: Boolean,
 								   dataMandatory: Boolean, isQuadToQuad : Boolean, isQuadToTube: Boolean,
 								   isTubeToQuad: Boolean, isTubeToMany: Boolean) = {
-		val result = Redirect(routes.TransferController.transferWithParams(data.from, data.to, data.project,
-			fromQuad, toQuad, dataMandatory, isQuadToQuad, isQuadToTube, isTubeToQuad, isTubeToMany))
+		val result = Redirect(routes.TransferController.transferWithParams(fromID = data.from, toID = data.to,
+			project = data.project, fromQuad = fromQuad, toQuad = toQuad, dataMandatory = dataMandatory,
+			isQuadToQuad = isQuadToQuad, isQuadToTube = isQuadToTube,
+			isTubeToQuad = isTubeToQuad, isTubeToMany = isTubeToMany))
 		val quadPlural = if (fromQuad && toQuad) "s" else ""
 		val quadsThere = if (fromQuad || toQuad) " and quadrant" else ""
 		val infoType = if (dataMandatory) s"Specify quadrant$quadPlural and optionally slice"
 		else s"If transferring a slice specify slice$quadsThere$quadPlural"
-		FlashingKeys.setFlashingValue(result, FlashingKeys.Status,
-			s"$infoType before completing transfer")
+		FlashingKeys.setFlashingValue(r = result, k = FlashingKeys.Status,
+			s = s"$infoType before completing transfer")
 	}
 
 	/**
@@ -162,7 +168,7 @@ object TransferController extends Controller {
 											fromQuad: Boolean, toQuad: Boolean) = {
 		// dataMandatory set via xor of quad settings (if only one quad wanted then it's transfer between different
 		// size containers)
-		transferIncomplete(data, fromQuad = fromQuad, toQuad = toQuad,
+		transferIncomplete(data = data, fromQuad = fromQuad, toQuad = toQuad,
 			dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad),
 			isQuadToQuad = toQuad && fromQuad, isQuadToTube = false, isTubeToQuad = false, isTubeToMany = false)
 	}
@@ -175,7 +181,7 @@ object TransferController extends Controller {
 	 * @return redirect to transferWithParams to query for additional information
 	 */
 	private def fromTubeTransferIncomplete(data: TransferStart, toQuad: Boolean) = {
-		transferIncomplete(data, fromQuad = false, toQuad = toQuad, dataMandatory = false,
+		transferIncomplete(data = data, fromQuad = false, toQuad = toQuad, dataMandatory = false,
 			isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = toQuad, isTubeToMany = true)
 	}
 
@@ -187,7 +193,7 @@ object TransferController extends Controller {
 	 * @return redirect to transferWithParams to query for additional information
 	 */
 	private def toTubeTransferIncomplete(data: TransferStart, fromQuad: Boolean) =
-		transferIncomplete(data, fromQuad  = fromQuad, toQuad = false, dataMandatory = false,
+		transferIncomplete(data = data, fromQuad  = fromQuad, toQuad = false, dataMandatory = false,
 			isQuadToQuad = false, isQuadToTube = fromQuad, isTubeToQuad = false, isTubeToMany = false)
 
 	/**
@@ -200,7 +206,8 @@ object TransferController extends Controller {
 	 */
 	private def transferStartFormErrorResult(form: Form[TransferStart],
 											 fromID: Option[String], toID: Option[String], project: Option[String]) =
-		BadRequest(views.html.transferStart(form, fromID, toID, project, false))
+		BadRequest(views.html.transferStart(transferForm = form, fromID = fromID, toID = toID,
+			project = project, readOnly = false))
 
 	/**
 	 * Result when transfer start had errors
@@ -209,8 +216,9 @@ object TransferController extends Controller {
 	 * @return BadRequest to transferStart with form set with errors
 	 */
 	private def transferStartErrorResult(data: TransferStart, errs: Map[Option[String], String]) =
-		transferStartFormErrorResult(MessageHandler.fillAndSetFailureMsgs(errs, Transfer.startForm, data),
-			Some(data.from), Some(data.to), data.project)
+		transferStartFormErrorResult(
+			form = MessageHandler.fillAndSetFailureMsgs(msgs = errs, form = Transfer.startForm, data = data),
+			fromID = Some(data.from), toID = Some(data.to), project = data.project)
 
 	/**
 	 * Complete a future immediately with a result
@@ -228,11 +236,13 @@ object TransferController extends Controller {
 	def transferIDs = Action.async { request =>
 		Transfer.startForm.bindFromRequest()(request).fold(
 			formWithErrors => Future.successful(transferStartFormErrorResult(
-				MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError), None, None, None)),
+				form = MessageHandler.formGlobalError(form = formWithErrors, err = MessageHandler.validationError),
+				fromID = None, toID = None, project = None)),
 			data => doTransfer(data)
 		).recover {
 			case err => transferStartFormErrorResult(
-				Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)), None, None, None)
+				form = Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)),
+				fromID = None, toID = None, project = None)
 		}
 	}
 
@@ -251,13 +261,15 @@ object TransferController extends Controller {
 				isTransferValid(data, from, to) match {
 					// Report attempt to transfer to itself
 					case (fromData, toData, None) if fromData.id == toData.id =>
-						now(transferStartErrorResult(data, Map(None -> "Can not transfer component to itself")))
+						now(transferStartErrorResult(data = data,
+							errs = Map(None -> "Can not transfer component to itself")))
 					// Report problem transferring between requested components
-					case (fromData, toData, Some(err)) => now(transferStartErrorResult(data, Map(None -> err)))
+					case (fromData, toData, Some(err)) =>
+						now(transferStartErrorResult(data = data, errs = Map(None -> err)))
 					// OK so far - now we need to check if it's ok to add this transfer to the graph leading in
 					case (fromData, toData, None) => checkGraph(data, fromData, toData).flatMap {
 						// Problem found
-						case Some(err) => now(transferStartErrorResult(data, Map(None -> err)))
+						case Some(err) => now(transferStartErrorResult(data = data, errs = Map(None -> err)))
 						// All is well - now just check if transfer should be done now or we need additional
 						// information about what quadrants/slices to transfer from/to
 						case None =>
@@ -268,34 +280,34 @@ object TransferController extends Controller {
 									(f.layout,t.layout) match {
 										// Check if slicing wanted
 										case (DIM8x12, DIM8x12) =>
-											now(containerTransferIncomplete(data, fromQuad = false, toQuad = false))
+											now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = false))
 										// if doing slices between 384-well plates then need to pick quadrant
 										case (DIM16x24, DIM16x24) =>
-											now(containerTransferIncomplete(data, fromQuad = true, toQuad = true))
+											now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = true))
 										// Go ask for quadrant/slice to set in larger destination plate
 										case (DIM8x12, DIM16x24) =>
-											now(containerTransferIncomplete(data, fromQuad = false, toQuad = true))
+											now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = true))
 										// Go ask for quadrant/slice to get in larger source plate
 										case (DIM16x24, DIM8x12) =>
-											now(containerTransferIncomplete(data, fromQuad = true, toQuad = false))
+											now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = false))
 									}
 								// Transferring from a divided container to an undivided component
 								case (f: ContainerDivisions, _) =>
 									f.layout match {
 										// See if slicing wanted
 										case DIM8x12 =>
-											now(toTubeTransferIncomplete(data, fromQuad = false))
+											now(toTubeTransferIncomplete(data = data, fromQuad = false))
 										// See if slicing or quadrant wanted
 										case DIM16x24 =>
-											now(toTubeTransferIncomplete(data, fromQuad = true))
+											now(toTubeTransferIncomplete(data = data, fromQuad = true))
 									}
 								// Transferring from an undivided container to a divided container
 								case (_, t: ContainerDivisions) =>
 									t.layout match {
 										case DIM8x12 =>
-											now(fromTubeTransferIncomplete(data, toQuad = false))
+											now(fromTubeTransferIncomplete(data = data, toQuad = false))
 										case DIM16x24 =>
-											now(fromTubeTransferIncomplete(data, toQuad = true))
+											now(fromTubeTransferIncomplete(data = data, toQuad = true))
 									}
 
 								// Source and destinaion aren't divided - go complete transfer of its contents
@@ -306,14 +318,14 @@ object TransferController extends Controller {
 					}
 				}
 			// Couldn't find one or both data - form returned contains errors - return it now
-			case (None, Some(form)) => now(transferStartFormErrorResult(form,
-				Some(data.from), Some(data.to), data.project))
+			case (None, Some(form)) => now(transferStartFormErrorResult(form = form,
+				fromID = Some(data.from), toID = Some(data.to), project = data.project))
 			// Should never have both or neither as None but...
-			case _ => now(FlashingKeys.setFlashingValue(Redirect(routes.Application.index()),
-				FlashingKeys.Status, "Internal error: Failure during transferIDs"))
+			case _ => now(FlashingKeys.setFlashingValue(r = Redirect(routes.Application.index()),
+				k = FlashingKeys.Status, s = "Internal error: Failure during transferIDs"))
 		}
 	}.recover {
-		case err => transferStartErrorResult(data, Map(None -> MessageHandler.exceptionMessage(err)))
+		case err => transferStartErrorResult(data = data, errs = Map(None -> MessageHandler.exceptionMessage(err)))
 	}
 
 	/**
@@ -329,7 +341,7 @@ object TransferController extends Controller {
 		// Make graph of what leads into source of this transfer
 		TransferHistory.makeSourceGraph(data.from).map((graph) => {
 			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
-			val isCyclic = TransferHistory.isGraphAdditionCyclic(data.to,graph) match {
+			val isCyclic = TransferHistory.isGraphAdditionCyclic(addition = data.to, graph = graph) match {
 				case true =>
 					Some(s"Error: Adding transfer will create a cyclic graph (${data.to} is already a source for ${data.from})")
 				case _ => None
@@ -373,10 +385,12 @@ object TransferController extends Controller {
 	 * @return BadRequest to transfer with input form
 	 */
 	private def transferFormErrorResult(form: Form[TransferForm], data: TransferForm) = {
-		BadRequest(views.html.transfer(form, data.transfer.from, data.transfer.to, data.transfer.project,
-			data.isQuadToQuad || data.isQuadToTube || data.transfer.fromQuad.isDefined,
-			data.isQuadToQuad || data.isTubeToQuad || data.transfer.toQuad.isDefined,
-			data.dataMandatory, data.isQuadToQuad, data.isQuadToTube, data.isTubeToQuad, data.transfer.isTubeToMany))
+		BadRequest(views.html.transfer(transferForm = form,
+			fromID = data.transfer.from, toID = data.transfer.to, project = data.transfer.project,
+			fromQuad = data.isQuadToQuad || data.isQuadToTube || data.transfer.fromQuad.isDefined,
+			toQuad = data.isQuadToQuad || data.isTubeToQuad || data.transfer.toQuad.isDefined,
+			dataMandatory = data.dataMandatory, isQuadToQuad = data.isQuadToQuad, isQuadToTube = data.isQuadToTube,
+			isTubeToQuad = data.isTubeToQuad, isTubeToMany = data.transfer.isTubeToMany))
 	}
 
 	/**
@@ -386,7 +400,9 @@ object TransferController extends Controller {
 	 * @return BadRequest to transfer with form set with errors
 	 */
 	private def transferErrorResult(data: TransferForm, errs: Map[Option[String], String]) =
-		transferFormErrorResult(MessageHandler.fillAndSetFailureMsgs(errs, Transfer.form, data), data)
+		transferFormErrorResult(form = MessageHandler.fillAndSetFailureMsgs(
+			msgs = errs, form = Transfer.form, data = data
+		), data = data)
 
 	/**
 	 * Insert transfer without cherry picking into DB and return Result.
@@ -394,7 +410,8 @@ object TransferController extends Controller {
 	 * @return result to return with completion status
 	 */
 	private def insertTransferWithoutCherries(data: TransferForm) = {
-		insertTransfer(data.transfer, onError = (_, err) => transferErrorResult(data, Map(None -> err)))
+		insertTransfer(data = data.transfer, onError = (_, err) =>
+			transferErrorResult(data = data, errs = Map(None -> err)))
 	}
 
 	/**
@@ -406,7 +423,7 @@ object TransferController extends Controller {
 		TransferCollection.insert(data).map {
 			(lastError) => transferComplete(() => "Completed " + data.quadDesc)
 		}.recover {
-			case err => onError(data, MessageHandler.exceptionMessage(err))
+			case err => onError(v1 = data, v2 = MessageHandler.exceptionMessage(err))
 		}
 	}
 
@@ -421,18 +438,19 @@ object TransferController extends Controller {
 		Transfer.form.bindFromRequest()(request).fold(
 			formWithErrors => Transfer.formWithoutVerify.bindFromRequest()(request).fold(
 				// If still error then must go back to start
-				errors => Future.successful(transferStartFormErrorResult(MessageHandler.formGlobalError(
-					Transfer.startForm, MessageHandler.validationError),
-						None, None, None)),
-				formData => Future.successful(transferFormErrorResult(MessageHandler.formGlobalError(
-					formWithErrors, MessageHandler.validationError), formData))),
+				errors => Future.successful(transferStartFormErrorResult(form = MessageHandler.formGlobalError(
+					form = Transfer.startForm, err = MessageHandler.validationError
+				), fromID = None, toID = None, project = None)),
+				formData => Future.successful(transferFormErrorResult(form = MessageHandler.formGlobalError(
+					formWithErrors, MessageHandler.validationError
+				), data = formData))),
 			data => {
 				val transfer = data.transfer
 				transfer.slice match {
 					// If doing cherry picking we need to find out more about the source place: what samples are in
 					// wells and source dimensions
 					case Some(slice) if slice == CP =>
-						getCherryPickingView(data.transfer, Transfer.formForCherryPicking)
+						getCherryPickingView(transfer = data.transfer, form = Transfer.formForCherryPicking)
 					// Go do insert into DB of transfer
 					case _ => insertTransferWithoutCherries(data)
 				}
@@ -440,8 +458,9 @@ object TransferController extends Controller {
 		).recover {
 			// If an exception go back to transfer start and report on exception
 			case err =>
-				transferStartFormErrorResult(Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)),
-					None, None, None)
+				transferStartFormErrorResult(
+					form = Transfer.startForm.withGlobalError(MessageHandler.exceptionMessage(err)),
+					fromID = None, toID = None, project = None)
 		}
 	}
 
@@ -529,14 +548,15 @@ object TransferController extends Controller {
 				val errorForm = errs.foldLeft(form)(
 					(soFar, next) => soFar.withGlobalError(next)).
 					withGlobalError("Pick wells to be transferred")
-				Ok(views.html.transferCherries(errorForm, transfer.from,
-					transfer.to, wells, rows, columns, transfer.project,
-					transfer.fromQuad, transfer.toQuad, transfer.isTubeToMany))
+				Ok(views.html.transferCherries(transferForm = errorForm, fromID = transfer.from,
+					toID = transfer.to, wells = wells, rows = rows, columns = columns, project = transfer.project,
+					fromQuad = transfer.fromQuad, toQuad = transfer.toQuad, isTubeToMany = transfer.isTubeToMany))
 			// If we couldn't get well information go back to transfer start with errors
 			case (_, _, _, errs) =>
 				val allErrs = form.globalErrors.map((err) => err.message).toList ++ errs
-				transferStartFormErrorResult(MessageHandler.setGlobalErrors(allErrs, Transfer.startForm),
-					None, None, None)
+				transferStartFormErrorResult(form = MessageHandler.setGlobalErrors(
+					msgs = allErrs, form = Transfer.startForm
+				), fromID = None, toID = None, project = None)
 		}
 	}
 
@@ -549,19 +569,100 @@ object TransferController extends Controller {
 		Transfer.formForCherryPicking.bindFromRequest()(request).fold(
 			// If an error in form go retry, reporting errors
 			formWithErrors => {
-				getCherryPickingView(formWithErrors.get, formWithErrors)
+				getCherryPickingView(transfer = formWithErrors.get, form = formWithErrors)
 			},
 			data => {
 				// If no wells selected then go back to get some; otherwise go do the transfer
 				if (data.cherries.isEmpty || data.cherries.get.isEmpty) {
-					val form = MessageHandler.setGlobalErrors(List("No wells selected"), Transfer.formForCherryPicking)
+					val form = MessageHandler.setGlobalErrors(msgs = List("No wells selected"),
+						form = Transfer.formForCherryPicking)
 					getCherryPickingView(data, form)
 				} else {
 					// Go insert transfer
-					insertTransfer(data, onError =
+					insertTransfer(data = data, onError =
 						(tran, err) => transferComplete(() => "Error completing " + data.quadDesc + ": " + err))
 				}
 			}
 		)
 	}
+
+	/**
+	 * Display the well transfers between two components.
+	 *
+	 * @param from source component
+	 * @param to target component
+	 * @return puts up nice display of source plate with contents of wells set to destination wells
+	 */
+	def transferDisplay(from: String, to: String) = Action.async {
+		// Get transfers between components (flatmap to avoid future of future)
+		TransferCollection.find(from = from, to = to).flatMap((trans) => {
+			// Get components
+			TrackerCollection.findIds(List(from, to)).map((ids) => {
+				// Map bson to components (someday direct mapping should be possible but too painful for now)
+				val components = ComponentFromJson.bsonToComponents(ids)
+				// Find from and to components
+				val fromComponent = components.find(_.id == from)
+				val toComponent = components.find(_.id == to)
+				// Make bson into objects and sort results by time (later transfers should override previous ones)
+				val transSorted = trans.map(TransferHistory.getTransferObject).sortWith(_.time < _.time)
+				// Get which component has wells being transferred from/to
+				val isFromTube = transSorted.forall(_.isTubeToMany)
+				// Get map of wells (map of input to output wells)
+				val wells = transSorted.foldLeft(Map.empty[String, List[String]]) {
+					case (outSoFar, next) if fromComponent.isDefined && toComponent.isDefined =>
+						TransferContents.getWellMapping(soFar = outSoFar, fromComponent = fromComponent.get,
+							toComponent = toComponent.get, fromQuad = next.fromQuad, toQuad = next.toQuad,
+							quadSlice = next.slice, cherries = next.cherries,
+							isTubeToMany = isFromTube, getSameMapping = true) {
+							case (wellsSoFar, div, newWells) =>
+								val keys = wellsSoFar.keySet ++ newWells.keySet
+								keys.map((k) => {
+									k -> ((wellsSoFar.get(k), newWells.get(k)) match {
+										case (Some(v), None) => v
+										case (None, Some(v)) => v
+										case (Some(v1), Some(v2)) => v1 ++ v2
+										case (None, None) => List.empty[String]
+									})
+								}).toMap
+						}
+					case (out, _) => out
+				}
+				// Make destination wells into options (view takes the map that way)
+				// If from tube then display destination multi-well container with marks where tube contents is
+				// transferred into.  Otherwise source multi-well container is displayed with destination wells set in
+				// input well locations.
+				val optWells =
+					wells.flatMap {
+						case (key, value) =>
+							// If from tube should always be from single well so just mark where tube was transferred
+							if (isFromTube) {
+								// Get # of times tube transferred to each well
+								val vals = value.groupBy((s) => s)
+								// Make that into appropriate number of marks
+								vals.map {
+									case (destWell, count) => destWell -> Some(List.fill(count.size)("XX").mkString(","))
+								}
+							} // If between divided components then show well transfers
+							else if (toComponent.get.isInstanceOf[ContainerDivisions])
+								Map(key -> Some(value.mkString(",")))
+							// If to non-divided component from a divided one then show which wells were transferred
+							else
+								Map(key -> Some(value.map(_ => "XX").mkString(",")))
+					}
+				// Get number of rows and columns
+				val wellComponent = if (isFromTube) toComponent else fromComponent
+				val (rows, cols) =
+					wellComponent.map {
+						case c: ContainerDivisions =>
+							val div = ContainerDivisions.divisionDimensions(c.layout)
+							(div.rows, div.columns)
+						case _ => (1, 1) // If component isn't divided then a single "well"
+					}.getOrElse((0, 0)) // If component doesn't exist then nothing there
+				// Go display the results
+				Ok(views.html.transferDisplay(from = fromComponent, to = toComponent, tableID = "TransferDisplay",
+					grid = optWells, rows = rows, cols = cols, sourceDisplay = !isFromTube))
+			})
+		})
+	}
+
 }
