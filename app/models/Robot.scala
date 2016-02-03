@@ -277,11 +277,12 @@ object Robot {
 	 */
 	def makeABSpreadSheet(trans: List[ABTubeToPlate]) = {
 		// Spreadsheet headers
-		val vol = "Volume in ul"
-		val abType = "Source ab type"
-		val abLoc = "Source ab location"
-		val destLoc = "Destination location"
-		var headers = Array(vol, abType, abLoc, destLoc)
+		val vol = "Volume"
+		val abType = "AB Name"
+		val abLoc = "Source AB Well Location"
+		val destLoc = "Destination Working Plate Well Location"
+		// Array of all headers, ordered by column #
+		var headers = Array(abType, vol, abLoc, destLoc)
 		// Map of functions to retrieve values for a single tube to plate transfer
 		val retrieveValue = Map[String, (ABTubeToPlate) => String](
 			vol -> (_.volume.toString),

@@ -52,11 +52,11 @@ object Application extends Controller {
 	def walkup(id: String) = Action.async { request =>
 		handleContents(id = id,
 			redirectOnErr = (res) => ComponentController.actions(res.component.component).updateRoute(id),
-			setWellContents = Walkup.makeWUS(_),
+			setWellContents = Walkup.makeWUS,
 			getResult = (res, wellMap: Map[String, (Option[String], List[String])]) => {
 				// Should only be one well (should be a tube) - get results if all looks well, otherwise set error
 				val wellResult =
-					if (wellMap.size == 0)
+					if (wellMap.isEmpty)
 						(None, List(s"No samples found for $id"))
 					else if (wellMap.size > 1)
 						(None, List(s"Invalid multi-well component - $id tube must be used"))

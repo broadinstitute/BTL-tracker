@@ -107,8 +107,8 @@ object EZPass {
 		 * @return context containing spreadsheet information for setting sample information in spreadsheet
 		 */
 		def initData(component: String, fileHeaders: List[String]) = {
-			val sheet = spreadsheets.Utils.initSheet("/conf/data/EZPass.xlsx", fileHeaders)
-			DataSource(sheet, component)
+			val sheet = spreadsheets.Utils.initSheet(fileName = "/conf/data/EZPass.xlsx", fileHeaders = fileHeaders)
+			DataSource(headersToValues = sheet, component = component)
 		}
 
 		/**
@@ -123,7 +123,8 @@ object EZPass {
 		 */
 		def setFields(context: DataSource, strData: Map[String, String], intData: Map[String, Int],
 					  floatData: Map[String, Float], index: Int): DataSource = {
-			val sheet = spreadsheets.Utils.setSheetValues(context.headersToValues, strData, intData, floatData, index)
+			val sheet = spreadsheets.Utils.setSheetValues(sheet = context.headersToValues, strData = strData,
+				intData = intData, floatData = floatData, index = index)
 			context.copy(headersToValues = sheet)
 		}
 
@@ -136,7 +137,10 @@ object EZPass {
 		 * @return (path of output file, list of errors)
 		 */
 		def allDone(context: DataSource, samplesFound: Int, errs: List[String]) = {
-			spreadsheets.Utils.makeFile(context.headersToValues, samplesFound, errs, Some("No samples found"))
+			Future {
+				spreadsheets.Utils.makeFile(headerValues = context.headersToValues, entriesFound = samplesFound,
+					errs = errs, noneFound = Some("No samples found"))
+			}
 		}
 	}
 
@@ -199,7 +203,7 @@ object EZPass {
 		 */
 		def setFields(context: EZPassSaved, strData: Map[String, String], intData: Map[String, Int],
 					  floatData: Map[String, Float], index: Int) =
-			EZPassSaved(context.fileHeaders, context.data :+
+			EZPassSaved(fileHeaders = context.fileHeaders, data = context.data :+
 				(strData, intData, floatData,
 					Future {
 						strData.get(gssrBarcodeLabel) match {
@@ -211,7 +215,7 @@ object EZPass {
 								}
 							case _ => (None, None)
 						}
-					}.recover{ case e: Exception => (None, Some(e)) }
+					}.recover { case e: Exception => (None, Some(e)) }
 					)
 			)
 
@@ -311,7 +315,7 @@ object EZPass {
 							}
 					}
 					// Return all the data found as well as the errors
-					(EZPassProjectData(context.fileHeaders, rows), projErrs)
+					(EZPassProjectData(fileHeaders = context.fileHeaders, data = rows), projErrs)
 			}
 		}
 
@@ -358,15 +362,17 @@ object EZPass {
 						// Get string, integer and floating point values
 						val strFields = strOptionFields ++ getMidFields(result.mid) ++
 							getCalcStrFields(component) ++ constantFields
-						val intFields = getCalcIntFields(index, libSize, libVol)
+						val intFields = getCalcIntFields(index = index, libSize = libSize, libVol = libVol)
 						val floatFields = getCalcFloatFields(libConcentration)
 						// Found sample
-						(setData.setFields(setContext, strFields, intFields, floatFields, index), 1)
+						(setData.setFields(context = setContext, strData = strFields,
+							intData = intFields, floatData = floatFields, index = index), 1)
 					// Sample not found
 					case None => (setContext, 0)
 				}
 				// Go get next sample
-				processResults(ezPassResults._1, index + ezPassResults._2, results, samplesFound + ezPassResults._2)
+				processResults(setContext = ezPassResults._1, index = index + ezPassResults._2,
+					results = results, samplesFound = samplesFound + ezPassResults._2)
 			}
 		}
 
@@ -380,18 +386,19 @@ object EZPass {
 			case Some(contents) => contents.wells.get(TransferContents.oneWell) match {
 				case Some(resultSet) =>
 					// Go put results into the EZPASS
-					val samplesFound = processResults(context, 1, resultSet.toIterator, 0)
+					val samplesFound = processResults(setContext = context, index = 1,
+						results = resultSet.toIterator, samplesFound = 0)
 					// Finish things up
-					setData.allDone(samplesFound._1, samplesFound._2, contents.errs)
+					setData.allDone(context = samplesFound._1, samplesFound = samplesFound._2, errs = contents.errs)
 				// No results - must not be a tube
-				case None => setData.allDone(context, 0,
-					List(s"$component is a multi-well component or empty") ++ contents.errs)
+				case None => setData.allDone(context = context, samplesFound = 0,
+					errs = List(s"$component is a multi-well component or empty") ++ contents.errs)
 			}
 			// No contents
-			case None => setData.allDone(context, 0, List(s"$component has no contents"))
+			case None => setData.allDone(context = context, samplesFound = 0, errs = List(s"$component has no contents"))
 		}.recoverWith{
 			case e: Exception =>
-				setData.allDone(context, 0, List(s"Exception: ${e.getLocalizedMessage}"))
+				setData.allDone(context = context, samplesFound = 0, errs = List(s"Exception: ${e.getLocalizedMessage}"))
 		}
 	}
 
@@ -408,21 +415,22 @@ object EZPass {
 	private def makeEZPassFromData[T, R](setData: SetEZPassData[T, R], component: String,
 										 data: EZPassProjectData, errs: List[String]) = {
 		// initData to start EZPass creation, setFields once for each row and finish up (allDone)
-		val setContext = setData.initData(component, data.fileHeaders)
+		val setContext = setData.initData(component = component, fileHeaders = data.fileHeaders)
 		@tailrec
 		// Recursive fellow to set all the fields till done
 		def setFields(context: T, data: List[EZPassFinalData], index: Int) : T = {
 			data match {
 				case Nil => context
 				case head :: tail =>
-					val next = setData.setFields(context, head._1, head._2, head._3, index)
-					setFields(next, tail, index+1)
+					val next = setData.setFields(context = context, strData = head._1, intData = head._2,
+						floatData = head._3, index = index)
+					setFields(context = next, data = tail, index = index + 1)
 			}
 		}
 		// Set rows
-		val finalContext = setFields(setContext, data.data, 1)
+		val finalContext = setFields(context = setContext, data = data.data, index = 1)
 		// Finish up
-		setData.allDone(finalContext, data.data.size, errs)
+		setData.allDone(context = finalContext, samplesFound = data.data.size, errs = errs)
 	}
 
 	/**
@@ -442,10 +450,11 @@ object EZPass {
 	def makeEZPassWithProject[T, R](setData: SetEZPassData[T, R], component: String,
 									libSize: Int, libVol: Int, libConcentration: Float) = {
 		// First get the EZPass with the project data
-		makeEZPass(WriteEZPassWithProject, component, libSize, libVol, libConcentration).flatMap {
+		makeEZPass(setData = WriteEZPassWithProject, component = component,
+			libSize = libSize, libVol = libVol, libConcentration = libConcentration).flatMap {
 			// Then map results using input EZPass creator
 			case (projData, errs) =>
-				makeEZPassFromData(setData, component, projData, errs)
+				makeEZPassFromData(setData = setData, component = component, data = projData, errs = errs)
 		}
 	}
 
@@ -537,7 +546,7 @@ object EZPass {
 	 */
 	private def getCalcIntFields(index: Int, libSize: Int, libVol: Int) =
 		calcIntFields.map {
-			case (k, v) => k -> v(index, libSize, libVol)
+			case (k, v) => k -> v(v1 = index, v2 = libSize, v3 = libVol)
 		}
 
 	// Floating point values - methods to retreive values

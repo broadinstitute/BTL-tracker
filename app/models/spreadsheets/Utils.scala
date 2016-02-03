@@ -5,11 +5,8 @@ import java.io.{FileWriter, BufferedWriter, FileOutputStream, File}
 import org.apache.poi.ss.usermodel.Cell
 import org.broadinstitute.spreadsheets.HeadersToValues
 import play.Play
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
-
 
 import scala.annotation.tailrec
-import scala.concurrent.Future
 
 /**
   * Common methods used for creating new spreadsheets from spreadsheet templates.  Rows of data are set based
@@ -52,27 +49,33 @@ object Utils {
 		 */
 		def setValues[T](context: HeadersToValues, fields: Map[String, T], index: Int, setCell: (Cell, T) => Unit) = {
 			val headerParameters = context
+			// Get poi sheet (we must be dealing with a real spreadsheet)
 			val sheet = headerParameters.getSheet.get
+			// Set each field value in the right location (row we're up to and column under header)
 			fields.foreach {
-				case (header, value) => headerParameters.getHeaderLocation(header) match {
-					case Some((r, c)) =>
-						val row = sheet.getRow(r + index) match {
-							case null => sheet.createRow(r + index)
-							case rowFound => rowFound
-						}
-						val cell = row.getCell(c) match {
-							case null => row.createCell(c)
-							case cellFound => cellFound
-						}
-						setCell(v1 = cell, v2 = value)
+				case (header, value) =>
+					headerParameters.getHeaderLocation(header) match {
+						case Some((r, c)) =>
+							val row = sheet.getRow(r + index) match {
+								case null => sheet.createRow(r + index)
+								case rowFound => rowFound
+							}
+							val cell = row.getCell(c) match {
+								case null => row.createCell(c)
+								case cellFound => cellFound
+							}
+							setCell(v1 = cell, v2 = value)
 					case _ =>
 				}
 			}
 		}
 		// Set the values into the spreadsheet
-		setValues[String](sheet, strData, index, (cell, value) => cell.setCellValue(value))
-		setValues[Int](sheet, intData, index, (cell, value) => cell.setCellValue(value))
-		setValues[Float](sheet, floatData, index, (cell, value) => cell.setCellValue(value))
+		setValues[String](context = sheet, fields = strData, index = index,
+			setCell = (cell, value) => cell.setCellValue(value))
+		setValues[Int](context = sheet, fields = intData, index = index,
+			setCell = (cell, value) => cell.setCellValue(value))
+		setValues[Float](context = sheet, fields = floatData, index = index,
+			setCell = (cell, value) => cell.setCellValue(value))
 		sheet
 	}
 
@@ -87,22 +90,20 @@ object Utils {
 	  * @return (path of output file, list of errors)
 	  */
 	def makeFile(headerValues: HeadersToValues, entriesFound: Int, errs: List[String], noneFound: Option[String]) = {
-		Future {
-			headerValues.getSheet match {
-				case Some(sheet) =>
-					if (entriesFound == 0 && noneFound.isDefined)
-						(None, List(noneFound.get) ++ errs)
-					else {
-						// Create temporary file and write data there
-						val tFile = makeTempFile(".xlsx")
-						val outFile = new FileOutputStream(tFile)
-						sheet.getWorkbook.write(outFile)
-						outFile.close()
-						(Some(tFile.getCanonicalPath), errs)
-					}
-				case None =>
-					(None, errs)
-			}
+		headerValues.getSheet match {
+			case Some(sheet) =>
+				if (entriesFound == 0 && noneFound.isDefined)
+					(None, List(noneFound.get) ++ errs)
+				else {
+					// Create temporary file and write data there
+					val tFile = makeTempFile(".xlsx")
+					val outFile = new FileOutputStream(tFile)
+					sheet.getWorkbook.write(outFile)
+					outFile.close()
+					(Some(tFile.getCanonicalPath), errs)
+				}
+			case None =>
+				(None, errs)
 		}
 	}
 
