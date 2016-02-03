@@ -269,11 +269,11 @@ object Robot {
 	}
 
 	/**
-	 * Make a spreadsheet with instructions for the robot to transfer antibodies from a rack of antibody tubes to
+	 * Make a csv file with instructions for the robot to transfer antibodies from a rack of antibody tubes to
 	 * a plate.
 	 *
 	 * @param trans transfers wanted
-	 * @return (name of file created, if it went ok, errors found)
+	 * @return (name of file created if it went ok, errors found)
 	 */
 	def makeABSpreadSheet(trans: List[ABTubeToPlate]) = {
 		// Spreadsheet headers
@@ -281,36 +281,18 @@ object Robot {
 		val abType = "Source ab type"
 		val abLoc = "Source ab location"
 		val destLoc = "Destination location"
-		/*
-		 * Set values in spreadsheet for transfers from antibody tubes to make an antibody plate
-		 * @param sheet spreadsheet values are being put into
-		 * @param trans ab tube->plate transfers
-		 * @param done # of entries done so far
-		 * @return
-		 */
-		@tailrec
-		def setValue(sheet: HeadersToValues, trans: List[ABTubeToPlate], done: Int): (HeadersToValues, Int) = {
-			if (trans.isEmpty)
-				(sheet, done)
-			else {
-				val next = trans.head
-				val nextIndex = done + 1
-				setValue(
-					sheet = spreadsheets.Utils.setSheetValues(sheet = sheet,
-						strData = Map(abType -> next.abType.toString, abLoc -> next.rackPos, destLoc -> next.platePos),
-						intData = Map(vol -> next.volume), floatData = Map.empty, index = nextIndex),
-					trans = trans.tail, done = nextIndex)
-			}
-		}
+		var headers = Array(vol, abType, abLoc, destLoc)
+		// Map of functions to retrieve values for a single tube to plate transfer
+		val retrieveValue = Map[String, (ABTubeToPlate) => String](
+			vol -> (_.volume.toString),
+			abType -> (_.abType.toString),
+			abLoc -> (_.rackPos),
+			destLoc -> (_.platePos))
 
-		// Init spreadsheet as copy of template, finding headers
-		val sheet = spreadsheets.Utils.initSheet(fileName = "/conf/data/ABRobotInstructions.xlsx",
-			fileHeaders = List(vol, abType, abLoc, destLoc))
-		// Set data in spreadsheet under headers
-		val dataSheet = setValue(sheet = sheet, trans = trans, done = 0)
-		// Go make a new file from the spreadsheet data
-		spreadsheets.Utils.makeFile(headerValues = dataSheet._1, entriesFound = dataSheet._2,
-			errs = List.empty, noneFound = Some("No antibodies found"))
+		// Go make csv file
+		spreadsheets.Utils.setCSVValues(headers = headers, input = trans,
+			// Get individual values via retrieveValue functions called with tubeToPlate parameter
+			getValues = (tubeToPlate: ABTubeToPlate, valsToGet) => Some(valsToGet.map(retrieveValue(_)(tubeToPlate))),
+			noneMsg = "No antibodies found")
 	}
-
 }

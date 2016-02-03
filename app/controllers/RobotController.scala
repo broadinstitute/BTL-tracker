@@ -74,32 +74,32 @@ object RobotController extends Controller {
 									Robot.makeABTransfers(plate = res.abPlate.id, tubeToPlateList = tubeToPlateTrans,
 										project = res.sampleContainer.project, div = res.abPlate.layout)
 								val transDBOpers = Future.sequence(trans.map(TransferCollection.insert))
-								// Next make spreadsheet to be uploaded
-								val spreadSheet = Robot.makeABSpreadSheet(tubeToPlateTrans)
-								// Wait for all the futures to complete (DB inserts and spreadsheet creation)
-								(for {
-									transDone <- transDBOpers
-									sheetDone <- spreadSheet
-								} yield (transDone, sheetDone)).map {
-									case (transStat, (Some(file), _)) =>
-										// Upload the file using wanted filename
-										val tranErrs = transStat.filterNot(_.ok)
-											.map(_.errMsg.getOrElse("Unknown DB Error"))
-										if (tranErrs.nonEmpty) {
-											badRequest(data = data,
-												err = s"Errors inserting transfers into DB: ${tranErrs.mkString("; ")}",
-												id = id)
-										} else {
-											val outFile = new File(file)
-											val fileNameReturned = data.fileName.trim()
-											val fileName = if (fileNameReturned.isEmpty) data.abPlate else fileNameReturned
-											Ok.sendFile(content = outFile, inline = false,
-												fileName = (_) => s"$fileName.xlsx", onClose = () => outFile.delete())
+								// Wait for DB insert to complete
+								transDBOpers.map((transStat) => {
+									// If DB error abort and report error
+									val tranErrs = transStat.filterNot(_.ok)
+										.map(_.errMsg.getOrElse("Unknown DB Error"))
+									if (tranErrs.nonEmpty) {
+										badRequest(data = data,
+											err = s"Errors inserting transfers into DB: ${tranErrs.mkString("; ")}",
+											id = id)
+									} else {
+										// Go make the spreadsheet
+										Robot.makeABSpreadSheet(tubeToPlateTrans) match {
+											case (Some(file), _) =>
+												val outFile = new File(file)
+												val fileNameReturned = data.fileName.trim()
+												val fileName =
+													if (fileNameReturned.isEmpty) data.abPlate else fileNameReturned
+												Ok.sendFile(content = outFile, inline = false,
+													fileName = (_) => s"$fileName.xlsx",
+													onClose = () => outFile.delete())
+											case (_, sheetErrs) =>
+												// Errors making sheet
+												badRequest(data = data, err = sheetErrs.mkString("; "), id = id)
 										}
-									case (_, (_, sheetErrs)) =>
-										// Errors making sheet
-										badRequest(data = data, err = sheetErrs.mkString("; "), id = id)
-								}
+									}
+								})
 							}
 						case _ =>
 							// Should never get here - would mean neither errors nor results
