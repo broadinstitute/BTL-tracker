@@ -3,12 +3,13 @@
 ***********************************@
 @(errForm: Form[Component.Error])
 @import helper._
+@import play.api.Play
 
 @* Call main template with title and html to display *@
 @main("Welcome to Tracker"){
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
-	<h1>Welcome to Tracker</h1>
+	<h1>Welcome to Tracker @Play.current.configuration.getString("tracker.version").getOrElse("")</h1>
 	@errForm.globalErrors.map {error => <span class="error">@error.message</span><br><br>}
 	<img src="@routes.Assets.at("images/lab.jpg")" width="600" height="396" />
 	<br>

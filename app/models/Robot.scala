@@ -5,9 +5,7 @@ import models.TransferContents.MergeTotalContents
 import models.db.{ TransferCollection, TrackerCollection }
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
-import org.broadinstitute.spreadsheets.HeadersToValues
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import scala.annotation.tailrec
 import scala.concurrent.Future
 
 /**
@@ -63,12 +61,13 @@ case class Robot(robotType: RobotType.RobotType) {
 						case (None, _, _) => throw new Exception(s"Antibody rack $abRack not registered")
 						case (_, _, None) => throw new Exception(s"Sample container $sampleContainer not registered")
 						case (Some(abR: Rack), None, Some(sampleC: Component with ContainerDivisions)) =>
-							// Check that racks are ok
+							// Check that antibody rack ok
 							checkRacks(abR)
 							// Register antibody plate not there yet and then make plate instructions
+							val plateDesc = s"${sampleC.component.toString} $sampleContainer"
 							val abP =
 								Plate(id = abPlate,
-									description = Some(s"Antibody plate generated for sample rack $sampleContainer"),
+									description = Some(s"Antibody plate generated for sample $plateDesc"),
 									project = sampleC.project, tags = List.empty, locationID = None,
 									initialContent = None, layout = sampleC.layout)
 							TrackerCollection.insertComponent(data = abP,
@@ -282,7 +281,7 @@ object Robot {
 		val abLoc = "Source AB Well Location"
 		val destLoc = "Destination Working Plate Well Location"
 		// Array of all headers, ordered by column #
-		var headers = Array(abType, vol, abLoc, destLoc)
+		val headers = Array(abType, vol, abLoc, destLoc)
 		// Map of functions to retrieve values for a single tube to plate transfer
 		val retrieveValue = Map[String, (ABTubeToPlate) => String](
 			vol -> (_.volume.toString),

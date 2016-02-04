@@ -11,7 +11,7 @@
 			'_showConstraints -> false, '_label -> "Antibody source rack ID")
 		@inputText(robotForm(RobotForm.sampleContainerKey), '_label -> "Sample container ID")
 		@inputText(robotForm(RobotForm.abPlateKey), '_label -> "Antibody destination plate ID")
-		@inputText(robotForm(RobotForm.fileNameKey).copy(value=Some(abRack + "_AB_Plate")),
+		@inputText(robotForm(RobotForm.fileNameKey).copy(value=Some(abRack + "_toABPlate")),
 			'_label -> "Output filename")
 		@checkbox(robotForm(RobotForm.continueOnErrorKey),
 			'_label -> "Continue on non-fatal errors", '_showConstraints -> false)
