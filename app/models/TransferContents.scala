@@ -8,6 +8,7 @@ import models.initialContents.InitialContents
 import models.TransferHistory.TransferEdge
 import InitialContents.ContentType
 
+import scalax.collection.Graph
 import scalax.collection.edge.LkDiEdge
 
 /**
@@ -302,16 +303,15 @@ object TransferContents {
 			 * @param output component node for which we want, taking into account transfers, the contents
 			 * @return contents of component, including both initial contents and what was transferred in
 			 */
-			def findContents(output: graph.NodeT): MergeTotalContents = {
+			def findContents(output: Graph[Component, LkDiEdge]#NodeT): MergeTotalContents = {
 				// Find all components directly transferred in to output, sorting them by when transfer occurred
 				val inputs = output.incoming.toList.sortWith((edge1, edge2) => edge1.label.time < edge2.label.time)
 				// Fold all the incoming components into output
-				inputs.foldLeft(getComponentContent(output))((soFar, next) => {
+				inputs.foldLeft(getComponentContent(output.value))((soFar, next) => {
 					val edge = next.edge
 					edge match {
 						case LkDiEdge(input, _, label) =>
 							// We recurse to look for transfers into the input (output for recursion)
-							// Note: IDE thinks input isn't a graph.NodeT but compiler is perfectly happy
 							val inputContents = findContents(input)
 							mergeResults(input = inputContents, output = soFar, transfer = label)
 						case _ => soFar
