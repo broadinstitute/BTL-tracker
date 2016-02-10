@@ -27,7 +27,7 @@ object Walkup {
 			getValues = (inp: MergeResult, headers) => {
 				// Get sample name
 				val sample = inp.bsp match {
-					case Some(bsp) => bsp.library.getOrElse("")
+					case Some(bsp) => bsp.collabSample.getOrElse("")
 					case None => ""
 				}
 				// If no sample name then skip it, otherwise set next line in spreadsheet with sample name and MIDs
