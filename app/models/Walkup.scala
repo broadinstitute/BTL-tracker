@@ -16,7 +16,7 @@ object Walkup {
 	 */
 	def makeWUS(samples: Set[MergeResult]) = {
 		// Spreadsheet headers
-		val sampleName = "sampleName"
+		val sampleName = "SampleName"
 		val bc1 = "IndexBarcode1"
 		val bc2 = "IndexBarcode2"
 		val headerLocs = Array(sampleName, bc1, bc2)
@@ -27,7 +27,16 @@ object Walkup {
 			getValues = (inp: MergeResult, headers) => {
 				// Get sample name
 				val sample = inp.bsp match {
-					case Some(bsp) => bsp.collabSample.getOrElse("")
+					case Some(bsp) =>
+						// Get collaborator name, allowing just alphanumeric and "_" and "-" characters
+						// Then append antibody name if there is one and original rack position
+						val sName = bsp.collabSample.getOrElse("").replaceAll("[^-_a-zA-Z0-9]","")
+						val abName =
+							inp.antibody.headOption match {
+								case Some(ab) => s"_$ab"
+								case _ => ""
+							}
+						sName + abName + s"_${bsp.pos}"
 					case None => ""
 				}
 				// If no sample name then skip it, otherwise set next line in spreadsheet with sample name and MIDs

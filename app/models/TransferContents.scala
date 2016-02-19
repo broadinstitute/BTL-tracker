@@ -28,14 +28,15 @@ object TransferContents {
 	 * @param individual bsp collaborator participant
 	 * @param library bsp collaborator library ID
 	 * @param antibody antibody requested for sample
+	 * @param pos position in rack for tube
 	 */
 	case class MergeBsp(project: String, projectDescription: Option[String], sampleTube: String,
 		gssrSample: Option[String], collabSample: Option[String], individual: Option[String],
-		library: Option[String], antibody: Option[String]) {
+		library: Option[String], antibody: Option[String], pos: String) {
 		// Override equals and hash to make it simpler
 		override def equals(arg: Any) = {
 			arg match {
-				case MergeBsp(p, _, s, _, _, _, _, _) => p == project && s == sampleTube
+				case MergeBsp(p, _, s, _, _, _, _, _, _) => p == project && s == sampleTube
 				case _ => false
 			}
 		}
@@ -112,14 +113,16 @@ object TransferContents {
 								// Get results of bsp matching into a map of wells to sample info
 								val bspMatches = matches.flatMap {
 									case ((well, (matchFound, Some(tube)))) =>
-										List(well -> MergeResult(
-											Some(MergeBsp(project = ssfIssue.issue, projectDescription = ssfIssue.summary,
+										Some(well -> MergeResult(
+											bsp = Some(MergeBsp(
+												project = ssfIssue.issue, projectDescription = ssfIssue.summary,
 												sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
 												collabSample = tube.collaboratorSample,
 												individual = tube.collaboratorParticipant, library = tube.sampleID,
-												antibody = tube.antiBody)),
-											Set.empty, Set.empty))
-									case _ => List.empty
+												antibody = tube.antiBody, pos = tube.pos
+											)),
+											mid = Set.empty, antibody = Set.empty))
+									case _ => None
 								}
 								// Return our sample map and that no errors found
 								(bspMatches, List.empty[String])
@@ -153,13 +156,13 @@ object TransferContents {
 													case Some(ic) if ContentType.isAntibody(ic) =>
 														tubeMap.get(tube.id) match {
 															case Some(pos) =>
-																List(pos -> MergeResult(bsp = None, mid = Set.empty,
+																Some(pos -> MergeResult(bsp = None, mid = Set.empty,
 																	antibody = Set(ic.toString)))
-															case None => List.empty
+															case _ => None
 														}
-													case _ => List.empty
+													case _ => None
 												}
-											case _ => List.empty
+											case _ => None
 										}
 										(ics.toMap, List.empty[String])
 								}
