@@ -15,5 +15,5 @@ libraryDependencies ++= Seq(
 	"org.apache.poi" % "poi-ooxml" % "3.9",
 	"org.broadinstitute" %% "spreadsheets" % "1.0.6",
 	"org.broadinstitute" %% "sampleracks" % "1.11.1",
-	"org.broadinstitute" %% "mongo" % "1.13.1"
+	"org.broadinstitute" %% "mongo" % "1.15.0"
 )
