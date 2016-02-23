@@ -336,16 +336,20 @@ object TransferHistory extends Controller with MongoController {
 					case Some(d) if d.trim.length > 0 => " " + d.trim
 					case _ => ""
 				}
-				val label = component match {
-					// If there's initial content include it in identifier
+				// Get initial contents and project
+				val ic = component match {
 					case c: Container if c.initialContent.isDefined =>
-						intro + s" (${c.initialContent.get.toString})"
-					// Otherwise, if no initial contents but a project, include project
-					case _ if component.project.isDefined => intro + s" (${component.project.get.toString})"
-					// Otherwise just identify the node by its id
-					case _ => intro
+						Some(c.initialContent.get.toString)
+					case _ => None
 				}
-				s"$id$label"
+				val ip = (ic, component.project) match {
+					case (Some(i), Some(p)) => s" ($p $i)"
+					case (Some(i), None) => s" ($i)"
+					case (None, Some(p)) => s" ($p)"
+					case _ => ""
+				}
+				// Put it all together for the resultant string
+				s"$id$intro$ip"
 			}
 
 

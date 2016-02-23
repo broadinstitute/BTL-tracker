@@ -10,7 +10,7 @@
 	@componentIntro(title, cForm)
 	@* Form with plate values - parameter to form method is "reverse-route" of action used to handle form submission *@
 	@form(formRoute, List('style -> "display:inline;") ++ formAttr: _*) {
-		@component(cForm, Some(id), componentType, hiddenFields, validContents, divisions)
+		@component(cForm, Some(id), componentType, hiddenFields, validContents, divisions, true)
 		@extraFields
 		@updateButtons()
 	}

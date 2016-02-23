@@ -11,7 +11,7 @@
 	@form(formRoute, 'style -> "display:inline;") {
 		@textarea(cForm(Component.formKey + "." + Component.idKey),
 			'_label -> "IDs", 'readonly -> "readonly", '_showConstraints -> "false")
-		@componentCommon(cForm, componentType, None, validContents, divisions)
+		@componentCommon(cForm, componentType, None, validContents, divisions, false)
 		@extraFields
 		@createButtons()
 	}

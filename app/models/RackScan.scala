@@ -3,20 +3,28 @@ package models
 import models.db.{ TrackerCollection, DBOpers }
 import models.initialContents.InitialContents
 import reactivemongo.bson.{ BSONDocumentWriter, BSONDocumentReader, Macros, BSONDocument }
-import org.broadinstitute.LIMStales.sampleRacks.{ RackScan => SampleRackScan, RackTube => SampleRackTube, BarcodedContentList, BarcodedContent }
+import org.broadinstitute.LIMStales.sampleRacks.{
+	RackScan => SampleRackScan,
+	RackTube => SampleRackTube,
+	BarcodedContentList,
+	BarcodedContent
+}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
+ * Persist the results of a rack scan consisting of the 2D barcodes and positions of tubes in a rack.
  * Created by nnovod on 1/5/16.
  */
 
 /**
  * Tube that's in a rack
  *
- * @param barcode tube barcode
+ * @param bc tube barcode
  * @param pos position of tube within rack
  */
-case class RackTube(barcode: String, pos: String) extends BarcodedContent
+case class RackTube(bc: String, pos: String) extends BarcodedContent {
+	val barcode = bc
+}
 
 /**
  * Companion object to define BSON converters
@@ -34,7 +42,7 @@ object RackTube {
 	 * @param rt LIMStales RackTube
 	 * @return our RackTube
 	 */
-	implicit def sampleRackTubeToRackTube(rt: SampleRackTube) = RackTube(rt.barcode, rt.pos)
+	implicit def sampleRackTubeToRackTube(rt: SampleRackTube): RackTube = RackTube(bc = rt.barcode, pos = rt.pos)
 }
 
 /**
@@ -69,6 +77,9 @@ object RackScan extends DBOpers[RackScan] {
 	val reader = implicitly[BSONDocumentReader[RackScan]]
 	val writer = implicitly[BSONDocumentWriter[RackScan]]
 
+	// Barcode key for rack in mongo
+	private val barcodeKey = "barcode"
+
 	/**
 	 * Implicit conversion from LIMStales RackScan to our RackScan.  They are pretty much the same but we need
 	 * to declare our own to make a companion object that can do BSON conversions
@@ -76,7 +87,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * @param rs LIMStales RackScan
 	 * @return our RackScan
 	 */
-	implicit def sampleRackScanToRackScan(rs: SampleRackScan) =
+	implicit def sampleRackScanToRackScan(rs: SampleRackScan): RackScan =
 		RackScan(rs.barcode, rs.contents.map((rt) => RackTube.sampleRackTubeToRackTube(rt)))
 
 	/**
@@ -85,7 +96,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * @param bc barcode of rack being looked for
 	 * @return list of racks found (should only be one or none)
 	 */
-	def findRack(bc: String) = read(BSONDocument("barcode" -> bc))
+	def findRack(bc: String) = read(BSONDocument(barcodeKey -> bc))
 
 	//@TODO - Eliminate this (do it all async) once it's decided exactly when the rack scan will be read
 	//Also copy over (without project) the rack scans in the Jira DB as well as setting initial contents on Racks
@@ -98,7 +109,7 @@ object RackScan extends DBOpers[RackScan] {
 			val res = Await.result(f, Duration(5000, MILLISECONDS))
 			(res, None)
 		} catch {
-			case e: Exception => (List.empty, Some(e.getLocalizedMessage()))
+			case e: Exception => (List.empty, Some(e.getLocalizedMessage))
 		}
 	}
 
@@ -108,7 +119,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * @param rack rack to be inserted
 	 * @return upsert status
 	 */
-	def insertOrReplace(rack: RackScan) = upsert(BSONDocument("barcode" -> rack.barcode), rack)
+	def insertOrReplace(rack: RackScan) = upsert(BSONDocument(barcodeKey -> rack.barcode), rack)
 
 	//@TODO Eliminate sync version of this
 	def getABTubesSync(ids: List[String]) = {
@@ -116,7 +127,7 @@ object RackScan extends DBOpers[RackScan] {
 		try {
 			Await.result(f, Duration(5000, MILLISECONDS))
 		} catch {
-			case e: Exception => (List.empty, Some(e.getLocalizedMessage()))
+			case e: Exception => (List.empty, Some(e.getLocalizedMessage))
 		}
 	}
 

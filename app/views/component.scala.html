@@ -6,16 +6,17 @@
 * @param hiddenFields optional hidden fields to set in form    *
 * @param validContents optional list of valid contents         *
 * @param divisions true if component can be divided into wells *
+* @param divRO true if division is read only                   *
 ***************************************************************@
 @(componentForm: Form[_ <: Component], id: Option[String], componentType: Component.ComponentType.ComponentType,
 	hiddenFields: Option[Component.HiddenFields],
 	validContents: Option[List[models.initialContents.InitialContents.ContentType.ContentType]],
-	divisions: Boolean)
+	divisions: Boolean, divRO: Boolean)
 @import helper._
 @import models.Component
 
 @* defining variables to be used within scope  - in this case a list of input text options for id *@
 @defining(if (id.isDefined) List('readonly -> "readonly", '_showConstraints -> false) else List()) { ro =>
     @inputText(componentForm(Component.formKey + "." + Component.idKey).copy(value = id), List('_label -> "ID") ++ ro: _*)
-	@componentCommon(componentForm, componentType, hiddenFields, validContents, divisions)
+	@componentCommon(componentForm, componentType, hiddenFields, validContents, divisions, divRO)
 }

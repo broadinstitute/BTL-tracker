@@ -3,11 +3,14 @@
 * @param componentForm form with item's fields                 *
 * @param componentType type of component (e.g., plate)         *
 * @param hiddenFields optional hidden fields to set in form    *
+* @param validContents valid initial contents                  *
+* @param divisions true if division to be displayed            *
+* @param ro true if division is readonly                       *
 ***************************************************************@
 @(componentForm: Form[_ <: Component], componentType: Component.ComponentType.ComponentType,
 	hiddenFields: Option[Component.HiddenFields] = None,
 	validContents: Option[List[models.initialContents.InitialContents.ContentType.ContentType]],
-	divisions: Boolean)
+	divisions: Boolean, ro: Boolean)
 @import helper._
 @import models.Component
 
@@ -27,6 +30,11 @@
 	@initialContents(validContents.get, componentForm)
 }
 @if(divisions) {
-	@select(field = componentForm(ContainerDivisions.divisionKey),
-		options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
+	@if(ro) {
+		@inputText(componentForm(ContainerDivisions.divisionKey),
+			'_label -> "Layout", 'readonly -> "readonly", '_showConstraints -> "false")
+	} else {
+		@select(field = componentForm(ContainerDivisions.divisionKey),
+			options = options(ContainerDivisions.divisionTypes), '_label -> "Layout")
+	}
 }

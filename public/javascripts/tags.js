@@ -29,7 +29,9 @@ function getTags(tagsTag, selectedValue, other, otherTagID) {
             // new tag if other option chosen to add a new tag).
             if (other) {
                 var selO = "";
-                if (selectedValue && selectedValue == ot) {
+                // If new tag is selected option or the tags list is empty except for the option to add a new tag then
+                // make new tag selected one and make associated text field visible
+                if ((selectedValue && selectedValue == ot) || ds.length == 0) {
                     selO = sel;
                     document.getElementById(otherTagID).type = 'text';
                 }
