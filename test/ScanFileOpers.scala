@@ -1,6 +1,7 @@
 import java.io.{PrintWriter, FileOutputStream, File}
 
 import models.project.JiraProject
+import models.spreadsheets.Utils
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.broadinstitute.spreadsheets.Utils._
 import org.broadinstitute.spreadsheets.{HeaderSheet, CellSheet}
@@ -78,7 +79,7 @@ object ScanFileOpers {
 			})
 		})
 		// Write out spreadsheet to temp file
-		val tBspFile = File.createTempFile("TRACKER_", ".xlsx")
+		val tBspFile = Utils.makeTempFile(".xlsx")
 		tBspFile.deleteOnExit()
 		val out = new FileOutputStream(tBspFile)
 		wb.write(out)
@@ -94,7 +95,7 @@ object ScanFileOpers {
 	  */
 	def makeRackScanFile(data: String) = {
 		// Make rack scan file
-		val tFile = File.createTempFile("TRACKER_", ".csv")
+		val tFile = Utils.makeTempFile(".csv")
 		tFile.deleteOnExit()
 		val outFile = new PrintWriter(tFile, "UTF-8")
 		outFile.write(data.toArray[Char])
