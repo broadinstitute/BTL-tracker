@@ -59,56 +59,57 @@ object RobotController extends Controller {
 				(data) => {
 					val robot = Robot(RobotType.HAMILTON)
 					robot.makeABPlate(abRack = data.abRack, abPlate = data.abPlate,
-						sampleContainer = data.sampleContainer).flatMap {
-						case (_, Some(err)) =>
-							Future.successful(badRequest(data = data, err = err, id = id))
-						case (Some(res), _) =>
-							// Get all errors together
-							val errs = res.trans.flatMap((r) => r._2.toList)
-							// If any errors then report them and leave
-							if (errs.nonEmpty && !data.continueOnError)
-								Future.successful(badRequest(data = data, err = errs.mkString("; "), id = id))
-							else {
-								// Get all the tube to plate transfers
-								val tubeToPlateTrans = res.trans.flatMap((r) => r._1.toList)
-								// Make transfer entries and put them in the DB
-								val trans =
-									Robot.makeABTransfers(plate = res.abPlate.id, tubeToPlateList = tubeToPlateTrans,
-										project = res.sampleContainer.project, div = res.abPlate.layout)
-								val transDBOpers = Future.sequence(trans.map(TransferCollection.insert))
-								// Next make spreadsheet to be uploaded (use Future to do it at same time as inserts)
-								val spreadSheet = Future { Robot.makeABSpreadSheet(tubeToPlateTrans) }
-								// Wait for all the futures to complete (DB inserts and spreadsheet creation)
-								(for {
-									transDone <- transDBOpers
-									sheetDone <- spreadSheet
-								} yield (transDone, sheetDone)).map {
-									case (transStat, (Some(file), _)) =>
-										// Upload the file using wanted filename
-										val tranErrs = transStat.filterNot(_.ok)
-											.map(_.errMsg.getOrElse("Unknown DB Error"))
-										if (tranErrs.nonEmpty) {
-											badRequest(data = data,
-												err = s"Errors inserting transfers for $id: ${tranErrs.mkString("; ")}",
-												id = id)
-										} else {
-											val outFile = new File(file)
-											val fileNameReturned = data.fileName.trim()
-											val fileName =
-												if (fileNameReturned.isEmpty) data.abPlate else fileNameReturned
-											Ok.sendFile(content = outFile, inline = false,
-												fileName = (_) => s"$fileName.csv", onClose = () => outFile.delete())
-										}
-									case (_, (_, sheetErrs)) =>
-										// Errors making sheet
-										badRequest(data = data, err = sheetErrs.mkString("; "), id = id)
+						sampleContainer = data.sampleContainer)
+						.flatMap {
+							case (_, Some(err)) =>
+								Future.successful(badRequest(data = data, err = err, id = id))
+							case (Some(res), _) =>
+								// Get all errors together
+								val errs = res.trans.flatMap((r) => r._2.toList)
+								// If any errors then report them and leave
+								if (errs.nonEmpty && !data.continueOnError)
+									Future.successful(badRequest(data = data, err = errs.mkString("; "), id = id))
+								else {
+									// Get all the tube to plate transfers
+									val tubeToPlateTrans = res.trans.flatMap((r) => r._1.toList)
+									// Make transfer entries and put them in the DB
+									val trans =
+										Robot.makeABTransfers(plate = res.abPlate.id, tubeToPlateList = tubeToPlateTrans,
+											project = res.sampleContainer.project, div = res.abPlate.layout)
+									val transDBOpers = Future.sequence(trans.map(TransferCollection.insert))
+									// Next make spreadsheet to be uploaded (use Future to do it at same time as inserts)
+									val spreadSheet = Future { Robot.makeABSpreadSheet(tubeToPlateTrans) }
+									// Wait for all the futures to complete (DB inserts and spreadsheet creation)
+									(for {
+										transDone <- transDBOpers
+										sheetDone <- spreadSheet
+									} yield (transDone, sheetDone)).map {
+										case (transStat, (Some(file), _)) =>
+											// Upload the file using wanted filename
+											val tranErrs = transStat.filterNot(_.ok)
+												.map(_.errMsg.getOrElse("Unknown DB Error"))
+											if (tranErrs.nonEmpty) {
+												badRequest(data = data,
+													err = s"Errors inserting transfers for $id: ${tranErrs.mkString("; ")}",
+													id = id)
+											} else {
+												val outFile = new File(file)
+												val fileNameReturned = data.fileName.trim()
+												val fileName =
+													if (fileNameReturned.isEmpty) data.abPlate else fileNameReturned
+												Ok.sendFile(content = outFile, inline = false,
+													fileName = (_) => s"$fileName.csv", onClose = () => outFile.delete())
+											}
+										case (_, (_, sheetErrs)) =>
+											// Errors making sheet
+											badRequest(data = data, err = sheetErrs.mkString("; "), id = id)
+									}
 								}
-							}
 
-						case _ =>
-							// Should never get here - would mean neither errors nor results
-							Future.successful(badRequest(data = data, err = "makeABPlate Internal Error", id = id))
-					}
+							case _ =>
+								// Should never get here - would mean neither errors nor results
+								Future.successful(badRequest(data = data, err = "makeABPlate Internal Error", id = id))
+						}
 				}.recover {
 					case err => badRequest(data = data, err = MessageHandler.exceptionMessage(err), id = id)
 				})
