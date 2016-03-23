@@ -8,6 +8,8 @@ import models.initialContents.InitialContents
 import models.TransferHistory.TransferEdge
 import InitialContents.ContentType
 
+import scala.concurrent.Future
+
 import scalax.collection.Graph
 import scalax.collection.edge.LkDiEdge
 
@@ -95,7 +97,7 @@ object TransferContents {
 	 * @param componentID ID for component we want to know the contents of
 	 * @return future returning contents of component
 	 */
-	def getContents(componentID: String) = {
+	def getContents(componentID: String) : Future[Option[TransferContents.MergeTotalContents]] = {
 		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		TransferHistory.makeSourceGraph(componentID).map(f = (graph) => {

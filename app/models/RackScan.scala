@@ -9,6 +9,7 @@ import org.broadinstitute.LIMStales.sampleRacks.{
 	BarcodedContentList,
 	BarcodedContent
 }
+import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
@@ -138,7 +139,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * @return (list of components found with ids, error message if there were problems)
 	 */
 	def getABTubes(ids: List[String]) =
-		TrackerCollection.findIds(ids).map((tubes) => {
+		TrackerCollection.findIds(ids).flatMap((tubes) => {
 			// Get objects from bson
 			val rackContents = ComponentFromJson.bsonToComponents(tubes)
 			// Get list of ids found
@@ -148,44 +149,60 @@ object RackScan extends DBOpers[RackScan] {
 			if (notFound.isEmpty) {
 				// Check that all the components found are tubes with antibodies
 				// Make list of (components that are not tubes, tubes that do not contain an antibody)
-				val tubeErrs = rackContents.flatMap {
+				// First we either get that info now (if tube has antibody initial contents or it's not a tube) or we
+				// go look for contents of tube for antibody that may have been transferred into it
+				// Get list of futures (note it's empty if everything is a tube with antibody initial contents)
+				val tubeErrFutures : List[Future[(Option[String], Option[String])]] = rackContents.flatMap {
 					case t: Tube =>
-						if (t.initialContent.isEmpty ||
-							!InitialContents.ContentType.isAntibody(t.initialContent.get))
-							List((None, Some(t.id)))
+						if (t.initialContent.nonEmpty && InitialContents.ContentType.isAntibody(t.initialContent.get))
+							None
 						else
-							List.empty
+							// It's a tube but doesn't have an antibody as initial contents - go (via future) find
+							// the contents of the tube from anything transferred into it
+							Some(TransferContents.getContents(t.id).map {
+								case Some(contents)
+									if contents.wells.nonEmpty && contents.wells.head._2.nonEmpty &&
+										contents.wells.head._2.head.antibody.nonEmpty =>
+									(None, None)
+								case _ => (None, Some(t.id))
+							})
 					case c =>
-						List((Some(c.id), None))
+						Some(Future.successful(Some(c.id), None))
 				}
+
+				// Wait for futures to complete and then look for errors
+				Future.sequence(tubeErrFutures).map((tubeErrs) =>
+				{
+					if (tubeErrs.isEmpty)
+						(rackContents, None)
+					else {
+						val notTubes = tubeErrs.flatMap {
+							case (Some(t), _) => List(t)
+							case _ => List.empty
+						}
+						val notABs = tubeErrs.flatMap {
+							case (_, Some(t)) => List(t)
+							case _ => List.empty
+						}
+						val notTubesErr =
+							if (notTubes.isEmpty)
+								""
+							else
+								"Scan entries not tubes: " + notTubes.mkString(", ")
+						val notABsErr =
+							if (notABs.isEmpty)
+								""
+							else
+								(if (notTubesErr.isEmpty) "" else "; ") +
+									"Scan entries do not contain an antibody: " +
+									notABs.mkString(", ")
+						(rackContents,
+							if (notTubesErr.isEmpty && notABsErr.isEmpty) None else Some(notTubesErr + notABsErr))
+					}
+				})
 				// If there are no errors return list we got without an error, otherwise make error string
-				if (tubeErrs.isEmpty)
-					(rackContents, None)
-				else {
-					val notTubes = tubeErrs.flatMap {
-						case (Some(t), _) => List(t)
-						case _ => List.empty
-					}
-					val notABs = tubeErrs.flatMap {
-						case (_, Some(t)) => List(t)
-						case _ => List.empty
-					}
-					val notTubesErr =
-						if (notTubes.isEmpty)
-							""
-						else
-							"Scan entries not tubes: " + notTubes.mkString(", ")
-					val notABsErr =
-						if (notABs.isEmpty)
-							""
-						else
-							(if (notTubesErr.isEmpty) "" else "; ") +
-								"Scan entries do not contain an antibody: " +
-								notABs.mkString(", ")
-					(rackContents, Some(notTubesErr + notABsErr))
-				}
 			} else {
-				(rackContents, Some("Tubes from scan not registered: " + notFound.mkString(", ")))
+				Future.successful((rackContents, Some("Tubes from scan not registered: " + notFound.mkString(", "))))
 			}
 		})
 
