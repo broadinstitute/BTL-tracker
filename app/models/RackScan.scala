@@ -1,7 +1,7 @@
 package models
 
+import models.TransferContents.MergeTotalContents
 import models.db.{ TrackerCollection, DBOpers }
-import models.initialContents.InitialContents
 import reactivemongo.bson.{ BSONDocumentWriter, BSONDocumentReader, Macros, BSONDocument }
 import org.broadinstitute.LIMStales.sampleRacks.{
 	RackScan => SampleRackScan,
@@ -89,7 +89,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * @return our RackScan
 	 */
 	implicit def sampleRackScanToRackScan(rs: SampleRackScan): RackScan =
-		RackScan(rs.barcode, rs.contents.map((rt) => RackTube.sampleRackTubeToRackTube(rt)))
+		RackScan(barcode = rs.barcode, contents = rs.contents.map((rt) => RackTube.sampleRackTubeToRackTube(rt)))
 
 	/**
 	 * Find a rack based on barcode
@@ -106,7 +106,7 @@ object RackScan extends DBOpers[RackScan] {
 	def findRackSync(bc: String) = {
 		val f = findRack(bc)
 		try {
-			val res = Await.result(f, Duration(5000, MILLISECONDS))
+			val res = Await.result(awaitable = f, atMost = Duration(5000, MILLISECONDS))
 			(res, None)
 		} catch {
 			case e: Exception => (List.empty, Some(e.getLocalizedMessage))
@@ -119,7 +119,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * @param rack rack to be inserted
 	 * @return upsert status
 	 */
-	def insertOrReplace(rack: RackScan) = upsert(BSONDocument(barcodeKey -> rack.barcode), rack)
+	def insertOrReplace(rack: RackScan) = upsert(selector = BSONDocument(barcodeKey -> rack.barcode), entry = rack)
 
 	//@TODO Eliminate sync version of this
 	def getABTubesSync(ids: List[String]) = {
@@ -133,11 +133,39 @@ object RackScan extends DBOpers[RackScan] {
 
 	/**
 	 * Get antibody tubes.
-	 *
 	 * @param ids list of ids for wanted antibody tubes
 	 * @return (list of components found with antibodies, error message if there were problems)
 	 */
-	def getABTubes(ids: List[String]) =
+	def getABTubes(ids: List[String]) = {
+		getTubes(ids = ids,
+			setContents = (tube, contents) => {
+				if (contents.errs.nonEmpty)
+					(tube -> Set.empty[String],
+						Some(f"Errors retrieving ${tube.id} contents: ${contents.errs.mkString(",")}"))
+				else if (contents.wells.isEmpty)
+					(tube -> Set.empty[String], None)
+				else if (contents.wells.size != 1)
+					(tube -> Set.empty[String], Some(f"${tube.id} not single well component"))
+				else if (contents.wells.head._2.isEmpty)
+					(tube -> Set.empty[String], None)
+				else if (contents.wells.head._2.flatMap(_.bsp).nonEmpty)
+					(tube -> Set.empty[String], Some(f"${tube.id} contains samples with antibodies"))
+				else if (contents.wells.head._2.flatMap(_.mid).nonEmpty)
+					(tube -> Set.empty[String], Some(f"${tube.id} contains MIDs with antibodies"))
+				else
+					(tube -> contents.wells.head._2.flatMap(_.antibody), None)
+			}
+		)
+	}
+
+	/**
+	 * Get contents of a set of tubes, presumably coming from a rack.
+	 * @param ids list of ids for wanted tubes
+	 * @param setContents callback to set contents for tube
+	 * @tparam T type of contents
+	 * @return (list of tubes found with returned contents, error message if there were problems)
+	 */
+	def getTubes[T](ids: List[String], setContents: (Tube, MergeTotalContents) => (T, Option[String])) =
 		TrackerCollection.findIds(ids).flatMap((tubes) => {
 			// Get objects from bson
 			val rackContents = ComponentFromJson.bsonToComponents(tubes)
@@ -153,57 +181,34 @@ object RackScan extends DBOpers[RackScan] {
 			// First we either get that info now (if tube has antibody initial contents or it's not a tube) or we
 			// go look for contents of tube for antibody that may have been transferred into it
 			// Get list of futures
-			val contentFutures : List[Future[((Component, Set[String]), Option[String], Option[String])]] =
+			val contentFutures : List[Future[(Option[T], Option[String])]] =
 				rackContents.map {
 					case t: Tube =>
 						// It's a tube - go (via future) find the contents of the tube
-							TransferContents.getContents(t.id).map {
-								case Some(contents)
-									if contents.wells.nonEmpty && contents.wells.head._2.nonEmpty &&
-										contents.wells.head._2.head.antibody.nonEmpty =>
-									// Found tube with antibody
-									(t -> contents.wells.head._2.head.antibody, None, None)
-								// No contents found
-								case _ => (t -> Set.empty[String], None, Some(t.id))
-							}
+						TransferContents.getContents(t.id).map {
+							case Some(contents) =>
+								val (res, err) = setContents(t, contents)
+								(Some(res), err)
+							case _ => (None, Some(f"Entry ${t.id} has no contents"))
+						}
 					case c =>
-						// Not a tube - just set contents as empty
-						Future.successful((c -> Set.empty[String], Some(c.id), None))
+						Future.successful((None, Some(f"Entry ${c.id} not a tube")))
 				}
 
 			// Wait for futures to complete and then look for errors
-			Future.sequence(contentFutures).map((contents) =>
-			{
+			Future.sequence(contentFutures).map((contents) => {
 				// Get what we found
-				val finalContents =
-					contents.map {
-						case (content, _, _) => content
-					}
-				// Get components that aren't tubes
-				val notTubes =
-					contents.flatMap {
-						case (_, notTube, _) => notTube
-					}
-				val notTubesErr =
-					if (notTubes.isEmpty)
-						None
-					else
-						Some("Scan entries not tubes: " + notTubes.mkString(", "))
-				// Get tubes that don't contain antibodies
-				val notABs =
-					contents.flatMap {
-						case (_, _, noABs) => noABs
-					}
-				val notABsErr =
-					if (notABs.isEmpty)
-						None
-					else
-						Some("Scan entries do not contain an antibody: " + notABs.mkString(", "))
-				// Now combine all the errors into one string
-				val errs = List(tubesNotFound, notTubesErr, notABsErr).flatMap((s) => s).mkString("; ")
+				val finalContents = contents.flatMap(_._1)
+				// Get all errrors recorded
+				val contentsErrs = contents.flatMap(_._2)
+				val errs = tubesNotFound match {
+					case Some(tnf) => tnf :: contentsErrs
+					case None => contentsErrs
+				}
 				// Return what we've got
 				(finalContents,
-					if (errs.isEmpty) None else Some(errs))
+					if (errs.isEmpty) None else Some(errs.mkString("\n")))
 			})
 		})
+
 }

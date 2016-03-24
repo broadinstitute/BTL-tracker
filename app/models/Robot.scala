@@ -15,6 +15,7 @@ import scala.concurrent.Future
 case class Robot(robotType: RobotType.RobotType) {
 	/**
 	 * Make transfers to create an antibody plate for a plate of samples.
+	 *
 	 * @param abRack rack containing antibody tubes
 	 * @param abPlate plate to be made with antibodies for samples
 	 * @param sampleContainer container with samples
@@ -152,20 +153,18 @@ object Robot {
 		 * placement of the antibodies in the plate is based on the original sample information from bsp that links
 		 * an antibody with each sample.
 		 *
-		 * @param abContainers antibody tubes found in rack
+		 * @param abContainers antibody tubes found in rack with associated antibodies
 		 * @param abTubes antibody tubes barcode/position from rack scan
 		 * @return (optional Transfer instructions, optional error message) - one or other should be set
 		 */
-		def makeInstructions(abContainers: List[Component], abTubes: List[RackTube]) = {
-			// Make sure we've only got antibody tubes in the container list
-			val abRackTubes = abContainers.flatMap {
-				case t: Tube if t.initialContent.isDefined &&
-					ContentType.isAntibody(t.initialContent.get) => List(t)
-				case _ => List.empty
-			}
+		def makeInstructions(abContainers: List[(Component, Set[String])], abTubes: List[RackTube]) = {
 			// Make maps to do efficient searches when looping through samples
 			val abRackTubesMap =
-				abRackTubes.map((t) => t.initialContent.get.toString -> t).toMap
+				abContainers.flatMap{
+					case (c, ab) if ab.nonEmpty =>
+						Some(ab.head -> c)
+					case _ => None
+				}.toMap
 			val abTubesMap = abTubes.map((t) => t.barcode -> t).toMap
 			contents.wells.toList.map {
 				case (well, sample) =>
@@ -185,7 +184,7 @@ object Robot {
 										// Find antibody tube in rack
 										abRackTubesMap.get(ab) match {
 											case (Some(abRackTube)) =>
-												val abType = abRackTube.initialContent.get
+												val abType = ContentType.withName(ab)
 												// Find antibody position in rack
 												abTubesMap.get(abRackTube.id) match {
 													case Some(abPos) =>
@@ -231,8 +230,17 @@ object Robot {
 						case (_, Some(err)) => List((None, Some(err)))
 						// We've got all the data - go make the instructions
 						case (containers, _) =>
-							val abContainers = containers.map(_._1)
-							makeInstructions(abContainers = abContainers, abTubes = abTubes)
+							// Make sure none of the tubes have multiple antibodies
+							val errList = containers.flatMap {
+								case (c, abs) if abs.size > 1 =>
+									Some(s"Multiple antibodies ${abs.mkString(",")} found in ${c.id}")
+								case _ => None
+							}
+							// If no multiples found then go make instructions, otherwise report error
+							if (errList.isEmpty)
+									makeInstructions(abContainers = containers, abTubes = abTubes)
+							else
+									List((None, Some(errList.mkString("; "))))
 					}
 			}
 		})
@@ -268,6 +276,9 @@ object Robot {
 		}.toList
 	}
 
+	// Regular expression for start of position with a zero
+	private val positionR = """([A-Za-z])0""".r
+
 	/**
 	 * Make a csv file with instructions for the robot to transfer antibodies from a rack of antibody tubes to
 	 * a plate.
@@ -283,12 +294,17 @@ object Robot {
 		val destLoc = "Destination Working Plate Well Location"
 		// Array of all headers, ordered by column #
 		val headers = Array(abType, vol, abLoc, destLoc)
+		def robotPosition(pos: String) = {
+			positionR.replaceAllIn(pos, "$1")
+		}
 		// Map of functions to retrieve values for a single tube to plate transfer
+		// Note positions must have leading "0"s stripped out (e.g., A01 must be set as A1).  Apparently the robots
+		// are picky about that.
 		val retrieveValue = Map[String, (ABTubeToPlate) => String](
 			vol -> (_.volume.toString),
 			abType -> (_.abType.toString),
-			abLoc -> (_.rackPos),
-			destLoc -> (_.platePos))
+			abLoc -> ((inp) => robotPosition(inp.rackPos)),
+			destLoc -> ((inp) => robotPosition(inp.platePos)))
 
 		// Go make csv file
 		spreadsheets.Utils.setCSVValues(headers = headers, input = trans,
