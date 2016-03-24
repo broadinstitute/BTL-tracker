@@ -153,15 +153,11 @@ object TransferContents {
 									case (tubes, _) =>
 										val tubeMap = abtubes.map((t) => t.barcode -> t.pos).toMap
 										val ics = tubes.flatMap {
-											case (tube: Tube) =>
-												tube.initialContent match {
-													case Some(ic) if ContentType.isAntibody(ic) =>
-														tubeMap.get(tube.id) match {
-															case Some(pos) =>
-																Some(pos -> MergeResult(bsp = None, mid = Set.empty,
-																	antibody = Set(ic.toString)))
-															case _ => None
-														}
+											case (tube, abs) if abs.nonEmpty =>
+												tubeMap.get(tube.id) match {
+													case Some(pos) =>
+														Some(pos ->
+															MergeResult(bsp = None, mid = Set.empty, antibody = abs))
 													case _ => None
 												}
 											case _ => None

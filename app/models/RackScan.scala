@@ -100,7 +100,6 @@ object RackScan extends DBOpers[RackScan] {
 	def findRack(bc: String) = read(BSONDocument(barcodeKey -> bc))
 
 	//@TODO - Eliminate this (do it all async) once it's decided exactly when the rack scan will be read
-	//Also copy over (without project) the rack scans in the Jira DB as well as setting initial contents on Racks
 
 	import scala.concurrent.Await
 	import scala.concurrent.duration._
@@ -136,7 +135,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * Get antibody tubes.
 	 *
 	 * @param ids list of ids for wanted antibody tubes
-	 * @return (list of components found with ids, error message if there were problems)
+	 * @return (list of components found with antibodies, error message if there were problems)
 	 */
 	def getABTubes(ids: List[String]) =
 		TrackerCollection.findIds(ids).flatMap((tubes) => {
@@ -146,64 +145,65 @@ object RackScan extends DBOpers[RackScan] {
 			val rackContentsIds = rackContents.map(_.id)
 			// See if there were any ids not found
 			val notFound = ids.diff(rackContentsIds)
-			if (notFound.isEmpty) {
-				// Check that all the components found are tubes with antibodies
-				// Make list of (components that are not tubes, tubes that do not contain an antibody)
-				// First we either get that info now (if tube has antibody initial contents or it's not a tube) or we
-				// go look for contents of tube for antibody that may have been transferred into it
-				// Get list of futures (note it's empty if everything is a tube with antibody initial contents)
-				val tubeErrFutures : List[Future[(Option[String], Option[String])]] = rackContents.flatMap {
+			// Make error message of unfound tubes
+			val tubesNotFound =
+				if (notFound.isEmpty) None else Some("Tubes from scan not registered: " + notFound.mkString(", "))
+			// Check that all the components found are tubes with antibodies
+			// Make list of (component and antibody, component that is not a tube, tubes without antibody)
+			// First we either get that info now (if tube has antibody initial contents or it's not a tube) or we
+			// go look for contents of tube for antibody that may have been transferred into it
+			// Get list of futures
+			val contentFutures : List[Future[((Component, Set[String]), Option[String], Option[String])]] =
+				rackContents.map {
 					case t: Tube =>
-						if (t.initialContent.nonEmpty && InitialContents.ContentType.isAntibody(t.initialContent.get))
-							None
-						else
-							// It's a tube but doesn't have an antibody as initial contents - go (via future) find
-							// the contents of the tube from anything transferred into it
-							Some(TransferContents.getContents(t.id).map {
+						// It's a tube - go (via future) find the contents of the tube
+							TransferContents.getContents(t.id).map {
 								case Some(contents)
 									if contents.wells.nonEmpty && contents.wells.head._2.nonEmpty &&
 										contents.wells.head._2.head.antibody.nonEmpty =>
-									(None, None)
-								case _ => (None, Some(t.id))
-							})
+									// Found tube with antibody
+									(t -> contents.wells.head._2.head.antibody, None, None)
+								// No contents found
+								case _ => (t -> Set.empty[String], None, Some(t.id))
+							}
 					case c =>
-						Some(Future.successful(Some(c.id), None))
+						// Not a tube - just set contents as empty
+						Future.successful((c -> Set.empty[String], Some(c.id), None))
 				}
 
-				// Wait for futures to complete and then look for errors
-				Future.sequence(tubeErrFutures).map((tubeErrs) =>
-				{
-					if (tubeErrs.isEmpty)
-						(rackContents, None)
-					else {
-						val notTubes = tubeErrs.flatMap {
-							case (Some(t), _) => List(t)
-							case _ => List.empty
-						}
-						val notABs = tubeErrs.flatMap {
-							case (_, Some(t)) => List(t)
-							case _ => List.empty
-						}
-						val notTubesErr =
-							if (notTubes.isEmpty)
-								""
-							else
-								"Scan entries not tubes: " + notTubes.mkString(", ")
-						val notABsErr =
-							if (notABs.isEmpty)
-								""
-							else
-								(if (notTubesErr.isEmpty) "" else "; ") +
-									"Scan entries do not contain an antibody: " +
-									notABs.mkString(", ")
-						(rackContents,
-							if (notTubesErr.isEmpty && notABsErr.isEmpty) None else Some(notTubesErr + notABsErr))
+			// Wait for futures to complete and then look for errors
+			Future.sequence(contentFutures).map((contents) =>
+			{
+				// Get what we found
+				val finalContents =
+					contents.map {
+						case (content, _, _) => content
 					}
-				})
-				// If there are no errors return list we got without an error, otherwise make error string
-			} else {
-				Future.successful((rackContents, Some("Tubes from scan not registered: " + notFound.mkString(", "))))
-			}
+				// Get components that aren't tubes
+				val notTubes =
+					contents.flatMap {
+						case (_, notTube, _) => notTube
+					}
+				val notTubesErr =
+					if (notTubes.isEmpty)
+						None
+					else
+						Some("Scan entries not tubes: " + notTubes.mkString(", "))
+				// Get tubes that don't contain antibodies
+				val notABs =
+					contents.flatMap {
+						case (_, _, noABs) => noABs
+					}
+				val notABsErr =
+					if (notABs.isEmpty)
+						None
+					else
+						Some("Scan entries do not contain an antibody: " + notABs.mkString(", "))
+				// Now combine all the errors into one string
+				val errs = List(tubesNotFound, notTubesErr, notABsErr).flatMap((s) => s).mkString("; ")
+				// Return what we've got
+				(finalContents,
+					if (errs.isEmpty) None else Some(errs))
+			})
 		})
-
 }

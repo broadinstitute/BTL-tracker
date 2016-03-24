@@ -230,7 +230,8 @@ object Robot {
 						// Error found - go report it
 						case (_, Some(err)) => List((None, Some(err)))
 						// We've got all the data - go make the instructions
-						case (abContainers, _) =>
+						case (containers, _) =>
+							val abContainers = containers.map(_._1)
 							makeInstructions(abContainers = abContainers, abTubes = abTubes)
 					}
 			}

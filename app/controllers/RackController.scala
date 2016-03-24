@@ -168,6 +168,13 @@ object RackController extends ComponentController[Rack] {
 							Future.successful(Map(Some(Rack.rackScanKey) ->
 								("Scan file is for the wrong rack: " + racks.list.head.barcode)))
 						else {
+							val rackEntry = rackList.head
+							val rackEntryWithoutNA =
+								rackEntry.copy(
+									// Take out any N/A barcodes
+									contents = rackEntry.contents.flatMap(
+										(c) => if (c.barcode != "N/A") Some(c) else None)
+								)
 							data.initialContent match {
 								// BSP tubes - make sure project is set and then enter scan results in DB
 								case Some(InitialContents.ContentType.BSPtubes) =>
@@ -175,17 +182,16 @@ object RackController extends ComponentController[Rack] {
 										Future.successful(Map(Some(Component.formKey + "." + Component.projectKey) ->
 											"Project must be set before recording scan file for BSP samples"))
 									else
-										insertRack(rackList.head)
+										insertRack(rackEntryWithoutNA)
 								// Antibody tubes - make sure all entries are ab tubes and then enter scan results in DB
 								case Some(InitialContents.ContentType.ABtubes) =>
-									val rackscan = racks.list.head
-									val ids = rackscan.contents.map((rackTube) => rackTube.barcode)
+									val ids = rackEntryWithoutNA.contents.map((rackTube) => rackTube.barcode)
 									RackScan.getABTubes(ids).flatMap{
 										case (rackContents, err) =>
 											if (err.isEmpty)
-												insertRack(rackscan)
+												insertRack(rackEntryWithoutNA)
 											else
-												Future.successful(Map(Some(Rack.rackScanKey) -> (err.get)))
+												Future.successful(Map(Some(Rack.rackScanKey) -> err.get))
 									}
 								case _ => Future.successful(Map(Some(Rack.rackScanKey) ->
 									"Initial content must be set before entering a scan file"))
