@@ -176,10 +176,8 @@ object RackScan extends DBOpers[RackScan] {
 			// Make error message of unfound tubes
 			val tubesNotFound =
 				if (notFound.isEmpty) None else Some("Tubes from scan not registered: " + notFound.mkString(", "))
-			// Check that all the components found are tubes with antibodies
-			// Make list of (component and antibody, component that is not a tube, tubes without antibody)
-			// First we either get that info now (if tube has antibody initial contents or it's not a tube) or we
-			// go look for contents of tube for antibody that may have been transferred into it
+			// Check that all the components found are tubes
+			// Make list of (contents, error)
 			// Get list of futures
 			val contentFutures : List[Future[(Option[T], Option[String])]] =
 				rackContents.map {
@@ -207,7 +205,7 @@ object RackScan extends DBOpers[RackScan] {
 				}
 				// Return what we've got
 				(finalContents,
-					if (errs.isEmpty) None else Some(errs.mkString("\n")))
+					if (errs.isEmpty) None else Some(errs.mkString("; ")))
 			})
 		})
 

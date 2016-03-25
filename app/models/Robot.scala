@@ -276,7 +276,7 @@ object Robot {
 		}.toList
 	}
 
-	// Regular expression for start of position with a zero
+	// Regular expression for start of well position with a zero (leaves letter part as first group member)
 	private val positionR = """([A-Za-z])0""".r
 
 	/**
@@ -294,9 +294,8 @@ object Robot {
 		val destLoc = "Destination Working Plate Well Location"
 		// Array of all headers, ordered by column #
 		val headers = Array(abType, vol, abLoc, destLoc)
-		def robotPosition(pos: String) = {
-			positionR.replaceAllIn(pos, "$1")
-		}
+		// Method to take a position and format it for robot (without leading zero)
+		def robotPosition(pos: String) = positionR.replaceAllIn(pos, "$1")
 		// Map of functions to retrieve values for a single tube to plate transfer
 		// Note positions must have leading "0"s stripped out (e.g., A01 must be set as A1).  Apparently the robots
 		// are picky about that.

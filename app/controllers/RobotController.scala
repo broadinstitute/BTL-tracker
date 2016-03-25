@@ -64,8 +64,8 @@ object RobotController extends Controller {
 							case (_, Some(err)) =>
 								Future.successful(badRequest(data = data, err = err, id = id))
 							case (Some(res), _) =>
-								// Get all errors together
-								val errs = res.trans.flatMap((r) => r._2.toList)
+								// Get all errors together and eliminate repeats
+								val errs = res.trans.flatMap((r) => r._2.toList).toSet
 								// If any errors then report them and leave
 								if (errs.nonEmpty && !data.continueOnError)
 									Future.successful(badRequest(data = data, err = errs.mkString("; "), id = id))
