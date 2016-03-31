@@ -1,6 +1,7 @@
 package controllers
 
 import models.Component.{HiddenFields,ComponentType}
+import models.db.TrackerCollection
 import models.initialContents.InitialContents
 import models.project.JiraProject
 import models._
@@ -138,7 +139,7 @@ object RackController extends ComponentController[Rack] {
 	}
 
 	//@TODO Better error correction
-	private def insertRack(rackScan: RackScan) =
+	private def insertScan(rackScan: RackScan) =
 		RackScan.insertOrReplace(rackScan).map((_) =>
 			Map.empty[Option[String], String])
 
@@ -158,9 +159,6 @@ object RackController extends ComponentController[Rack] {
 						val rackList = racks.list
 						if (rackList.isEmpty)
 							Future.successful(Map(Some(Rack.rackScanKey) -> "Scan file contents invalid"))
-						else if (data.initialContent.isEmpty)
-							Future.successful(Map(Some(Rack.rackScanKey) ->
-								"Initial content must be set before entering a scan file"))
 						else if (rackList.size != 1)
 							Future.successful(Map(Some(Rack.rackScanKey) ->
 								"Scan file for multiple racks.  It must be for a single rack"))
@@ -182,16 +180,40 @@ object RackController extends ComponentController[Rack] {
 										Future.successful(Map(Some(Component.formKey + "." + Component.projectKey) ->
 											"Project must be set before recording scan file for BSP samples"))
 									else
-										insertRack(rackEntryWithoutNA)
-								// Antibody tubes - make sure all entries are ab tubes and then enter scan results in DB
+										insertScan(rackEntryWithoutNA)
+								// Antibody tubes - make sure all entries are tubes and then enter scan results in DB
 								case Some(InitialContents.ContentType.ABtubes) =>
 									val ids = rackEntryWithoutNA.contents.map((rackTube) => rackTube.barcode)
-									RackScan.getABTubes(ids).flatMap{
-										case (rackContents, err) =>
-											if (err.isEmpty)
-												insertRack(rackEntryWithoutNA)
-											else
-												Future.successful(Map(Some(Rack.rackScanKey) -> err.get))
+									RackScan.findTubes(ids).flatMap {
+										case (tubes, notTubes, _) if notTubes.nonEmpty =>
+											Future.successful(Map(None ->
+												s"Entries not tubes: ${notTubes.map(_.id).mkString(",")}"))
+										// If some tubes not registered then register them now
+										case (tubes, _, notFound) if notFound.nonEmpty =>
+											// Make list of tubes not registered
+											val multiTube =
+												Tube(id = notFound.mkString(" "), description = None,
+													project = data.project, tags = List.empty,
+													locationID = None, initialContent = None)
+													.toComponentList
+											val tubeList = multiTube.makeList
+											// Try to register these tubes
+											TrackerCollection.insertComponents(tubeList).flatMap {
+												// If some registrations failed then report it
+												case (ok: List[String], nok: List[String]) if nok.nonEmpty =>
+													def plural(x: Int) = if (x == 1) "" else "s"
+													val summary =
+														s"${ok.size} component${plural(ok.size)} succcessfully inserted, " +
+														s"${nok.size} insertion${plural(nok.size)} failed" +
+														":\n" + nok.mkString(";\n")
+													Future.successful(Map(None ->
+														s"Attempt to register tubes failed: $summary"))
+												// We registered all the tubes - now go insert the scan
+												case _ => insertScan(rackEntryWithoutNA)
+											}
+										// All tubes found and they're tubes - just insert the scan
+										case (tubes, _, _) =>
+											insertScan(rackEntryWithoutNA)
 									}
 								case _ => Future.successful(Map(Some(Rack.rackScanKey) ->
 									"Initial content must be set before entering a scan file"))
@@ -204,7 +226,7 @@ object RackController extends ComponentController[Rack] {
 
 	/**
 	 * Process an updated rack scan file.
- 	 * @param d if it exists, multipart form data that contains temporary file that has been update
+	 * @param d if it exists, multipart form data that contains temporary file that has been update
 	 */
 	private def processRackScan(d: Option[MultipartFormData[Files.TemporaryFile]]) =
 		for {

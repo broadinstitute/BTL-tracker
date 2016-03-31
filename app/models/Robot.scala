@@ -138,16 +138,6 @@ object Robot {
 	private def makeHamiltonABPlate(contents: MergeTotalContents, abRack: Rack, abPlate: Plate,
 		sampleContainer: Component with ContainerDivisions) = {
 
-		def checkRackScan(id: String, rs: List[RackScan]) =
-			if (rs.isEmpty)
-				Some(s"Rack scan not found for $id")
-			else if (rs.head.contents.isEmpty)
-				Some(s"Rack scan empty for $id")
-			else if (rs.size != 1)
-				Some(s"Multiple rack scans found for $id")
-			else
-				None
-
 		/*
 		 * Make the robot instructions for transferring antibodies (from tubes in a rack) to wells in a plate.  The
 		 * placement of the antibodies in the plate is based on the original sample information from bsp that links
@@ -218,13 +208,12 @@ object Robot {
 		// Get scan of antibody rack
 		RackScan.findRack(abRack.id).flatMap((abTubesScan) => {
 			// Check out results of retrieving rack scans
-			checkRackScan(id = abRack.id, rs = abTubesScan) match {
-				case (Some(err)) =>
+			RackScan.checkRackScan(id = abRack.id, rs = abTubesScan) match {
+				case (_, Some(err)) =>
 					Future.successful(List((None, Some(err))))
-				case _ =>
+				case (Some(abTubes), _) =>
 					// Rack scans look good - now go get contents of ab tubes
-					val abTubes = abTubesScan.head.contents
-					val abTubeBarcodes = abTubes.map(_.barcode)
+					val abTubeBarcodes = abTubes.contents.map(_.barcode)
 					RackScan.getABTubes(abTubeBarcodes).map {
 						// Error found - go report it
 						case (_, Some(err)) => List((None, Some(err)))
@@ -238,10 +227,12 @@ object Robot {
 							}
 							// If no multiples found then go make instructions, otherwise report error
 							if (errList.isEmpty)
-									makeInstructions(abContainers = containers, abTubes = abTubes)
+									makeInstructions(abContainers = containers, abTubes = abTubes.contents)
 							else
 									List((None, Some(errList.mkString("; "))))
 					}
+				case (None, None) =>
+					Future.successful(List.empty)
 			}
 		})
 	}

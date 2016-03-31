@@ -19,7 +19,6 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
  * Tube that's in a rack
- *
  * @param bc tube barcode
  * @param pos position of tube within rack
  */
@@ -39,7 +38,6 @@ object RackTube {
 	/**
 	 * Implicit conversion from LIMStales RackTube to our RackTube.  They are pretty much the same but we need
 	 * to declare our own to make a companion object that can do BSON conversions
-	 *
 	 * @param rt LIMStales RackTube
 	 * @return our RackTube
 	 */
@@ -48,7 +46,6 @@ object RackTube {
 
 /**
  * Rack holding tubes
- *
  * @param barcode barcode of rack
  * @param contents list of tubes in rack
  */
@@ -84,7 +81,6 @@ object RackScan extends DBOpers[RackScan] {
 	/**
 	 * Implicit conversion from LIMStales RackScan to our RackScan.  They are pretty much the same but we need
 	 * to declare our own to make a companion object that can do BSON conversions
-	 *
 	 * @param rs LIMStales RackScan
 	 * @return our RackScan
 	 */
@@ -93,7 +89,6 @@ object RackScan extends DBOpers[RackScan] {
 
 	/**
 	 * Find a rack based on barcode
-	 *
 	 * @param bc barcode of rack being looked for
 	 * @return list of racks found (should only be one or none)
 	 */
@@ -114,8 +109,23 @@ object RackScan extends DBOpers[RackScan] {
 	}
 
 	/**
+	 * Check out scan found for an individual rack.  If all ok return contents.
+	 * @param id id for wanted rack
+	 * @param rs rack scan found for id
+	 * @return (contentsOfRack,error) - one of the other returned
+	 */
+	def checkRackScan(id: String, rs: List[RackScan]) =
+		if (rs.isEmpty)
+			(None, Some(s"Rack scan not found for $id"))
+		else if (rs.head.contents.isEmpty)
+			(None, Some(s"Rack scan empty for $id"))
+		else if (rs.size != 1)
+			(None, Some(s"Multiple rack scans found for $id"))
+		else
+			(Some(rs.head), None)
+
+	/**
 	 * Replace rack entry in DB if it's there, otherwise insert a new entry.
-	 *
 	 * @param rack rack to be inserted
 	 * @return upsert status
 	 */
@@ -137,26 +147,49 @@ object RackScan extends DBOpers[RackScan] {
 	 * @return (list of components found with antibodies, error message if there were problems)
 	 */
 	def getABTubes(ids: List[String]) = {
+		// Get tubes and check for lots of errors when setting contents
 		getTubes(ids = ids,
 			setContents = (tube, contents) => {
 				if (contents.errs.nonEmpty)
 					(tube -> Set.empty[String],
-						Some(f"Errors retrieving ${tube.id} contents: ${contents.errs.mkString(",")}"))
+						Some(s"Errors retrieving ${tube.id} contents: ${contents.errs.mkString(",")}"))
 				else if (contents.wells.isEmpty)
 					(tube -> Set.empty[String], None)
 				else if (contents.wells.size != 1)
-					(tube -> Set.empty[String], Some(f"${tube.id} not single well component"))
+					(tube -> Set.empty[String], Some(s"${tube.id} not single well component"))
 				else if (contents.wells.head._2.isEmpty)
 					(tube -> Set.empty[String], None)
 				else if (contents.wells.head._2.flatMap(_.bsp).nonEmpty)
-					(tube -> Set.empty[String], Some(f"${tube.id} contains samples with antibodies"))
+					(tube -> Set.empty[String], Some(s"${tube.id} contains samples with antibodies"))
 				else if (contents.wells.head._2.flatMap(_.mid).nonEmpty)
-					(tube -> Set.empty[String], Some(f"${tube.id} contains MIDs with antibodies"))
+					(tube -> Set.empty[String], Some(s"${tube.id} contains MIDs with antibodies"))
 				else
 					(tube -> contents.wells.head._2.flatMap(_.antibody), None)
 			}
 		)
 	}
+
+	/**
+	 * From a list of IDs, presumably from a rack, find which are registered and which are tubes.
+	 * @param ids list of ids for wanted tubes
+	 * @return (list of tubes found, list of non-tube components found, list of ids not found)
+	 */
+	def findTubes(ids: List[String]) =
+		TrackerCollection.findIds(ids).map((tubes) => {
+			// Get objects from bson
+			val rackContents = ComponentFromJson.bsonToComponents(tubes)
+			// Get list of ids found
+			val rackContentsIds = rackContents.map(_.id)
+			// See if there were any ids not found
+			val notFound = ids.diff(rackContentsIds)
+			// Separate tubes from non-tubes
+			val isOrNotATube = rackContents.groupBy {
+				case t : Tube => true
+				case nt => false
+			}
+			(isOrNotATube.getOrElse(true, List.empty).map(_.asInstanceOf[Tube]),
+				isOrNotATube.getOrElse(false, List.empty), notFound)
+		})
 
 	/**
 	 * Get contents of a set of tubes, presumably coming from a rack.
@@ -166,47 +199,59 @@ object RackScan extends DBOpers[RackScan] {
 	 * @return (list of tubes found with returned contents, error message if there were problems)
 	 */
 	def getTubes[T](ids: List[String], setContents: (Tube, MergeTotalContents) => (T, Option[String])) =
-		TrackerCollection.findIds(ids).flatMap((tubes) => {
-			// Get objects from bson
-			val rackContents = ComponentFromJson.bsonToComponents(tubes)
-			// Get list of ids found
-			val rackContentsIds = rackContents.map(_.id)
-			// See if there were any ids not found
-			val notFound = ids.diff(rackContentsIds)
-			// Make error message of unfound tubes
-			val tubesNotFound =
-				if (notFound.isEmpty) None else Some("Tubes from scan not registered: " + notFound.mkString(", "))
-			// Check that all the components found are tubes
-			// Make list of (contents, error)
-			// Get list of futures
-			val contentFutures : List[Future[(Option[T], Option[String])]] =
-				rackContents.map {
-					case t: Tube =>
-						// It's a tube - go (via future) find the contents of the tube
+		findTubes(ids).flatMap {
+			case (rackContents, notTubes, notFound) =>
+				// Get list of futures to get contents
+				val contentFutures : List[Future[(Option[T], Option[String])]] =
+					rackContents.map((t) =>
+						// Go (via future) find the contents of the tube
 						TransferContents.getContents(t.id).map {
 							case Some(contents) =>
 								val (res, err) = setContents(t, contents)
 								(Some(res), err)
-							case _ => (None, Some(f"Entry ${t.id} has no contents"))
+							case _ => (None, Some(s"Entry ${t.id} has no contents"))
 						}
-					case c =>
-						Future.successful((None, Some(f"Entry ${c.id} not a tube")))
-				}
+					)
+				// Wait for futures to complete and then look for errors
+				Future.sequence(contentFutures).map((contents) => {
+					// Get tube contents we found
+					val finalContents = contents.flatMap(_._1)
+					// Get all errrors recorded
+					val contentsErrs = contents.flatMap(_._2)
+					val notFoundErrs = s"Tubes from scan not registered: ${notFound.mkString(", ")}"
+					val notTubesErrs = s"Entries not tubes: ${notTubes.map(_.id).mkString(", ")}"
+					val errs =
+						if (notFound.isEmpty && notTubes.isEmpty)
+							contentsErrs
+						else if (notFound.nonEmpty && notTubes.nonEmpty)
+							notFoundErrs :: notTubesErrs :: contentsErrs
+						else if (notFound.nonEmpty)
+							notFoundErrs :: contentsErrs
+						else
+							notTubesErrs :: contentsErrs
+					// Return what we've got
+					(finalContents,
+						if (errs.isEmpty) None else Some(errs.mkString("; ")))
+				})
+		}
 
-			// Wait for futures to complete and then look for errors
-			Future.sequence(contentFutures).map((contents) => {
-				// Get what we found
-				val finalContents = contents.flatMap(_._1)
-				// Get all errrors recorded
-				val contentsErrs = contents.flatMap(_._2)
-				val errs = tubesNotFound match {
-					case Some(tnf) => tnf :: contentsErrs
-					case None => contentsErrs
-				}
-				// Return what we've got
-				(finalContents,
-					if (errs.isEmpty) None else Some(errs.mkString("; ")))
-			})
-		})
+	/**
+	 * Retrieve rack scans.  For each id either an error or valid scan of the rack's tubes is returned
+	 * @param racks rack ids for which to retrieve scans
+	 * @return (id -> (RackScan, error)
+	 */
+	def getRackContents(racks: List[String]) = {
+		val racksFound = racks.map(findRack)
+		Future.sequence(racksFound).map {
+			case scans =>
+				// Get ids iterator (what futures was based on as well)
+				val idIter = racks.toIterator
+				// Get map of results (id -> (Option(RackScan), Option(error))
+				scans.map((rs) => {
+					val id = idIter.next()
+					id -> checkRackScan(id, rs)
+				}).toMap
+		}
+	}
 
 }

@@ -3,6 +3,7 @@ package controllers
 import models.TransferContents.MergeResult
 import models._
 import models.db.{TrackerCollection, TransferCollection}
+import models.initialContents.InitialContents
 import play.api.data.Form
 import play.api.mvc.{Result, Action, Controller}
 import play.api.libs.json._
@@ -32,6 +33,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 object TransferController extends Controller {
 	/**
 	 * Initiate transfer - if additional info needed bring up form otherwise try to do transfer now
+	 *
 	 * @return action to go get transfer information
 	 */
 	def transfer(fromID: Option[String], toID: Option[String], project: Option[String]) = Action.async { request =>
@@ -46,6 +48,7 @@ object TransferController extends Controller {
 	/**
 	 * Do transfer based on parameters from url - this is used when the transfer components are already set but
 	 * there's additional information needed to complete the transfer.
+	 *
 	 * @param fromID component ID being transferred from
 	 * @param toID component ID being transferred to
 	 * @param project optional project associated with transfer
@@ -74,49 +77,117 @@ object TransferController extends Controller {
 	/**
 	 * Take data from transfer start form and check it out.  If one or both IDs are not found we return a form with the
 	 * errors set, otherwise we return the objects found.
+	 *
 	 * @param data data retrieved from transfer form
-	 * @tparam T type to return as transfer objects if they are found
 	 * @return objects found and form with errors - one and only one of these will be set to None
 	 */
-	private def getTransferInfo[T: Reads](data: TransferStart) = {
-		// Go retrieve both objects via futures
-		val toQuery = TrackerCollection.findID(data.to)
-		val fromQuery = TrackerCollection.findID(data.from)
-		for {
-			to <- toQuery
-			from <- fromQuery
-		} yield {
-			// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
-			def missingIDs(errs: List[String]) = {
-				val notFoundErrs: Map[Option[String], String] = errs.map(Some(_) -> "ID not found").toMap
-				MessageHandler.fillAndSetFailureMsgs(msgs = notFoundErrs, form = Transfer.startForm, data = data)
+	private def getTransferInfo(data: TransferStart) = {
+		// Method to return a filled in form with errors set
+		def formErr(errs: Map[Option[String], String]) =
+			MessageHandler.fillAndSetFailureMsgs(msgs = errs, form = Transfer.startForm, data = data)
+		// Method to set form with errors - errs is a list of form keys for ID(s) not found
+		def formFieldErrs(errs: List[String], err: String) = {
+			val fieldErrs: Map[Option[String], String] = errs.map(Some(_) -> err).toMap
+			formErr(fieldErrs)
+		}
+		// Method to set form with missing ID(s) - errs is a list of form keys for ID(s) not found
+		def missingIDs(errs: List[String]) = formFieldErrs(errs, "ID not found")
+
+		// Get ids to form keys
+		val idsToForm = Map(data.to -> Transfer.toKey, data.from -> Transfer.fromKey)
+		if (idsToForm.size != 2)
+			Future.successful(None, Some(formErr(Map(None -> "Can not transfer component to itself"))))
+		else {
+			// Check out rack contents - returns with one of ((fromComponent, toComponent), errorForm) set
+			def rackContents(from: Component, to: Component, racks: List[String]) = {
+				// Get contents of racks
+				RackScan.getRackContents(racks).map {
+					case scans =>
+						// Get errors for form
+						val errs: Map[Option[String], String] = scans.flatMap {
+							case (rackID, (_, err)) if err.isDefined =>
+								Some(Some(idsToForm(rackID)) -> err.get)
+							case (rackID, (scan, _)) => None
+						}
+						if (errs.isEmpty)
+							(Some(from, to), None)
+						else
+							(None, Some(formErr(errs)))
+				}
 			}
-			// Check out results from DB queries
-			(from, to) match {
-				case (Some(f), Some(t)) => (Some(f, t), None)
-				case (None, Some(_)) => (None, Some(missingIDs(List(Transfer.fromKey))))
-				case (Some(_), None) => (None, Some(missingIDs(List(Transfer.toKey))))
-				case _ => (None, Some(missingIDs(List(Transfer.fromKey, Transfer.toKey))))
-			}
+
+			val ids = idsToForm.keys
+			// Go retrieve both objects via futures
+			val queries = ids.map(TrackerCollection.findID[JsObject]).toList
+			Future.sequence(queries).flatMap((found) => {
+				// Get all components found
+				val components = found.flatMap {
+					case Some(c) => Some(ComponentFromJson.getComponent(c))
+					case None => None
+				}
+				// If none found report both missing
+				if (components.isEmpty)
+					Future.successful(None, Some(missingIDs(idsToForm.values.toList)))
+				else if (components.size == 1) {
+					// Only one found - get id
+					val idFound = components.head.id
+					// Find id not found
+					val keyNotFound = idsToForm.filterNot {
+						case (id, formKey) => id == idFound
+					}
+					// Report one missing
+					Future.successful(None, Some(missingIDs(keyNotFound.values.toList)))
+				} else {
+					// Both found - figure out which is which and then proceed to figure out if all is ok
+					val cI = components.toIterator
+					val (cHead, cOne) = (cI.next(), cI.next)
+					val (fromC, toC) =
+						if (idsToForm(cHead.id) == Transfer.fromKey)
+							(cHead, cOne)
+						else
+							(cOne, cHead)
+					// Check if transfer between types is ok
+					isTransferValid(fromC, toC) match {
+						case (_, _, Some(err)) => Future.successful(None, Some(formErr(Map(None -> err))))
+						case (from: Rack, to: Rack, _) =>
+							rackContents(from, to, List(from.id, to.id))
+						case (from: Rack, to, _) =>
+							rackContents(from, to, List(from.id))
+						case (from, to: Rack, _) =>
+							rackContents(from, to, List(to.id))
+						case (from, to, _) =>
+							Future.successful(Some(from, to), None)
+					}
+				}
+			})
 		}
 	}
 
 	/**
 	 * Is the transfer valid?  Check from component can be transferred to to component.
-	 * @param data transfer data
-	 * @param from json from find of from component
-	 * @param to json from find of to component
+	 *
+	 * @param from from component
+	 * @param to to component
 	 * @return if transfer valid then from and to object
 	 */
-	private def isTransferValid(data: TransferStart, from: JsObject, to: JsObject) = {
-		// Get to component
-		val toC = ComponentFromJson.getComponent(to)
+	private def isTransferValid(from: Component, to: Component) = {
+		/*
+		 * Check that rack can be transferred into
+		 */
+		def checkToTransfer(c: Component) = {
+			c match {
+				case r: Rack if r.initialContent.contains(InitialContents.ContentType.BSPtubes) =>
+					Some(f"Transfer not allowed to BSP rack")
+				case _ => None
+			}
+		}
+
 		// Get from component and see if transfer from it is valid
-		ComponentFromJson.getComponent(from) match {
-			case fromC: Component with Transferrable if fromC.validTransfers.contains(toC.component) =>
-				(fromC, toC, None)
-			case fromC => (fromC, toC, Some("Can't do transfer from a " + fromC.component.toString +
-				" to a " + toC.component.toString))
+		from match {
+			case fromC: Component with Transferrable if fromC.validTransfers.contains(to.component) =>
+				(fromC, to, checkToTransfer(to))
+			case fromC => (fromC, to, Some("Transfer not allowed from a " + fromC.component.toString +
+				" to a " + to.component.toString))
 		}
 	}
 
@@ -255,68 +326,61 @@ object TransferController extends Controller {
 		// Got data from form - get from and to data (as json) - flatMap is mapping future from retrieving DB
 		// data - flatMap continuation is either a future that completes immediately because transfer can not
 		// be done now or a future that will complete when the DB insertion is done
-		getTransferInfo[JsObject](data).flatMap {
-			// Found both objects - now check if we can transfer between them
-			case (Some((from, to)), None) =>
-				isTransferValid(data, from, to) match {
-					// Report attempt to transfer to itself
-					case (fromData, toData, None) if fromData.id == toData.id =>
-						now(transferStartErrorResult(data = data,
-							errs = Map(None -> "Can not transfer component to itself")))
-					// Report problem transferring between requested components
-					case (fromData, toData, Some(err)) =>
-						now(transferStartErrorResult(data = data, errs = Map(None -> err)))
-					// OK so far - now we need to check if it's ok to add this transfer to the graph leading in
-					case (fromData, toData, None) => checkGraph(data, fromData, toData).flatMap {
-						// Problem found
-						case Some(err) => now(transferStartErrorResult(data = data, errs = Map(None -> err)))
-						// All is well - now just check if transfer should be done now or we need additional
-						// information about what quadrants/slices to transfer from/to
-						case None =>
-							import ContainerDivisions.Division._
-							(fromData, toData) match {
-								// Transferring between divided containers
-								case (f: ContainerDivisions, t: ContainerDivisions) =>
-									(f.layout,t.layout) match {
-										// Check if slicing wanted
-										case (DIM8x12, DIM8x12) =>
-											now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = false))
-										// if doing slices between 384-well plates then need to pick quadrant
-										case (DIM16x24, DIM16x24) =>
-											now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = true))
-										// Go ask for quadrant/slice to set in larger destination plate
-										case (DIM8x12, DIM16x24) =>
-											now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = true))
-										// Go ask for quadrant/slice to get in larger source plate
-										case (DIM16x24, DIM8x12) =>
-											now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = false))
-									}
-								// Transferring from a divided container to an undivided component
-								case (f: ContainerDivisions, _) =>
-									f.layout match {
-										// See if slicing wanted
-										case DIM8x12 =>
-											now(toTubeTransferIncomplete(data = data, fromQuad = false))
-										// See if slicing or quadrant wanted
-										case DIM16x24 =>
-											now(toTubeTransferIncomplete(data = data, fromQuad = true))
-									}
-								// Transferring from an undivided container to a divided container
-								case (_, t: ContainerDivisions) =>
-									t.layout match {
-										case DIM8x12 =>
-											now(fromTubeTransferIncomplete(data = data, toQuad = false))
-										case DIM16x24 =>
-											now(fromTubeTransferIncomplete(data = data, toQuad = true))
-									}
-
-								// Source and destinaion aren't divided - go complete transfer of its contents
-								case _ =>
-									val tForm = data.toTransferForm
-									insertTransferWithoutCherries(tForm)
+		getTransferInfo(data).flatMap {
+			// Report attempt to transfer to itself
+			case (Some((fromData, toData)), None) if fromData.id == toData.id =>
+				now(transferStartErrorResult(data = data,
+					errs = Map(None -> "Can not transfer component to itself")))
+			// OK so far - now we need to check if it's ok to add this transfer to the graph leading in
+			case (Some((fromData, toData)), None) => checkGraph(data, fromData, toData).flatMap {
+				// Problem found
+				case Some(err) => now(transferStartErrorResult(data = data, errs = Map(None -> err)))
+				// All is well - now just check if transfer should be done now or we need additional
+				// information about what quadrants/slices to transfer from/to
+				case None =>
+					import ContainerDivisions.Division._
+					(fromData, toData) match {
+						// Transferring between divided containers
+						case (f: ContainerDivisions, t: ContainerDivisions) =>
+							(f.layout,t.layout) match {
+								// Check if slicing wanted
+								case (DIM8x12, DIM8x12) =>
+									now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = false))
+								// if doing slices between 384-well plates then need to pick quadrant
+								case (DIM16x24, DIM16x24) =>
+									now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = true))
+								// Go ask for quadrant/slice to set in larger destination plate
+								case (DIM8x12, DIM16x24) =>
+									now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = true))
+								// Go ask for quadrant/slice to get in larger source plate
+								case (DIM16x24, DIM8x12) =>
+									now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = false))
 							}
+						// Transferring from a divided container to an undivided component
+						case (f: ContainerDivisions, _) =>
+							f.layout match {
+								// See if slicing wanted
+								case DIM8x12 =>
+									now(toTubeTransferIncomplete(data = data, fromQuad = false))
+								// See if slicing or quadrant wanted
+								case DIM16x24 =>
+									now(toTubeTransferIncomplete(data = data, fromQuad = true))
+							}
+						// Transferring from an undivided container to a divided container
+						case (_, t: ContainerDivisions) =>
+							t.layout match {
+								case DIM8x12 =>
+									now(fromTubeTransferIncomplete(data = data, toQuad = false))
+								case DIM16x24 =>
+									now(fromTubeTransferIncomplete(data = data, toQuad = true))
+							}
+
+						// Source and destinaion aren't divided - go complete transfer of its contents
+						case _ =>
+							val tForm = data.toTransferForm
+							insertTransferWithoutCherries(tForm)
 					}
-				}
+			}
 			// Couldn't find one or both data - form returned contains errors - return it now
 			case (None, Some(form)) => now(transferStartFormErrorResult(form = form,
 				fromID = Some(data.from), toID = Some(data.to), project = data.project))
@@ -339,6 +403,7 @@ object TransferController extends Controller {
 	 */
 	private def checkGraph(data: TransferStart, from: Component, to: Component) = {
 		// Make graph of what leads into source of this transfer
+		// @TODO if from or to is a rack then need to break into tube transfers
 		TransferHistory.makeSourceGraph(data.from).map((graph) => {
 			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
 			val isCyclic = TransferHistory.isGraphAdditionCyclic(addition = data.to, graph = graph) match {
@@ -420,8 +485,13 @@ object TransferController extends Controller {
 	 * @return result to return with completion status
 	 */
 	private def insertTransfer(data: Transfer, onError: (Transfer, String) => Result) = {
-		TransferCollection.insert(data).map {
-			(lastError) => transferComplete(() => "Completed " + data.quadDesc)
+		data.insert.map {
+			case (trans, errs) =>
+				val errFound = errs match {
+					case Some(err) => s" with error: $err"
+					case None => ""
+				}
+				transferComplete(() => s"Completed $trans transfers for ${data.quadDesc}$errFound")
 		}.recover {
 			case err => onError(v1 = data, v2 = MessageHandler.exceptionMessage(err))
 		}
@@ -432,7 +502,7 @@ object TransferController extends Controller {
 	 * extra verification done in form so we try bind again, with a form without extra verification, to successfully
 	 * bind to pick up data in form to do better error reporting.  If user wants to do cherry picking we need to go
 	 * to one more form to allow cherry picking.
- 	 * @return action to do transfer
+	 * @return action to do transfer
 	 */
 	def transferFromForm = Action.async { request =>
 		Transfer.form.bindFromRequest()(request).fold(
@@ -610,7 +680,7 @@ object TransferController extends Controller {
 				// Get map of wells (map of input to output wells)
 				val wells = transSorted.foldLeft(Map.empty[String, List[String]]) {
 					case (outSoFar, next) if fromComponent.isDefined && toComponent.isDefined =>
-						TransferContents.getWellMapping(soFar = outSoFar, fromComponent = fromComponent.get,
+						TransferContents.getNextWellMapping(soFar = outSoFar, fromComponent = fromComponent.get,
 							toComponent = toComponent.get, fromQuad = next.fromQuad, toQuad = next.toQuad,
 							quadSlice = next.slice, cherries = next.cherries,
 							isTubeToMany = isFromTube, getSameMapping = true) {

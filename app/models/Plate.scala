@@ -35,11 +35,17 @@ case class Plate(override val id: String,override val description: Option[String
                  override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType],
                  override val layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
-	with ComponentCanBeList[Plate] {
+	with ComponentCanBeList[Plate] with SubComponents {
 	override val component = Plate.componentType
 	override val validLocations = Plate.validLocations
 	override val validTransfers = Plate.validTransfers
 	override val validContents = Plate.validContents
+
+	/**
+	 * No sub component fetcher for plates
+	 * @return method to retrieve subcomponents
+	 */
+	def getSubFetcher = None
 
 	import play.api.libs.concurrent.Execution.Implicits.defaultContext
 	/**

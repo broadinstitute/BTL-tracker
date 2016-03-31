@@ -10,7 +10,8 @@
 		rackInput(Component.formKey + "." + Component.idKey).value.getOrElse("0")), "BSP Report")
 	if (rackInput(Container.contentKey).value.getOrElse("XxX") == ContentType.ABtubes.toString)
 		Seq(bspRep, (routes.RobotController.antibodyPlate(id), "Create Antibody Plate"))
-	else Seq(bspRep)
+	else
+		Seq(bspRep)
 }
 @import helper._
 @import models.Rack

@@ -15,6 +15,8 @@ import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
 import Component._
 import play.api.mvc.{AnyContent, Request}
+import scala.concurrent.Future
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
  * Rack - it's a container (can have initial contents) and can have a location (e.g., a freezer) and
@@ -36,11 +38,34 @@ case class Rack(override val id: String,override val description: Option[String]
                 override val locationID: Option[String], override val initialContent: Option[ContentType.ContentType],
                 override val layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
-	with ComponentCanBeList[Rack] {
+	with ComponentCanBeList[Rack] with SubComponents {
 	override val component = Rack.componentType
 	override val validLocations = Rack.validLocations
 	override val validTransfers = Rack.validTransfers
 	override val validContents = Rack.validContents
+
+	/**
+	 * Get sub component fetcher for rack
+	 * @return method to retrieve subcomponents
+	 */
+	def getSubFetcher = Some(subFetcher)
+
+	/**
+	 * Get tubes for rack
+	 * @return (map rackPosition->tubeBarcode, error)
+	 */
+	def subFetcher() : Future[(Map[String, String], Option[String])] = {
+		RackScan.getRackContents(List(id)).map((found) => {
+			found.get(id) match {
+				case Some((Some(scan), err)) =>
+					(scan.contents.map((tube) => tube.pos -> tube.bc).toMap, err)
+				case Some((_, err)) =>
+					(Map.empty[String, String], err)
+				case _ =>
+					(Map.empty[String, String], None)
+			}
+		})
+	}
 
 	/**
 	 * Check if what's set in request is valid - specifically we check if the project set contains the rack.

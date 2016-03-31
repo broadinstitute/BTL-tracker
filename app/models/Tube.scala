@@ -27,11 +27,18 @@ import initialContents.InitialContents.ContentType
 case class Tube(override val id: String,override val description: Option[String],override val project: Option[String],
                 override val tags: List[ComponentTag],
                 override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType])
-	extends Component with Location with Container with Transferrable with ComponentCanBeList[Tube] {
+	extends Component with Location with Container with Transferrable with ComponentCanBeList[Tube] with SubComponents {
 	override val component = Tube.componentType
 	override val validLocations = Tube.validLocations
 	override val validTransfers = Tube.validTransfers
 	override val validContents = Tube.validContents
+
+	/**
+	 * No sub component fetcher for tubes
+	 * @return method to retrieve subcomponents
+	 */
+	def getSubFetcher = None
+
 
 	/**
 	 * Make a new component that includes the ability to make a list of individual components from the ID list.

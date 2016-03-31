@@ -2,9 +2,15 @@ package models
 
 import formats.CustomFormats._
 import mappings.CustomMappings._
+import models.ContainerDivisions.Division
+import models.ContainerDivisions.Division._
+import models.db.{TransferCollection, TrackerCollection}
+import models.initialContents.InitialContents.ContentType
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
+import scala.concurrent.Future
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 /**
  * Transfers are between components
@@ -45,6 +51,204 @@ case class Transfer(from: String, to: String,
 		val (fromSlice, toSlice) = if (isTubeToMany) (None, slice) else (slice, None)
 		"transfer from " + qDesc(from, fromQuad, fromSlice) + " to " + qDesc(to, toQuad, toSlice)
 	}
+
+
+	def insert = {
+		TrackerCollection.findIds(List(from, to)).flatMap((components) => {
+			def isSubEligible(c: Component) =
+				c match {
+					case ct: Container
+						if ct.initialContent.isDefined && ct.initialContent.get == ContentType.BSPtubes => false
+					case _ => true
+				}
+
+			def getSubFetcher(c: Component) =
+				c match {
+					case sc: SubComponents => sc.getSubFetcher
+					case _ => None
+				}
+
+			def doInsert(t: Transfer) = {
+				TransferCollection.insert(t).map {
+					(lastError) => (1, None)
+				}.recover {
+					case err => (0, Some(err.getLocalizedMessage))
+				}
+			}
+
+			// Get objects from bson
+			val contents = ComponentFromJson.bsonToComponents(components)
+			val findFromC = contents.find(_.id == from)
+			val findToC = contents.find(_.id == to)
+			(findFromC, findToC) match {
+				case (Some(fromC), Some(toC)) =>
+					if (isSubEligible(fromC) && isSubEligible(toC)) {
+						val wellMapping = getWellMapping(soFar = Map.empty[String, List[String]],
+							fromComponent = fromC, toComponent = toC, getSameMapping = true)(
+							makeOut = (_, _, found) => found)
+						(getSubFetcher(fromC), getSubFetcher(toC)) match {
+							// From and to a rack must become many tube to tube transfers
+							case (Some(fromSC), Some(toSC)) =>
+								val scList = List(fromSC(), toSC())
+								Future.sequence(scList).flatMap {
+									case fromWells :: toWells :: _ =>
+										val errs = List(fromWells._2, toWells._2).flatMap((s) => s)
+										if (errs.nonEmpty)
+											Future.successful(0, Some(errs.mkString("; ")))
+										else {
+											val fromWellsMap = fromWells._1
+											val toWellsMap = toWells._1
+											val inserts = wellMapping.flatMap {
+												case (sourceWell, destWells) =>
+													fromWellsMap.get(sourceWell) match {
+														case Some(fromSubC) =>
+															destWells.flatMap((dest) => {
+																toWellsMap.get(dest) match {
+																	case Some(toSubC) =>
+																		Some(doInsert(
+																			Transfer(from = fromSubC, to = toSubC,
+																				fromQuad = None, toQuad = None,
+																				project = this.project, slice = None,
+																				cherries = None, isTubeToMany = false)))
+																	case None => None
+																}
+															})
+														case None => List.empty
+													}
+											}
+											Future.sequence(inserts.toList).map((done) => {
+												val totalInserts = done.foldLeft(0)(_ + _._1)
+												val errs = done.flatMap(_._2)
+												(totalInserts, if (errs.isEmpty) None else Some(errs.mkString("; ")))
+											})
+										}
+								}
+							// From a rack - if to an undivided component then lots of tube-to-tube transfers,
+							// otherwise lots of tube-to-many wells on a plate transfers using isTubeToMany
+							case (Some(fromSC), None) =>
+								fromSC().map {
+									case ((_, Some(err))) =>
+										(0, Some(s"Error finding subcomponents of $from"))
+									case ((wells, _)) =>
+										(0, None)
+								}
+							// To a rack - if not from a tube then we can't do it since we don't support transferring
+							// individual wells from a plate to a tube - from a tube become many tube-to-tube transfers
+							case (None, Some(toSC)) =>
+								if (isTubeToMany)
+									toSC().map {
+										case ((_, Some(err))) =>
+											(0, Some(s"Error finding subcomponents of $to"))
+										case ((toWells, _)) =>
+											val fromWells = Map(TransferContents.oneWell -> from)
+											(0, None)
+									}
+								else
+									Future.successful((0, Some(s"Error: expected $from to be a tube")))
+							case _ => doInsert(this)
+						}
+					}
+					else
+						doInsert(this)
+
+				case (Some(_), None) => Future.successful(0, Some(s"Component $to not found"))
+				case (None, Some(_)) => Future.successful(0, Some(s"Component $from not found"))
+				case _ => Future.successful(0, Some(s"Components $from and $to not found"))
+			}
+		})
+
+	}
+
+	/**
+	 * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
+	 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice, other than
+	 * cherry picking, is a subset of a quadrant (for components that have quadrants) or an entire component
+	 * (for non-quadrant components, such as 96-well components, in which case the entire component can be
+	 * thought of as a single quadrant).
+	 * This method, taking in account the quadrants/slices wanted determines where the selected input wells
+	 * will wind up in the output component.
+	 * If the input or output is not a divided component (e.g., a tube) and the other side of the transfer is
+	 * divided then the "wells" for the non-divided component will simply match up with the divided component's wells.
+	 * For example a transfer from wells A01 and D12 from a plate to a tube will be set as A01->A01, D12->D12.
+	 * Similarly, a transfer from a tube to wells A01 and D12 on a plate will get the results A01->A01, D12->D12
+	 * (this should only happen if isTubeToMany is set).
+	 * @param soFar initial object with results so far to add to to return results of merging in new wells
+	 * @param fromComponent component being transferred from
+	 * @param toComponent component being transferred to
+	 * @param makeOut callback to return result - called with (soFar, component, input->output wells picked)
+	 * @param getSameMapping return mapping of wells if transfer of entire components with same division
+	 * @tparam T type of parameter tracking results
+	 * @return result of makeOut callback or original input (soFar) if complete component move and getSameMapping false
+	 */
+	def getWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component, getSameMapping: Boolean)
+						 (makeOut: (T, Division.Division, Map[String, List[String]]) => T) = {
+		/*
+		 * Get a components layout if it is divided
+		 * @param c component
+		 * @return layout of component if one is found
+		 */
+		def getLayout(c: Component) =
+			c match {
+				case cd: ContainerDivisions => Some(cd.layout)
+				case _ => None
+			}
+
+		// Get destination component to look at divisions, unless we're coming from a tube to a divided compoment
+		val divComponent = if (isTubeToMany) toComponent else fromComponent
+		val trans =
+			(fromQuad, toQuad, slice, cherries) match {
+				// From a quadrant to an entire component - should be 384-well component to non-quadrant component
+				case (Some(fromQ), None, None, _) => Some(DIM16x24, TransferWells.qFrom384(fromQ))
+				// To a quadrant from an entire component - should be non-quadrant component to 384-well component
+				case (None, Some(toQ), None, _) => Some(DIM8x12, TransferWells.qTo384(toQ))
+				// Slice of quadrant to an entire component - should be 384-well component to 96-well component
+				case (Some(fromQ), None, Some(qSlice), cher) =>
+					Some(DIM16x24, TransferWells.slice384to96wells(quad = fromQ, slice = qSlice, cherries = cher))
+				// Quadrant to quadrant - must be 384-well component to 384-well component
+				case (Some(fromQ), Some(toQ), None, _) =>
+					Some(DIM16x24, TransferWells.q384to384map(fromQ, toQ))
+				// Quadrant to quadrant with slice - must be 384-well component to 384-well component
+				case (Some(fromQ), Some(toQ), Some(qSlice), cher) =>
+					Some(DIM16x24, TransferWells.slice384to384wells(fromQ = fromQ, toQ = toQ,
+						slice = qSlice, cherries = cher))
+				// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
+				case (None, Some(toQ), Some(qSlice), cher) =>
+					Some(DIM8x12, TransferWells.slice96to384wells(quad = toQ, slice = qSlice, cherries = cher))
+				// Either a 96-well component (non-quadrant transfer)
+				// or a straight cherry picked 384-well component (no quadrants involved)
+				// or a tube to a divided component
+				case (None, None, Some(qSlice), cher) =>
+					getLayout(divComponent) match {
+						case Some(DIM8x12) =>
+							Some(DIM8x12, TransferWells.slice96to96wells(slice = qSlice, cherries = cher))
+						case Some(DIM16x24) =>
+							Some(DIM16x24, TransferWells.slice384to384wells(slice = qSlice, cherries = cher))
+						case _ => None
+					}
+				// Transfer to entire divided component either from a tube or between same size components
+				case (None, None, None, _) if isTubeToMany || getSameMapping =>
+					getLayout(divComponent) match {
+						case Some(DIM8x12) => Some(DIM8x12, TransferWells.entire96to96wells)
+						case Some(DIM16x24) => Some(DIM16x24, TransferWells.entire384to384wells)
+						case _ => None
+					}
+				case _ =>
+					None
+			}
+		// Callback if anything found to get new results
+		trans match {
+			case Some(tr) =>
+				// Make into list of wells transferred to - single well unless from tube
+				val wells =
+					if (isTubeToMany)
+						Map(TransferContents.oneWell -> tr._2.values.toList)
+					else
+						tr._2.map { case (k, v) => k -> List(v) }
+				makeOut(soFar, tr._1, wells)
+			case None => soFar
+		}
+	}
+
 }
 
 /**
