@@ -90,7 +90,7 @@ class EZPassSpec extends TestSpec with TestConfig {
 				// Start up all the transfer inserts
 				val tFutures = transfers.map(insertTransfer)
 				// Wait for the result of a fold of the inserts
-				Await.result(Future.fold(tFutures)(List.empty[LastError])((soFar, next) => soFar :+ next), d3secs)
+				Await.result(Future.fold(tFutures)(List.empty[Option[String]])((soFar, next) => soFar :+ next), d3secs)
 				// Setup to make EZPass and check it out
 				val trackEZPass = TrackEZPass(midsBySequence, rackScanByWell, bspByTubeBarcode, numWells, wellSet)
 				// Go make the EZPass and check out the results

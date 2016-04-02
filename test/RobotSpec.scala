@@ -129,7 +129,7 @@ class RobotSpec extends TestSpec with TestConfig {
 			// Make sure inserts of transfers go ok
 			val transDone = Await.result(Future.sequence(madeTrans.map(insertTransfer)), d3secs)
 			transDone.size mustBe madeTrans.size
-			transDone.foreach(_.ok mustBe true)
+			transDone.foreach(_ mustBe None)
 		}
 	}
 }

@@ -60,8 +60,9 @@ object TransferCollection extends Controller with MongoController {
 	private def doRemove(bson: BSONDocument, whatDeleted: () => String) = {
 		transferCollectionBSON.remove(bson).map {
 			(lastError) => {
-				Logger.debug(s"Successfully deleted transfers ${whatDeleted()} with status: $lastError")
-				None
+				Logger.debug(s"Completed deleting transfers ${whatDeleted()} with status: $lastError")
+				if (lastError.ok) None
+				else throw new Exception(s"DB error deleting transfers ${whatDeleted()}: ${lastError.errMsg.getOrElse("unknown")}")
 			}
 		}.recover {
 			case err => Some(err)
@@ -139,11 +140,17 @@ object TransferCollection extends Controller with MongoController {
 	 * @return result to return with completion status
 	 */
 	def insert(data: Transfer) = {
-		transferCollection.insert(data).map {
+		transferCollection.insert(data).map(
 			(lastError) => {
-				Logger.debug(s"Successfully recorded ${data.quadDesc} with status: $lastError")
-				lastError
+				Logger.debug(s"Completed insert of ${data.quadDesc} with status: $lastError")
+				if (lastError.ok) None
+				else {
+					val err = lastError.errMsg.getOrElse("Unknown database error")
+					Some(s"Error during insert of ${data.quadDesc}: $err")
+				}
 			}
+		).recover {
+			case err => Some(s"Exception during insert of ${data.quadDesc}: ${err.getLocalizedMessage}")
 		}
 	}
 

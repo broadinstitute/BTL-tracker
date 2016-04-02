@@ -227,9 +227,8 @@ object ComponentController extends Controller {
 			tr <- transferRemove
 		} yield {
 			(cr, tr) match {
-				case (Some(err), None) => error(err)
-				case (Some(err), Some(_)) => error(err)
-				case (None, Some(err)) => error(err)
+				case (Some(err), _) => error(err)
+				case (_, Some(err)) => error(err)
 				case _ => deleted()
 			}
 		}

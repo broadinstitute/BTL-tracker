@@ -58,18 +58,13 @@ case class Transfer(from: String, to: String,
 	 * @param t transfer to insert
 	 * @return optional error
 	 */
-	private def doInsert(t: Transfer) = {
-		TransferCollection.insert(t).map {
-			case lastError if lastError.ok => None
-			case lastError =>
-				val err = lastError.errMsg.getOrElse("Unknown database error")
-				Some(s"Error during insert of ${t.quadDesc}: $err")
-		}.recover {
-			case err => Some(s"Exception during insert of ${t.quadDesc}: ${err.getLocalizedMessage}")
-		}
-	}
+	private def doInsert(t: Transfer) = TransferCollection.insert(t)
 
-	type DoInsert = (Transfer) => Future[Option[String]]
+	/**
+	 * Type for inserting a transfer into the DB - if there's an error a string is returned
+	 */
+	private type DoInsert = (Transfer) => Future[Option[String]]
+
 	/**
 	 * Insert the transfer into the DB.  This is often not a simple single insert into the DB because of
 	 * "subcomponents".  Some components (in reality just non-BSP racks) are really just holders for subcomponents
@@ -103,8 +98,14 @@ case class Transfer(from: String, to: String,
 				case _ => None
 			}
 
-		// From and to components with subcomponents
-		// Must become many subcomponent to subcomponent transfers
+		/*
+		 * From and to components contain subcomponents.  Must become many subcomponent to subcomponent transfers.
+		 * @param wellMapping mapping of transfers: each entry is a source well to one or more destination wells
+		 * @param fromSC function to get subcomponents of transfer source
+		 * @param toSC function to get subcomponents of transfer target
+		 * @param doInsert callback to do individual DB inserts
+		 * @return results of DB inserts
+		 */
 		def subToSub(wellMapping: Map[String, List[String]],
 					 fromSC: SubComponents#SubFetcher, toSC: SubComponents#SubFetcher,
 					 doInsert: DoInsert) = {
@@ -157,9 +158,16 @@ case class Transfer(from: String, to: String,
 			}
 		}
 
-		// From a component with subcomponents to one without subcomponents
-		// If an undivided destination component then subcomponent to undividedComponent transfers,
-		// otherwise subcomponent to many divided component well transfers using isTubeToMany
+		/*
+		 * From a component with subcomponents to one without subcomponents.
+		 * If an undivided destination component then subcomponent to undividedComponent transfers,
+		 * otherwise subcomponent to many divided component well transfers using isTubeToMany.
+		 * @param wellMapping mapping of transfers: each entry is a source well to one or more destination wells
+		 * @param fromSC function to get subcomponents of transfer source
+		 * @param toC transfer target component
+		 * @param doInsert callback to do individual DB inserts
+		 * @return results of DB inserts
+		 */
 		def fromSub(wellMapping: Map[String, List[String]], fromSC: SubComponents#SubFetcher, toC: Component,
 					doInsert: DoInsert) = {
 			fromSC().map {
@@ -203,12 +211,17 @@ case class Transfer(from: String, to: String,
 			}
 		}
 
-		// To a component with subcomponents from one without subcomponents
-		// If not from an undivided component then we can't do it since we don't support transferring
-		// individual wells from a divided component to an undivided one (the subcomponents)
-		// If from an undivided component then becomes many undivided to subcomponent transfers
-		def toSub(wellMapping: Map[String, List[String]], toSC: SubComponents#SubFetcher, toC: Component,
-				  doInsert: DoInsert) = {
+		/*
+		 * To a component with subcomponents from one without subcomponents
+		 * If not from an undivided component then we can't do it since we don't support transferring
+		 * individual wells from a divided component to an undivided one (the subcomponents)
+		 * If from an undivided component then becomes many undivided to subcomponent transfers
+		 * @param wellMapping mapping of transfers: each entry is a source well to one or more destination wells
+		 * @param toSC function to get subcomponents of transfer target
+		 * @param doInsert callback to do individual DB inserts
+		 * @return results of DB inserts
+		 */
+		def toSub(wellMapping: Map[String, List[String]], toSC: SubComponents#SubFetcher, doInsert: DoInsert) = {
 			if (isTubeToMany)
 				toSC().map {
 					case ((_, Some(err))) =>
@@ -236,8 +249,20 @@ case class Transfer(from: String, to: String,
 
 		}
 
+		/*
+		 * Simple insert when neither source nor target have subcomponents.
+		 * @param doInsert callback to DB insert
+		 * @return DB insert result
+		 */
 		def noSubs(doInsert: DoInsert) = Future.successful(List(doInsert(this)))
 
+		/*
+		 * Get function to do inserts.  Function returned is dependent on whether the source and/or target of the
+		 * transfer has subcomponents.
+		 * @param fromC transfer source component
+		 * @param toC transfer target component
+		 * @return function to do DB inserts needed to complete transfer
+		 */
 		def getInserter(fromC: Component, toC: Component) = {
 			// If either component can't deal with subcomponents (e.g., a BSP rack) then don't try
 			if (isSubEligible(fromC) && isSubEligible(toC)) {
@@ -256,7 +281,7 @@ case class Transfer(from: String, to: String,
 						fromSub(wellMapping, fromSC, toC, _: DoInsert)
 					// To a component with subcomponents from one without subcomponents
 					case (None, Some(toSC)) =>
-						toSub(wellMapping, toSC, toC, _: DoInsert)
+						toSub(wellMapping, toSC, _: DoInsert)
 					// Neither component has subcomponents - do simple transfer
 					case _ => noSubs _
 				}
@@ -282,6 +307,7 @@ case class Transfer(from: String, to: String,
 			})
 		}
 
+		// First get transfer source and target components
 		TrackerCollection.findIds(List(from, to)).flatMap((components) => {
 			// Get objects from bson
 			val contents = ComponentFromJson.bsonToComponents(components)
@@ -289,13 +315,14 @@ case class Transfer(from: String, to: String,
 			val findToC = contents.find(_.id == to)
 			// Check out that we were able to retrieve both items
 			(findFromC, findToC) match {
+				// Got them both
 				case (Some(fromC), Some(toC)) =>
 					// Get proper method to do insertions
 					val ins = getInserter(fromC, toC)
 					// Go start up insertions
 					ins(execInsert)
 						// and then complete them
-						.flatMap((inserts) => completeInserts(inserts))
+						.flatMap(completeInserts)
 				// Cases where one or more of the components can't be found
 				case (Some(_), None) => Future.successful(0, Some(s"Component $to not found"))
 				case (None, Some(_)) => Future.successful(0, Some(s"Component $from not found"))

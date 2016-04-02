@@ -53,8 +53,9 @@ object TrackerCollection extends Controller with MongoController {
 	def remove(id: String) = {
 		trackerCollectionBSON.remove(trackerBson(id)).map {
 			(lastError) => {
-				Logger.debug(s"Successfully deleted component $id with status: $lastError")
-				None
+				Logger.debug(s"Completed delete of component $id with status: $lastError")
+				if (lastError.ok) None
+				else throw new Exception(s"DB error: ${lastError.errMsg.getOrElse("unknown")}")
 			}
 		}.recover {
 			case err => Some(err)
@@ -107,7 +108,7 @@ object TrackerCollection extends Controller with MongoController {
 	 * @return future with return type
 	 */
 	def insertComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) =
-		doComponentDBOperation(trackerCollection.insert(_: C), "registered", data, onSuccess, onFailure)
+		doComponentDBOperation(trackerCollection.insert(_: C), "registration", data, onSuccess, onFailure)
 
 	/**
 	 * Insert components, via reactive mongo, into the tracker DB
@@ -119,7 +120,7 @@ object TrackerCollection extends Controller with MongoController {
 		val okPrefix = "OK:"
 		val notOkPrefix = "NOK:"
 		val inserts = for (d <- data) yield {
-			doComponentDBOperation(trackerCollection.insert(_: C), "registered", d,
+			doComponentDBOperation(trackerCollection.insert(_: C), "registration", d,
 				(s: String) => s"$okPrefix$s", (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}")
 		}
 		Future.fold(inserts)((List.empty[String], List.empty[String])){
@@ -141,7 +142,7 @@ object TrackerCollection extends Controller with MongoController {
 	 */
 	def updateComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) = {
 		val selector = Json.obj(Component.idKey -> data.id, Component.typeKey -> data.component.toString)
-		doComponentDBOperation(trackerCollection.update(selector, _: C), "updated", data, onSuccess, onFailure)
+		doComponentDBOperation(trackerCollection.update(selector, _: C), "update", data, onSuccess, onFailure)
 	}
 
 	/**
@@ -161,9 +162,12 @@ object TrackerCollection extends Controller with MongoController {
 		oper(data).map {
 			// All went well - log that and call back with success
 			lastError =>
-				val success = s"Successfully $operLabel component ${data.id}"
+				val success = s"Completed $operLabel of component ${data.id}"
 				Logger.debug(s"$success with status: $lastError")
-				onSuccess(success)
+				if (lastError.ok)
+					onSuccess(success)
+				else
+					throw new Exception(s"DB error: ${lastError.errMsg.getOrElse("unknown")}")
 		}.recover {
 			// Problems - callback to report error
 			case err => onFailure(err)
