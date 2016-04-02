@@ -253,17 +253,10 @@ object Robot {
 		// Map tubes into transfers
 		tubesMap.map {
 			case (tube, wells) =>
-				// Get wells as indicies
-				val wellIdxs =
-					wells.map((t) => {
-						div match {
-							case ContainerDivisions.Division.DIM8x12 => TransferWells.make96IdxFromWellStr(t.platePos)
-							case ContainerDivisions.Division.DIM16x24 => TransferWells.make384IdxFromWellStr(t.platePos)
-						}
-					})
+				// Get destination wells
+				val wellPos = wells.map(_.platePos)
 				// Create transfer from tube to wells in plate
-				Transfer(from = tube, to = plate, fromQuad = None, toQuad = None, project = project,
-					slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = true)
+				Transfer.fromTubeTransfer(tube = tube, plate = plate, wells = wellPos, div = div, proj = project)
 		}.toList
 	}
 

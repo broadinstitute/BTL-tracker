@@ -375,7 +375,7 @@ object TransferController extends Controller {
 									now(fromTubeTransferIncomplete(data = data, toQuad = true))
 							}
 
-						// Source and destinaion aren't divided - go complete transfer of its contents
+						// Source and destination aren't divided - go complete transfer of its contents
 						case _ =>
 							val tForm = data.toTransferForm
 							insertTransferWithoutCherries(tForm)
@@ -485,7 +485,7 @@ object TransferController extends Controller {
 	 * @return result to return with completion status
 	 */
 	private def insertTransfer(data: Transfer, onError: (Transfer, String) => Result) = {
-		data.insert.map {
+		data.insert().map {
 			case (trans, errs) =>
 				val errFound = errs match {
 					case Some(err) => s" with error: $err"

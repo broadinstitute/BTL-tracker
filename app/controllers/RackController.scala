@@ -192,7 +192,8 @@ object RackController extends ComponentController[Rack] {
 										case (tubes, _, notFound) if notFound.nonEmpty =>
 											// Make list of tubes not registered
 											val multiTube =
-												Tube(id = notFound.mkString(" "), description = None,
+												Tube(id = notFound.mkString(" "),
+													description = Some(s"Tube registered from scan of rack $id"),
 													project = data.project, tags = List.empty,
 													locationID = None, initialContent = None)
 													.toComponentList
