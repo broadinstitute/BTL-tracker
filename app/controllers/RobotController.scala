@@ -76,7 +76,7 @@ object RobotController extends Controller {
 									val trans =
 										Robot.makeABTransfers(plate = res.abPlate.id, tubeToPlateList = tubeToPlateTrans,
 											project = res.sampleContainer.project, div = res.abPlate.layout)
-									val transDBOpers = Future.sequence(trans.map(TransferCollection.insert))
+									val transDBOpers = Future.sequence(trans.map(_.insert()))
 									// Next make spreadsheet to be uploaded (use Future to do it at same time as inserts)
 									val spreadSheet = Future { Robot.makeABSpreadSheet(tubeToPlateTrans) }
 									// Wait for all the futures to complete (DB inserts and spreadsheet creation)
@@ -85,14 +85,14 @@ object RobotController extends Controller {
 										sheetDone <- spreadSheet
 									} yield (transDone, sheetDone)).map {
 										case (transStat, (Some(file), _)) =>
-											// Upload the file using wanted filename
-											val tranErrs = transStat.filterNot(_.ok)
-												.map(_.errMsg.getOrElse("Unknown DB Error"))
+											// Check if any errors inserting transfers
+											val tranErrs = transStat.flatMap(_._2)
 											if (tranErrs.nonEmpty) {
 												badRequest(data = data,
 													err = s"Errors inserting transfers for $id: ${tranErrs.mkString("; ")}",
 													id = id)
 											} else {
+												// Upload the file using wanted filename
 												val outFile = new File(file)
 												val fileNameReturned = data.fileName.trim()
 												val fileName =

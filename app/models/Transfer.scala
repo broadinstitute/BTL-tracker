@@ -53,16 +53,19 @@ case class Transfer(from: String, to: String,
 	}
 
 
-	/*
+	/**
 	 * Do simple insert of transfer object
 	 * @param t transfer to insert
 	 * @return optional error
 	 */
 	private def doInsert(t: Transfer) = {
 		TransferCollection.insert(t).map {
-			(lastError) => None
+			case lastError if lastError.ok => None
+			case lastError =>
+				val err = lastError.errMsg.getOrElse("Unknown database error")
+				Some(s"Error during insert of ${t.quadDesc}: $err")
 		}.recover {
-			case err => Some(err.getLocalizedMessage)
+			case err => Some(s"Exception during insert of ${t.quadDesc}: ${err.getLocalizedMessage}")
 		}
 	}
 
@@ -71,7 +74,8 @@ case class Transfer(from: String, to: String,
 	 * Insert the transfer into the DB.  This is often not a simple single insert into the DB because of
 	 * "subcomponents".  Some components (in reality just non-BSP racks) are really just holders for subcomponents
 	 * (e.g., tubes in racks).  Transfers involving subcomponents must be broken down into multiple transfers to/from
-	 * the subcomponents.  That's what we do here
+	 * the subcomponents.  That's what we do here.
+	 * @param execInsert callback to do insert of individual transfer
 	 * @return (number of inserts done, error)
 	 */
 	def insert(execInsert: DoInsert = doInsert) = {
