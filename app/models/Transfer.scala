@@ -5,7 +5,6 @@ import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division._
 import models.db.{TransferCollection, TrackerCollection}
-import models.initialContents.InitialContents.ContentType
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -74,19 +73,6 @@ case class Transfer(from: String, to: String,
 	 * @return (number of inserts done, error)
 	 */
 	def insert(execInsert: DoInsert = doInsert) = {
-		/*
-		 * See if we can access subcomponents - for anything but a BSP rack we should be able to access them
-		 * if they're there.
-		 * @param c component to check
-		 * @return true if we can access subcomponents
-		 */
-		def isSubEligible(c: Component) =
-			c match {
-				case ct: Container
-					if ct.initialContent.isDefined && ct.initialContent.get == ContentType.BSPtubes => false
-				case _ => true
-			}
-
 		/*
 		 * Get method to get fetch subcomponents
 		 * @param c component to get subcomponents for
@@ -245,7 +231,9 @@ case class Transfer(from: String, to: String,
 						}
 				}
 			else
-				Future.successful(List(Future.successful(Some(s"Error: expected $from to be a tube"))))
+			// @TODO could do this as group of cheery picks of a single well to tubes
+				Future.successful(List(Future.successful(
+					Some(s"Can not transfer from a plate or BSP rack ($from) to a rack ($to)"))))
 
 		}
 
@@ -264,31 +252,25 @@ case class Transfer(from: String, to: String,
 		 * @return function to do DB inserts needed to complete transfer
 		 */
 		def getInserter(fromC: Component, toC: Component) = {
-			// If either component can't deal with subcomponents (e.g., a BSP rack) then don't try
-			if (isSubEligible(fromC) && isSubEligible(toC)) {
-				// Get well mapping of transfer between components
-				// Each source well goes to one or more destination wells
-				val wellMapping = getWellMapping(soFar = Map.empty[String, List[String]],
-					fromComponent = fromC, toComponent = toC, getSameMapping = true)(
-					makeOut = (_, _, found) => found)
-				// Check out if source and/or target have subcomponents that can be fetched
-				(getSubFetcher(fromC), getSubFetcher(toC)) match {
-					// From and to components with subcomponents
-					case (Some(fromSC), Some(toSC)) =>
-						subToSub(wellMapping, fromSC, toSC, _: DoInsert)
-					// From a component with subcomponents to one without subcomponents
-					case (Some(fromSC), None) =>
-						fromSub(wellMapping, fromSC, toC, _: DoInsert)
-					// To a component with subcomponents from one without subcomponents
-					case (None, Some(toSC)) =>
-						toSub(wellMapping, toSC, _: DoInsert)
-					// Neither component has subcomponents - do simple transfer
-					case _ => noSubs _
-				}
+			// Get well mapping of transfer between components
+			// Each source well goes to one or more destination wells
+			val wellMapping = getWellMapping(soFar = Map.empty[String, List[String]],
+				fromComponent = fromC, toComponent = toC, getSameMapping = true)(
+				makeOut = (_, _, found) => found)
+			// Check out if source and/or target have subcomponents that can be fetched
+			(getSubFetcher(fromC), getSubFetcher(toC)) match {
+				// From and to components with subcomponents
+				case (Some(fromSC), Some(toSC)) =>
+					subToSub(wellMapping, fromSC, toSC, _: DoInsert)
+				// From a component with subcomponents to one without subcomponents
+				case (Some(fromSC), None) =>
+					fromSub(wellMapping, fromSC, toC, _: DoInsert)
+				// To a component with subcomponents from one without subcomponents
+				case (None, Some(toSC)) =>
+					toSub(wellMapping, toSC, _: DoInsert)
+				// Neither component has subcomponents - do simple transfer
+				case _ => noSubs _
 			}
-			// If we can't deal with subcomponents (e.g., BSP tubes) then do a simple transfer
-			else
-				noSubs _
 		}
 
 		/*

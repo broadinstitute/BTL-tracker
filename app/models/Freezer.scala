@@ -25,14 +25,8 @@ import play.api.data.format.Formats._
 case class Freezer(override val id: String,override val description: Option[String],
 				   override val project: Option[String], override val tags: List[ComponentTag],
 				   address: String,temperature: Float)
-	extends Component with ComponentCanBeList[Freezer] with SubComponents {
+	extends Component with ComponentCanBeList[Freezer] {
 	override val component = Freezer.componentType
-
-	/**
-	 * No sub component fetcher for freezers
-	 * @return method to retrieve subcomponents
-	 */
-	def getSubFetcher = None
 
 	/**
 	 * Make a new component that includes the ability to make a list of individual components from the ID list.

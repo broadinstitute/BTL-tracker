@@ -48,7 +48,11 @@ case class Rack(override val id: String,override val description: Option[String]
 	 * Get sub component fetcher for rack
 	 * @return method to retrieve subcomponents
 	 */
-	def getSubFetcher = Some(subFetcher)
+	def getSubFetcher =
+		if (initialContent.isDefined && initialContent.get == ContentType.BSPtubes)
+			None
+		else
+			Some(subFetcher)
 
 	/**
 	 * Get tubes for rack

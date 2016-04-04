@@ -491,7 +491,8 @@ object TransferController extends Controller {
 					case Some(err) => s" with error: $err"
 					case None => ""
 				}
-				transferComplete(() => s"Completed $trans transfers for ${data.quadDesc}$errFound")
+				transferComplete(() =>
+					s"Completed $trans transfer${if (trans == 1) "" else "s"} for ${data.quadDesc}$errFound")
 		}.recover {
 			case err => onError(v1 = data, v2 = MessageHandler.exceptionMessage(err))
 		}
