@@ -177,19 +177,6 @@ object TransferHistory extends Controller with MongoController {
 							cherries: Option[List[Int]], isTubeToMany: Boolean, time: Long)
 
 	/**
-	  * Would the addition of this transfer lead to a cyclic graph?  Get what leads into the "from" part of the transfer
-	  * and see if it contains the "to" part of the transfer.
-	  *
-	  * @param data transfer to be added
-	  * @return future true if graph would become cyclic with addition of the transfer
-	  */
-	def isAdditionCyclic(data: Transfer) = {
-		TransferHistory.makeSourceGraph(data.from).map {
-			(graph) => isGraphAdditionCyclic(addition = data.to, graph = graph)
-		}
-	}
-
-	/**
 	  * Will adding this node to the graph make it cyclic?
 	  *
 	  * @param addition id of node to be added

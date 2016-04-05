@@ -1,6 +1,7 @@
 package models.project
 
-import models.{ComponentList, Component}
+import models.initialContents.InitialContents
+import models.{Rack, ComponentList, Component}
 import models.Component._
 import org.broadinstitute.LIMStales.sampleRacks._
 import JiraDBs._
@@ -58,34 +59,34 @@ trait JiraProject {
 	 * @return map of errors (form field -> error); empty map if project is associated with component
 	 */
 	private def checkProject(id: String, project: String) : Future[Option[(Option[String], String)]] = {
-		import play.api.libs.concurrent.Execution.Implicits.defaultContext
-		Future {
-			// Component description (type id)
-			val componentID = component.toString + " " + id
-			// Key to project in form
-			val projectFormKey = formKey + "." + projectKey
-			// Go get contents for issue
-			val (entries, err) = component match {
-				case ComponentType.Rack => JiraProject.getBspIssueCollection(id)
-				case ComponentType.Plate => JiraProject.getPlateIssueCollection(id)
-				case _ => (List.empty[SSFIssueList[_]], None)
-			}
-			if (entries.isEmpty) {
-				// Nothing returned - set global error (if DB error) or project specific error if no projects found
-				if (err.isDefined) {
-					Some(None -> ("Error looking for " + component.toString + " in projects database: " + err.get))
-				} else {
-					Some(Some(projectFormKey) -> ("No projects found for " + componentID))
+		this match {
+			case r : Rack if r.initialContent.isDefined && r.initialContent.get == InitialContents.ContentType.BSPtubes =>
+				import play.api.libs.concurrent.Execution.Implicits.defaultContext
+				Future {
+					// Component description (type id)
+					val componentID = component.toString + " " + id
+					// Key to project in form
+					val projectFormKey = formKey + "." + projectKey
+					// Go get contents for issue
+					val (entries, err) = JiraProject.getBspIssueCollection(id)
+					if (entries.isEmpty) {
+						// Nothing returned - set global error (if DB error) or project specific error if no projects found
+						if (err.isDefined) {
+							Some(None -> ("Error looking for " + component.toString + " in projects database: " + err.get))
+						} else {
+							Some(Some(projectFormKey) -> ("No projects found for " + componentID))
+						}
+					} else {
+						// Entry returned - if it's for our project then we're happy - otherwise return error
+						if (entries.exists(_.issue == project))
+							None
+						else
+							Some(Some(projectFormKey) -> (componentID + " is not included in specified project.  " +
+								component.toString + " found in project" +
+								(if (entries.size != 1) "s " else " ") + entries.map(_.issue).mkString(",") + "."))
+					}
 				}
-			} else {
-				// Entry returned - if it's for our project then we're happy - otherwise return error
-				if (entries.exists(_.issue == project))
-					None
-				else
-					Some(Some(projectFormKey) -> (componentID + " is not included in specified project.  " +
-						component.toString + " found in project" +
-						(if (entries.size != 1) "s " else " ") + entries.map(_.issue).mkString(",") + "."))
-			}
+			case _ => Future.successful(None)
 		}
 	}
 }

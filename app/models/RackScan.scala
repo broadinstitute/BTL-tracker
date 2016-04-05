@@ -1,6 +1,6 @@
 package models
 
-import models.TransferContents.MergeTotalContents
+import models.TransferContents.{MergeResult, MergeTotalContents}
 import models.db.{ TrackerCollection, DBOpers }
 import utils.{Yes, No}
 import reactivemongo.bson.{ BSONDocumentWriter, BSONDocumentReader, Macros, BSONDocument }
@@ -132,7 +132,7 @@ object RackScan extends DBOpers[RackScan] {
 	 */
 	def insertOrReplace(rack: RackScan) = upsert(selector = BSONDocument(barcodeKey -> rack.barcode), entry = rack)
 
-	//@TODO Eliminate sync version of this
+	//@TODO Eliminate sync versions
 	def getABTubesSync(ids: List[String]) = {
 		val f = getABTubes(ids)
 		try {
@@ -141,6 +141,40 @@ object RackScan extends DBOpers[RackScan] {
 			case e: Exception => (List.empty, Some(e.getLocalizedMessage))
 		}
 	}
+
+	def getTubeContentsSync(ids: List[String]) = {
+		val f = getTubeContents(ids)
+		try {
+			Await.result(f, Duration(5000, MILLISECONDS))
+		} catch {
+			case e: Exception => (List.empty, Some(e.getLocalizedMessage))
+		}
+	}
+
+
+	/**
+	 * Check if contents found are vaild for a tube
+	 * @param tube tube we're checking
+	 * @param contents contents found in tube
+	 * @return optional error message
+	 */
+	private def checkTube(tube: Tube, contents: MergeTotalContents) = {
+		if (contents.errs.nonEmpty)
+			Some(s"Errors retrieving ${tube.id} contents: ${contents.errs.mkString(",")}")
+		else if (contents.wells.size > 1)
+			Some(s"${tube.id} not single well component")
+		else None
+	}
+
+	/**
+	 * See if there is anything found in contents
+	 * @param contents contents found
+	 * @return true if something found in the contents
+	 */
+	private def isContentsEmpty(contents: MergeTotalContents) =
+		!contents.wells.exists {
+			case (_, results) => results.nonEmpty
+		}
 
 	/**
 	 * Get antibody tubes.
@@ -151,21 +185,41 @@ object RackScan extends DBOpers[RackScan] {
 		// Get tubes and check for lots of errors when setting contents
 		getTubes(ids = ids,
 			setContents = (tube, contents) => {
-				if (contents.errs.nonEmpty)
-					(tube -> Set.empty[String],
-						Some(s"Errors retrieving ${tube.id} contents: ${contents.errs.mkString(",")}"))
-				else if (contents.wells.isEmpty)
-					(tube -> Set.empty[String], None)
-				else if (contents.wells.size != 1)
-					(tube -> Set.empty[String], Some(s"${tube.id} not single well component"))
-				else if (contents.wells.head._2.isEmpty)
-					(tube -> Set.empty[String], None)
-				else if (contents.wells.head._2.flatMap(_.bsp).nonEmpty)
-					(tube -> Set.empty[String], Some(s"${tube.id} contains samples with antibodies"))
-				else if (contents.wells.head._2.flatMap(_.mid).nonEmpty)
-					(tube -> Set.empty[String], Some(s"${tube.id} contains MIDs with antibodies"))
-				else
-					(tube -> contents.wells.head._2.flatMap(_.antibody), None)
+				checkTube(tube, contents) match {
+					case None =>
+						if (isContentsEmpty(contents))
+							(tube -> Set.empty[String], None)
+						else if (contents.wells.head._2.flatMap(_.bsp).nonEmpty)
+							(tube -> Set.empty[String], Some(s"${tube.id} contains samples with antibodies"))
+						else if (contents.wells.head._2.flatMap(_.mid).nonEmpty)
+							(tube -> Set.empty[String], Some(s"${tube.id} contains MIDs with antibodies"))
+						else
+							(tube -> contents.wells.head._2.flatMap(_.antibody), None)
+					case err =>
+						(tube -> Set.empty[String], err)
+				}
+			}
+		)
+	}
+
+	/**
+	 * Get tube contents
+	 * @param ids list of ids for tubes
+	 * @return (list components found with optional contents, error message if there are problems)
+	 */
+	def getTubeContents(ids: List[String]) = {
+		// Get tubes and check for lots of errors when setting contents
+		getTubes(ids = ids,
+			setContents = (tube, contents) => {
+				checkTube(tube, contents) match {
+					case None =>
+						if (isContentsEmpty(contents))
+							(tube -> Set.empty[MergeResult], None)
+						else
+							(tube -> contents.wells.head._2, None)
+					case err =>
+						(tube -> Set.empty[MergeResult], err)
+				}
 			}
 		)
 	}

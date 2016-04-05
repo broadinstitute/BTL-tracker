@@ -1,7 +1,6 @@
 package models
 
 import models.ContainerDivisions.Division
-import models.ContainerDivisions.Division._
 import models.Transfer.Quad._
 import models.Transfer.Slice._
 import models.initialContents.InitialContents
@@ -143,26 +142,50 @@ object TransferContents {
 			def getInitialContent(c: Component) =
 				c match {
 					// @TODO Clean this up - make async and maybe put more smarts in RackScan
-					case rack: Rack if rack.initialContent.isDefined && rack.initialContent.get == ContentType.ABtubes =>
+					case rack: Rack if rack.initialContent.isEmpty || rack.initialContent.get != ContentType.BSPtubes =>
 						RackScan.findRackSync(rack.id) match {
 							case (_, Some(err)) => (Map.empty[String, MergeResult], List(err))
+							// We recurse (indirectly) to get the contents of each tube.  All pretty ugly and for now
+							// there can't be multiple contents with samples in these tubes either
 							case (racks, _) =>
-								val abtubes = racks.flatMap((r) => if (r.barcode == rack.id) r.contents else List.empty)
-								RackScan.getABTubesSync(abtubes.map(_.barcode)) match {
+								// Get the rack's tubes
+								val rackTubes = racks.flatMap((r) => if (r.barcode == rack.id) r.contents else List.empty)
+								// Get contents of all the tubes
+								RackScan.getTubeContentsSync(rackTubes.map(_.barcode)) match {
 									case (_, Some(err)) => (Map.empty[String, MergeResult], List(err))
 									case (tubes, _) =>
-										val tubeMap = abtubes.map((t) => t.barcode -> t.pos).toMap
-										val ics = tubes.flatMap {
-											case (tube, abs) if abs.nonEmpty =>
+										// Make map of barcodes to position
+										val tubeMap = rackTubes.map((t) => t.barcode -> t.pos).toMap
+										// Merge together the contents found into a result - someday we should get return
+										// the TotalContents (which is what getTubeContents has originally) and return
+										// that instead but for now there's no case where a tube is in a rack and has
+										// multiple samples so we'll live with this for now
+										val tubeResults = tubes.flatMap {
+											case (tube, contents) if contents.nonEmpty =>
+												// Get back tube's rack position for pos->content mapping
 												tubeMap.get(tube.id) match {
 													case Some(pos) =>
-														Some(pos ->
-															MergeResult(bsp = None, mid = Set.empty, antibody = abs))
+														if (contents.size == 1)
+															Some(pos -> contents.head, None)
+														else {
+															val mids = contents.flatMap(_.mid)
+															val abs = contents.flatMap(_.antibody)
+															val bsps = contents.flatMap(_.bsp)
+															val err =
+																if (bsps.nonEmpty)
+																	Some(s"Samples not supported in rack tube (${tube.id} in ${rack.id}")
+																else
+																	None
+															Some(pos ->
+																MergeResult(bsp = None, mid = mids, antibody = abs), err)
+														}
 													case _ => None
 												}
 											case _ => None
 										}
-										(ics.toMap, List.empty[String])
+										val errs = tubeResults.flatMap(_._2)
+										val tubeContents = tubeResults.map(_._1).toMap
+										(tubeContents, errs)
 								}
 						}
 					case container: Container =>

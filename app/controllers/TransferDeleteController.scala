@@ -23,7 +23,7 @@ object TransferDeleteController extends Controller {
 	}
 
 	/**
-	 * Get settings from form and go check if transfer requested is to be done.
+	 * Get settings from form and go check if deletes requested is to be done.
 	 * @return action to get count of transfers that will be deleted and ask for confirmation
 	 */
 	def deleteTransferFromForm(id: String) = Action.async {request =>

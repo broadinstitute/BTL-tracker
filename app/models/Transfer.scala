@@ -55,6 +55,23 @@ case class Transfer(from: String, to: String,
 
 
 	/**
+	 * Would the addition of this transfer lead to a cyclic graph?  Get what leads into the "from" part of the transfer
+	 * and see if it contains the "to" part of the transfer.  Note this checks the top component in the transfer, it
+	 * does not check any subcomponents such as tubes in a rack.
+	 * @return future true if graph would become cyclic with addition of the transfer
+	 */
+	def isAdditionCyclic = {
+		TransferHistory.makeSourceGraph(from).map {
+			(graph) => TransferHistory.isGraphAdditionCyclic(addition = to, graph = graph)
+		}
+	}
+
+	/**
+	 * Type for inserting a transfer into the DB - if there's an error a string is returned
+	 */
+	private type DoInsert = (Transfer) => Future[Option[String]]
+
+	/**
 	 * Do simple insert of transfer object
 	 * @param t transfer to insert
 	 * @return optional error
@@ -62,9 +79,27 @@ case class Transfer(from: String, to: String,
 	private def doInsert(t: Transfer) = TransferCollection.insert(t)
 
 	/**
-	 * Type for inserting a transfer into the DB - if there's an error a string is returned
+	 * See if any of a list of transfers will make things cyclical
+	 * @return error string for each transfer found to be cyclical
 	 */
-	private type DoInsert = (Transfer) => Future[Option[String]]
+	private def checkForCyclicTransfers(trans: List[Transfer]) = {
+		// Start up checks to see if anything cyclical
+		val isCyclicChecks = trans.map(_.isAdditionCyclic)
+		// Make them into a single future
+		Future.sequence(isCyclicChecks)
+			.map((isCyclic) => {
+				// Setup iterator so we know which transfer each result is for
+				val tranIter = trans.toIterator
+				// Go through to make list of any non-cyclical graphs found
+				isCyclic.flatMap((is) => {
+					val tran = tranIter.next()
+					if (is)
+						Some(s"Adding transfer will create a cyclic graph (${tran.to} is already a source for ${tran.from})")
+					else
+						None
+				})
+			})
+	}
 
 	/**
 	 * Insert the transfer into the DB.  This is often not a simple single insert into the DB because of
@@ -91,7 +126,6 @@ case class Transfer(from: String, to: String,
 		 * @param wellMapping mapping of transfers: each entry is a source well to one or more destination wells
 		 * @param fromSC function to get subcomponents of transfer source
 		 * @param toSC function to get subcomponents of transfer target
-		 * @param doInsert callback to do individual DB inserts
 		 * @return results of DB inserts
 		 */
 		def subToSub(wellMapping: Map[String, List[String]],
@@ -152,7 +186,6 @@ case class Transfer(from: String, to: String,
 		 * @param wellMapping mapping of transfers: each entry is a source well to one or more destination wells
 		 * @param fromSC function to get subcomponents of transfer source
 		 * @param toC transfer target component
-		 * @param doInsert callback to do individual DB inserts
 		 * @return results of DB inserts
 		 */
 		def fromSub(wellMapping: Map[String, List[String]], fromSC: SubComponents#SubFetcher, toC: Component)() = {
@@ -203,7 +236,6 @@ case class Transfer(from: String, to: String,
 		 * @param wellMapping mapping of transfers: each entry is a source well to one or more destination wells
 		 * @param toSC function to get subcomponents of transfer target
 		 * @param fromC component being transferred from
-		 * @param doInsert callback to do individual DB inserts
 		 * @return results of DB inserts
 		 */
 		def toSub(wellMapping: Map[String, List[String]], toSC: SubComponents#SubFetcher, fromC: Component)() = {
@@ -256,7 +288,6 @@ case class Transfer(from: String, to: String,
 
 		/*
 		 * Simple transfer when neither source nor target have subcomponents.
-		 * @param doInsert callback to DB insert
 		 * @return DB insert result
 		 */
 		def noSubs() = Future.successful(List(Yes(this)))
@@ -330,10 +361,19 @@ case class Transfer(from: String, to: String,
 						if (errs.nonEmpty) Future.successful(0, Some(errs.mkString("; ")))
 						// Otherwise go complete the inserts
 						else {
-							// Startup inserts
-							val inserts = trans.map(_.getYes).map(doInsert)
-							// Go complete them
-							completeInserts(inserts)
+							// Retrieve transfers
+							val transfers = trans.flatMap(_.getYesOption)
+							// Check if any cyclical
+							checkForCyclicTransfers(transfers)
+								.flatMap((errs) => {
+									// If none cyclical then go startup inserts and wait for them to complete
+									if (errs.isEmpty) {
+										val inserts = transfers.map(doInsert)
+										completeInserts(inserts)
+									}
+									else
+										Future.successful(0, Some(errs.mkString("; ")))
+								})
 						}
 					})
 				// Cases where one or more of the components can't be found

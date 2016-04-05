@@ -3,7 +3,6 @@ package controllers
 import models.TransferContents.MergeResult
 import models._
 import models.db.{TrackerCollection, TransferCollection}
-import models.initialContents.InitialContents
 import play.api.data.Form
 import play.api.mvc.{Result, Action, Controller}
 import play.api.libs.json._
@@ -171,23 +170,13 @@ object TransferController extends Controller {
 	 * @return if transfer valid then from and to object
 	 */
 	private def isTransferValid(from: Component, to: Component) = {
-		/*
-		 * Check that rack can be transferred into
-		 */
-		def checkToTransfer(c: Component) = {
-			c match {
-				case r: Rack if r.initialContent.contains(InitialContents.ContentType.BSPtubes) =>
-					Some(f"Transfer not allowed to BSP rack")
-				case _ => None
-			}
-		}
-
 		// Get from component and see if transfer from it is valid
 		from match {
 			case fromC: Component with Transferrable if fromC.validTransfers.contains(to.component) =>
-				(fromC, to, checkToTransfer(to))
-			case fromC => (fromC, to, Some("Transfer not allowed from a " + fromC.component.toString +
-				" to a " + to.component.toString))
+				(fromC, to, None)
+			case fromC =>
+				(fromC, to,
+					Some("Transfer not allowed from a " + fromC.component.toString + " to a " + to.component.toString))
 		}
 	}
 
@@ -394,8 +383,7 @@ object TransferController extends Controller {
 
 	/**
 	 * Check if what will lead into this transfer is legit.  First we create a graph of what leads into the from
-	 * component of this transfer.  Then we check that adding the new transfer will not make the graph cyclic and
-	 * insure that any project specified with the transfer exists in the graph.
+	 * component of this transfer.  Then we insure that any project specified with the transfer exists in the graph.
 	 * @param data transfer data
 	 * @param from where transfer is taking place from
 	 * @param to where transfer is taking place to
@@ -403,40 +391,27 @@ object TransferController extends Controller {
 	 */
 	private def checkGraph(data: TransferStart, from: Component, to: Component) = {
 		// Make graph of what leads into source of this transfer
-		// @TODO if from or to is a rack then need to break into tube transfers
 		TransferHistory.makeSourceGraph(data.from).map((graph) => {
-			// Check if addition of target of transfer will make graph cyclic - if yes then complete with error
-			val isCyclic = TransferHistory.isGraphAdditionCyclic(addition = data.to, graph = graph) match {
-				case true =>
-					Some(s"Error: Adding transfer will create a cyclic graph (${data.to} is already a source for ${data.from})")
-				case _ => None
-			}
-			isCyclic match {
-				// Graph would become cylic - report error
-				case Some(err) => Some(err)
-				// Graph will not be cylic - go on to check more
-				case None =>
-					// If project specified make sure it is part of graph
-					data.project match {
-						case Some(projectWanted) if from.project.isDefined && from.project.get == projectWanted => None
-						case Some(projectWanted) =>
-							// Get projects in graph
-							val projects = TransferHistory.getGraphProjects(graph)
-							// If specified project there then return with no error, otherwise complete with error
-							if (projects.contains(projectWanted)) None else {
-								// Project not in graph's project list
-								val projectsFound = from.project match {
-									case Some(project) => projects + project
-									case None => projects
-								}
-								val plural = if (projectsFound.size != 1) "s" else ""
-								val projectsFoundStr = if (projectsFound.isEmpty) "" else
-									s"Project$plural found: ${projectsFound.mkString(",")}"
-								Some(s"Project $projectWanted not in ${from.id} or its derivatives. $projectsFoundStr")
-							}
-						// No project on transfer so nothing to check there
-						case _ => None
+			// If project specified make sure it is part of graph
+			data.project match {
+				case Some(projectWanted) if from.project.isDefined && from.project.get == projectWanted => None
+				case Some(projectWanted) =>
+					// Get projects in graph
+					val projects = TransferHistory.getGraphProjects(graph)
+					// If specified project there then return with no error, otherwise complete with error
+					if (projects.contains(projectWanted)) None else {
+						// Project not in graph's project list
+						val projectsFound = from.project match {
+							case Some(project) => projects + project
+							case None => projects
+						}
+						val plural = if (projectsFound.size != 1) "s" else ""
+						val projectsFoundStr = if (projectsFound.isEmpty) "" else
+							s"Project$plural found: ${projectsFound.mkString(",")}"
+						Some(s"Project $projectWanted not in ${from.id} or its derivatives. $projectsFoundStr")
 					}
+				// No project on transfer so nothing to check there
+				case _ => None
 			}
 		}).recover {
 			case err => Some(MessageHandler.exceptionMessage(err))
@@ -488,11 +463,11 @@ object TransferController extends Controller {
 		data.insert().map {
 			case (trans, errs) =>
 				val errFound = errs match {
-					case Some(err) => s" with error: $err"
+					case Some(err) => s"ERROR: $err - "
 					case None => ""
 				}
 				transferComplete(() =>
-					s"Completed $trans transfer${if (trans == 1) "" else "s"} for ${data.quadDesc}$errFound")
+					s"${errFound}Completed $trans transfer${if (trans == 1) "" else "s"} for ${data.quadDesc}")
 		}.recover {
 			case err => onError(v1 = data, v2 = MessageHandler.exceptionMessage(err))
 		}

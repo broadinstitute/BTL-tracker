@@ -182,7 +182,7 @@ object RackController extends ComponentController[Rack] {
 									else
 										insertScan(rackEntryWithoutNA)
 								// Antibody tubes - make sure all entries are tubes and then enter scan results in DB
-								case Some(InitialContents.ContentType.ABtubes) =>
+								case _ =>
 									val ids = rackEntryWithoutNA.contents.map((rackTube) => rackTube.barcode)
 									RackScan.findTubes(ids).flatMap {
 										case (tubes, notTubes, _) if notTubes.nonEmpty =>
@@ -216,8 +216,6 @@ object RackController extends ComponentController[Rack] {
 										case (tubes, _, _) =>
 											insertScan(rackEntryWithoutNA)
 									}
-								case _ => Future.successful(Map(Some(Rack.rackScanKey) ->
-									"Initial content must be set before entering a scan file"))
 							}
 						}
 					case _ => Future.successful(Map.empty[Option[String], String])

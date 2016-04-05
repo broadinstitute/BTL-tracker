@@ -87,7 +87,7 @@ object ComponentFromJson {
 	  * @param ids list of bson documents for components
 	  * @return list of component objects
 	  */
-	def bsonToComponents(ids: List[BSONDocument]) =
+	def bsonToComponents(ids: List[BSONDocument]): List[Component] =
 		ids.map((bson) => {
 			// Get json since model conversions are setup to do json reads/writes
 			val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
