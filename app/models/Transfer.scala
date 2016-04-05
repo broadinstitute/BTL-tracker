@@ -324,8 +324,12 @@ case class Transfer(from: String, to: String,
 						// If errors collecting transfers then exit now with errors
 						if (errs.nonEmpty) Future.successful(0, Some(errs.mkString("; ")))
 						// Otherwise go complete the inserts
-						else
-							completeInserts(trans.map(_.getYes).map(doInsert))
+						else {
+							// Startup inserts
+							val inserts = trans.map(_.getYes).map(doInsert)
+							// Go complete them
+							completeInserts(inserts)
+						}
 					})
 				// Cases where one or more of the components can't be found
 				case (Some(_), None) => Future.successful(0, Some(s"Component $to not found"))
