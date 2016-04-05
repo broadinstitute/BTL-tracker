@@ -2,6 +2,7 @@ package models
 
 import models.TransferContents.MergeTotalContents
 import models.db.{ TrackerCollection, DBOpers }
+import utils.{Yes, No}
 import reactivemongo.bson.{ BSONDocumentWriter, BSONDocumentReader, Macros, BSONDocument }
 import org.broadinstitute.LIMStales.sampleRacks.{
 	RackScan => SampleRackScan,
@@ -112,17 +113,17 @@ object RackScan extends DBOpers[RackScan] {
 	 * Check out scan found for an individual rack.  If all ok return contents.
 	 * @param id id for wanted rack
 	 * @param rs rack scan found for id
-	 * @return (contentsOfRack,error) - one of the other returned
+	 * @return YesOrNo(RackScan)
 	 */
 	def checkRackScan(id: String, rs: List[RackScan]) =
 		if (rs.isEmpty)
-			(None, Some(s"Rack scan not found for $id"))
+			No(s"Rack scan not found for $id")
 		else if (rs.head.contents.isEmpty)
-			(None, Some(s"Rack scan empty for $id"))
+			No(s"Rack scan empty for $id")
 		else if (rs.size != 1)
-			(None, Some(s"Multiple rack scans found for $id"))
+			No(s"Multiple rack scans found for $id")
 		else
-			(Some(rs.head), None)
+			Yes(rs.head)
 
 	/**
 	 * Replace rack entry in DB if it's there, otherwise insert a new entry.
@@ -238,7 +239,7 @@ object RackScan extends DBOpers[RackScan] {
 	/**
 	 * Retrieve rack scans.  For each id either an error or valid scan of the rack's tubes is returned
 	 * @param racks rack ids for which to retrieve scans
-	 * @return (id -> (RackScan, error)
+	 * @return (id -> YesOrNo(RackScan)
 	 */
 	def getRackContents(racks: List[String]) = {
 		val racksFound = racks.map(findRack)

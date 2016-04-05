@@ -8,6 +8,7 @@ import models.db.{TransferCollection, TrackerCollection}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
+import utils.{Yes, No}
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
@@ -93,8 +94,7 @@ case class Transfer(from: String, to: String,
 		 * @return results of DB inserts
 		 */
 		def subToSub(wellMapping: Map[String, List[String]],
-					 fromSC: SubComponents#SubFetcher, toSC: SubComponents#SubFetcher,
-					 doInsert: DoInsert) = {
+					 fromSC: SubComponents#SubFetcher, toSC: SubComponents#SubFetcher)() = {
 			// Start up futures to get position to subcomponent mappings
 			val scList = List(fromSC(), toSC())
 			// Make them a single future with a list of results
@@ -102,13 +102,13 @@ case class Transfer(from: String, to: String,
 				// Should always be two entries back - subcomponents of from and to components
 				case fromWells :: toWells :: _ =>
 					// Gather errors - if any then report them and finish
-					val errs = List(fromWells._2, toWells._2).flatMap((s) => s)
+					val errs = List(fromWells.getNoOption, toWells.getNoOption).flatMap((s) => s)
 					if (errs.nonEmpty)
-						List(Future.successful(Some(errs.mkString("; "))))
+						List(No(errs.mkString("; ")))
 					else {
 						// Get maps of subcomponentWell->subcomponent
-						val fromWellsMap = fromWells._1
-						val toWellsMap = toWells._1
+						val fromWellsMap = fromWells.getYes
+						val toWellsMap = toWells.getYes
 						// Now we do all the inserts for subcomponent->subcomponent transfers
 						// We base it on the from->to mappings (can be multiple well destinations
 						// for one source well)
@@ -117,16 +117,16 @@ case class Transfer(from: String, to: String,
 								// Look for source well subcomponent
 								fromWellsMap.get(sourceWell) match {
 									// Found source well subcomponent
-									case Some(fromSubC) =>
+									case Some(fromSub) =>
 										// flatMap to get transfers to destination well(s) found
 										destWells.flatMap((dest) => {
 											// Get destination well subcomponent
 											toWellsMap.get(dest) match {
 												// Found destination well subcomponent
-												case Some(toSubC) =>
+												case Some(toSub) =>
 													// Set insert started
-													Some(doInsert(
-														Transfer(from = fromSubC, to = toSubC,
+													Some(Yes(
+														Transfer(from = fromSub, to = toSub,
 															fromQuad = None, toQuad = None,
 															project = this.project, slice = None,
 															cherries = None, isTubeToMany = false)))
@@ -140,7 +140,7 @@ case class Transfer(from: String, to: String,
 						}.toList
 					}
 				// Should never get here
-				case _ => List(Future.successful(Some("Error fetching subcomponents")))
+				case _ => List(No("Error fetching subcomponents"))
 			}
 		}
 
@@ -154,12 +154,11 @@ case class Transfer(from: String, to: String,
 		 * @param doInsert callback to do individual DB inserts
 		 * @return results of DB inserts
 		 */
-		def fromSub(wellMapping: Map[String, List[String]], fromSC: SubComponents#SubFetcher, toC: Component,
-					doInsert: DoInsert) = {
+		def fromSub(wellMapping: Map[String, List[String]], fromSC: SubComponents#SubFetcher, toC: Component)() = {
 			fromSC().map {
-				case ((_, Some(err))) =>
-					List(Future.successful(Some(s"Error finding subcomponents of $from")))
-				case ((wells, _)) =>
+				case No(err) =>
+					List(No(s"Error finding subcomponents of $from"))
+				case Yes(wells) =>
 					// See if divided destination
 					(getLayout(toC) match {
 						// Make subcomponent to divided component well transfers
@@ -170,11 +169,10 @@ case class Transfer(from: String, to: String,
 									// Look for source well subcomponent
 									wells.get(sourceWell) match {
 										// Found source well subcomponent
-										case Some(fromSubC) =>
-											Some(doInsert(
-												Transfer.fromTubeTransfer(
-													tube = fromSubC, plate = toC.id,
-													wells = destWells, div = div, proj = project)
+										case Some(fromSub) =>
+											Some(Yes(Transfer.fromTubeTransfer(
+												tube = fromSub, plate = toC.id,
+												wells = destWells, div = div, proj = project)
 											))
 										// Didn't find source well subcomponent - nothing to transfer
 										case None => None
@@ -186,8 +184,8 @@ case class Transfer(from: String, to: String,
 						case None =>
 							wellMapping.keys.flatMap((sourceWell) => {
 								wells.get(sourceWell) match {
-									case Some(fromSubC) =>
-										Some(doInsert(Transfer(from = fromSubC, to = to,
+									case Some(fromSub) =>
+										Some(Yes(Transfer(from = fromSub, to = to,
 											fromQuad = None, toQuad = None, project = project,
 											slice = None, cherries = None, isTubeToMany = false)))
 									case None => None
@@ -199,59 +197,77 @@ case class Transfer(from: String, to: String,
 
 		/*
 		 * To a component with subcomponents from one without subcomponents
-		 * If not from an undivided component then we can't do it since we don't support transferring
-		 * individual wells from a divided component to an undivided one (the subcomponents)
-		 * If from an undivided component then becomes many undivided to subcomponent transfers
+		 * If from a divided component then transfers of individual wells from the divided component to individual
+		 * subcomponents.  If from an undivided component that becomes many undivided to subcomponent transfers.
 		 * @param wellMapping mapping of transfers: each entry is a source well to one or more destination wells
 		 * @param toSC function to get subcomponents of transfer target
+		 * @param fromC component being transferred from
 		 * @param doInsert callback to do individual DB inserts
 		 * @return results of DB inserts
 		 */
-		def toSub(wellMapping: Map[String, List[String]], toSC: SubComponents#SubFetcher, doInsert: DoInsert) = {
-			if (isTubeToMany)
-				toSC().map {
-					case ((_, Some(err))) =>
-						List(Future.successful(Some(s"Error finding subcomponents of $to")))
-					case ((toWells, _)) =>
-						// Make subcomponent to undivided component transfers
-						// We base it on the from->to mappings which for undivided source is
-						// single well pointing to destinations
-						wellMapping.get(TransferContents.oneWell) match {
-							case Some(targets) =>
-								targets.flatMap((sourceWell) => {
-									toWells.get(sourceWell) match {
-										case Some(toSubC) =>
-											Some(doInsert(Transfer(from = from, to = toSubC,
-												fromQuad = None, toQuad = None, project = project,
-												slice = None, cherries = None, isTubeToMany = false)))
-										case None => None
-									}
-								})
-							case None => List(Future.successful(Some("No targets for tube")))
-						}
-				}
-			else
-			// @TODO could do this as group of cheery picks of a single well to tubes
-				Future.successful(List(Future.successful(
-					Some(s"Can not transfer from a plate or BSP rack ($from) to a rack ($to)"))))
-
+		def toSub(wellMapping: Map[String, List[String]], toSC: SubComponents#SubFetcher, fromC: Component)() = {
+			toSC().map {
+				case No(err) =>
+					List(No(s"Error finding subcomponents of $to"))
+				case Yes(toWells) =>
+					// See if divided source
+					getLayout(fromC) match {
+						case Some(div) =>
+							// Make divided component to subcomponent transfers
+							// We base it on the from->to mappings making single well to subcomponent transfers
+							wellMapping.keys.flatMap(
+								(fromWell) => {
+									// Get wells to transfer to
+									val targetWells = wellMapping(fromWell)
+									// Map those to wanted transfers (well from divided source to sub component)
+									targetWells.flatMap((toSub) => {
+										toWells.get(toSub) match {
+											case Some(subC) =>
+												Some(Yes(Transfer.toTubeTransfer(tube = subC, plate = from,
+													wells = List(fromWell), div = div, proj = project)))
+											case None => None
+										}
+									})
+								}).toList
+						case None =>
+							// Make undivided to subcomponent transfer
+							// We base it on the from->to mappings which for undivided source should be
+							// single well pointing to destinations
+							wellMapping.get(TransferContents.oneWell) match {
+								case Some(targets) =>
+									targets.flatMap(
+										(targetWell) => {
+											// Make tube-to-tube (undivided source to sub component) transfer
+											toWells.get(targetWell) match {
+												case Some(toSub) =>
+													Some(Yes(Transfer(from = from, to = toSub,
+														fromQuad = None, toQuad = None, project = project,
+														slice = None, cherries = None, isTubeToMany = false)))
+												case None => None
+											}
+										})
+								case None =>
+									List(No(s"Can not transfer from undivided $from to rack $to"))
+							}
+					}
+			}
 		}
 
 		/*
-		 * Simple insert when neither source nor target have subcomponents.
+		 * Simple transfer when neither source nor target have subcomponents.
 		 * @param doInsert callback to DB insert
 		 * @return DB insert result
 		 */
-		def noSubs(doInsert: DoInsert) = Future.successful(List(doInsert(this)))
+		def noSubs() = Future.successful(List(Yes(this)))
 
 		/*
-		 * Get function to do inserts.  Function returned is dependent on whether the source and/or target of the
+		 * Get function to create transfers.  Function returned is dependent on whether the source and/or target of the
 		 * transfer has subcomponents.
 		 * @param fromC transfer source component
 		 * @param toC transfer target component
-		 * @return function to do DB inserts needed to complete transfer
+		 * @return function to create Transfers needed to complete transfer
 		 */
-		def getInserter(fromC: Component, toC: Component) = {
+		def getTransfers(fromC: Component, toC: Component) = {
 			// Get well mapping of transfer between components
 			// Each source well goes to one or more destination wells
 			val wellMapping = getWellMapping(soFar = Map.empty[String, List[String]],
@@ -261,13 +277,13 @@ case class Transfer(from: String, to: String,
 			(getSubFetcher(fromC), getSubFetcher(toC)) match {
 				// From and to components with subcomponents
 				case (Some(fromSC), Some(toSC)) =>
-					subToSub(wellMapping, fromSC, toSC, _: DoInsert)
+					subToSub(wellMapping, fromSC, toSC) _
 				// From a component with subcomponents to one without subcomponents
 				case (Some(fromSC), None) =>
-					fromSub(wellMapping, fromSC, toC, _: DoInsert)
+					fromSub(wellMapping, fromSC, toC) _
 				// To a component with subcomponents from one without subcomponents
 				case (None, Some(toSC)) =>
-					toSub(wellMapping, toSC, _: DoInsert)
+					toSub(wellMapping, toSC, fromC) _
 				// Neither component has subcomponents - do simple transfer
 				case _ => noSubs _
 			}
@@ -299,12 +315,18 @@ case class Transfer(from: String, to: String,
 			(findFromC, findToC) match {
 				// Got them both
 				case (Some(fromC), Some(toC)) =>
-					// Get proper method to do insertions
-					val ins = getInserter(fromC, toC)
-					// Go start up insertions
-					ins(execInsert)
-						// and then complete them
-						.flatMap(completeInserts)
+					// Get proper method to create transfers
+					val getTrans = getTransfers(fromC, toC)
+					// Go get transfers we need to do and process results
+					getTrans().flatMap((trans) => {
+						// Get errors
+						val errs = trans.flatMap(_.getNoOption)
+						// If errors collecting transfers then exit now with errors
+						if (errs.nonEmpty) Future.successful(0, Some(errs.mkString("; ")))
+						// Otherwise go complete the inserts
+						else
+							completeInserts(trans.map(_.getYes).map(doInsert))
+					})
 				// Cases where one or more of the components can't be found
 				case (Some(_), None) => Future.successful(0, Some(s"Component $to not found"))
 				case (None, Some(_)) => Future.successful(0, Some(s"Component $from not found"))
@@ -546,28 +568,55 @@ object Transfer {
 	implicit val transferFormFormat = Json.format[TransferForm]
 
 	/**
+	 * Get a set of wells as indicies for cherry picking
+	 * @param div plate division type
+	 * @param wells wells in plate tube is going to
+	 * @return
+	 */
+	private def getCherryIndicies(div: ContainerDivisions.Division.Division, wells: List[String]) =
+		wells.map((pos) => {
+			div match {
+				case ContainerDivisions.Division.DIM8x12 => TransferWells.make96IdxFromWellStr(pos)
+				case ContainerDivisions.Division.DIM16x24 => TransferWells.make384IdxFromWellStr(pos)
+			}
+		})
+
+
+	/**
 	 * Create a transfer from a tube to a set of wells on a plate.  Note: can't be apply because Json.format macro gets
 	 * confused when there are multiple applys.
-	 * @param tube tube source for tranfer
+	 * @param tube tube source for transfer
 	 * @param plate destination plate for transfer
-	 * @param wells wells in plate tube is going to
-	 * @param div plate division type
+	 * @param wells wells we are transferring tube into
+	 * @param div division type for plate
 	 * @param proj optional project to associate with transfer
 	 * @return transfer setup for tube to destination wells
 	 */
 	def fromTubeTransfer(tube: String, plate: String, wells: List[String],
-			  div: ContainerDivisions.Division.Division, proj: Option[String]) : Transfer = {
+						 div: ContainerDivisions.Division.Division, proj: Option[String]): Transfer = {
 		// Get wells as indicies
-		val wellIdxs =
-			wells.map((pos) => {
-				div match {
-					case ContainerDivisions.Division.DIM8x12 => TransferWells.make96IdxFromWellStr(pos)
-					case ContainerDivisions.Division.DIM16x24 => TransferWells.make384IdxFromWellStr(pos)
-				}
-			})
+		val wellIdxs = getCherryIndicies(div, wells)
 		// Create transfer from tube to wells in plate
 		Transfer(from = tube, to = plate, fromQuad = None, toQuad = None, project = proj,
 			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = true)
+	}
+
+	/**
+	 * Create a transfer to a tube from wells on a plate.
+	 * @param tube tube destination for transfer
+	 * @param plate plate source for transfer
+	 * @param wells wells we are transferring from plate
+	 * @param div division type for plate
+	 * @param proj optional project to associate with transfer
+	 * @return transfer setup for source wells on plate to tube
+	 */
+	def toTubeTransfer(tube: String, plate: String, wells: List[String],
+					   div: ContainerDivisions.Division.Division, proj: Option[String]): Transfer = {
+		// Get wells as indicies
+		val wellIdxs = getCherryIndicies(div, wells)
+		// Create transfer to tube from wells in plate
+		Transfer(from = plate, to = tube, fromQuad = None, toQuad = None, project = proj,
+			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = false)
 	}
 }
 

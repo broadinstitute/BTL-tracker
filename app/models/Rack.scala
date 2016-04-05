@@ -15,6 +15,7 @@ import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
 import Component._
 import play.api.mvc.{AnyContent, Request}
+import utils.{YesOrNo, Yes, No}
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
@@ -24,7 +25,6 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * efficiency reasons, if all the tubes of a rack have the same contents and are always used together
  * then the rack itself becomes the container where everything that happens to it happens to all the tubes
  * on the rack.
- *
  * @param id rack barcode
  * @param description optional description of rack
  * @param project optional project ID
@@ -58,15 +58,15 @@ case class Rack(override val id: String,override val description: Option[String]
 	 * Get tubes for rack
 	 * @return (map rackPosition->tubeBarcode, error)
 	 */
-	def subFetcher() : Future[(Map[String, String], Option[String])] = {
+	def subFetcher() : Future[YesOrNo[Map[String, String]]] = {
 		RackScan.getRackContents(List(id)).map((found) => {
 			found.get(id) match {
-				case Some((Some(scan), err)) =>
-					(scan.contents.map((tube) => tube.pos -> tube.bc).toMap, err)
-				case Some((_, err)) =>
-					(Map.empty[String, String], err)
+				case Some(Yes(scan)) =>
+					Yes(scan.contents.map((tube) => tube.pos -> tube.bc).toMap)
+				case Some(No(err)) =>
+					No(err)
 				case _ =>
-					(Map.empty[String, String], None)
+					Yes(Map.empty[String, String])
 			}
 		})
 	}

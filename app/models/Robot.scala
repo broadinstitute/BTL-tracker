@@ -6,6 +6,7 @@ import models.db.{ TransferCollection, TrackerCollection }
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import utils.{No, Yes}
 import scala.concurrent.Future
 
 /**
@@ -15,7 +16,6 @@ import scala.concurrent.Future
 case class Robot(robotType: RobotType.RobotType) {
 	/**
 	 * Make transfers to create an antibody plate for a plate of samples.
-	 *
 	 * @param abRack rack containing antibody tubes
 	 * @param abPlate plate to be made with antibodies for samples
 	 * @param sampleContainer container with samples
@@ -100,7 +100,6 @@ object Robot {
 
 	/**
 	 * Transfer of antibody tube (in rack) to position in plate being made
-	 *
 	 * @param volume volume to transfer
 	 * @param abType antibody type
 	 * @param rackPos tube position in rack
@@ -112,7 +111,6 @@ object Robot {
 
 	/**
 	 * Antibody rack->plate transfer info.
-	 *
 	 * @param abRack source ab rack
 	 * @param abPlate destination ab plate
 	 * @param sampleContainer destination sample plate
@@ -128,7 +126,6 @@ object Robot {
 	 * optional components:
 	 * (transfer amount, antibody, antibody source tube position, antibody plate destination position, rack id) and
 	 * an error message.  Note either one but not both parts of the tuple can be None.
-	 *
 	 * @param contents contents of sample container
 	 * @param abRack rack containing antibody tubes used as source for transfers
 	 * @param abPlate destination plate for antibodies
@@ -209,9 +206,9 @@ object Robot {
 		RackScan.findRack(abRack.id).flatMap((abTubesScan) => {
 			// Check out results of retrieving rack scans
 			RackScan.checkRackScan(id = abRack.id, rs = abTubesScan) match {
-				case (_, Some(err)) =>
+				case No(err) =>
 					Future.successful(List((None, Some(err))))
-				case (Some(abTubes), _) =>
+				case Yes(abTubes) =>
 					// Rack scans look good - now go get contents of ab tubes
 					val abTubeBarcodes = abTubes.contents.map(_.barcode)
 					RackScan.getABTubes(abTubeBarcodes).map {
@@ -231,15 +228,12 @@ object Robot {
 							else
 									List((None, Some(errList.mkString("; "))))
 					}
-				case (None, None) =>
-					Future.successful(List.empty)
 			}
 		})
 	}
 
 	/**
 	 * Make a list of transfers from a list of robot instructions to make a antibody plate
-	 *
 	 * @param plate antibody plate ID
 	 * @param tubeToPlateList list of tube to plate transfers done on robot
 	 * @param project optional project to associate with the transfer
@@ -266,7 +260,6 @@ object Robot {
 	/**
 	 * Make a csv file with instructions for the robot to transfer antibodies from a rack of antibody tubes to
 	 * a plate.
-	 *
 	 * @param trans transfers wanted
 	 * @return (name of file created if it went ok, errors found)
 	 */

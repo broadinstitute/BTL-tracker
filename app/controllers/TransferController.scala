@@ -7,7 +7,7 @@ import models.initialContents.InitialContents
 import play.api.data.Form
 import play.api.mvc.{Result, Action, Controller}
 import play.api.libs.json._
-import utils.MessageHandler
+import utils.{Yes, No, MessageHandler}
 import MessageHandler.FlashingKeys
 import Transfer.Slice.CP
 
@@ -105,9 +105,9 @@ object TransferController extends Controller {
 					case scans =>
 						// Get errors for form
 						val errs: Map[Option[String], String] = scans.flatMap {
-							case (rackID, (_, err)) if err.isDefined =>
-								Some(Some(idsToForm(rackID)) -> err.get)
-							case (rackID, (scan, _)) => None
+							case (rackID, No(err)) =>
+								Some(Some(idsToForm(rackID)) -> err)
+							case (rackID, Yes(scan)) => None
 						}
 						if (errs.isEmpty)
 							(Some(from, to), None)

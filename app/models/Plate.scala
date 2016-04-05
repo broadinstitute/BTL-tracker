@@ -84,7 +84,7 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 	private def unapplyWithComponent(p: Plate) = Some(p.getComponent,p.locationID,p.initialContent,p.layout)
 
 	val validLocations = List(ComponentType.Freezer)
-	val validTransfers = List(ComponentType.Plate,ComponentType.Tube)
+	val validTransfers = List(ComponentType.Plate,ComponentType.Tube,ComponentType.Rack)
 	val validContents = InitialContents.ContentType.molBarcodes
 
 	/**
