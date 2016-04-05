@@ -5,6 +5,7 @@ import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division._
 import models.db.{TransferCollection, TrackerCollection}
+import models.initialContents.InitialContents.ContentType
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -313,6 +314,9 @@ case class Transfer(from: String, to: String,
 			val findToC = contents.find(_.id == to)
 			// Check out that we were able to retrieve both items
 			(findFromC, findToC) match {
+				case (_, Some(toC: Rack))
+					if toC.initialContent.isDefined && toC.initialContent.get == ContentType.BSPtubes =>
+					Future.successful(0, Some(s"Transfer into BSP rack not allowed (rack $to)"))
 				// Got them both
 				case (Some(fromC), Some(toC)) =>
 					// Get proper method to create transfers
