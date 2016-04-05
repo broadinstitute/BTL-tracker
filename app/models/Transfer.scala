@@ -314,6 +314,7 @@ case class Transfer(from: String, to: String,
 			val findToC = contents.find(_.id == to)
 			// Check out that we were able to retrieve both items
 			(findFromC, findToC) match {
+				// Transfers into BSP rack not allowed
 				case (_, Some(toC: Rack))
 					if toC.initialContent.isDefined && toC.initialContent.get == ContentType.BSPtubes =>
 					Future.successful(0, Some(s"Transfer into BSP rack not allowed (rack $to)"))
