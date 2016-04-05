@@ -102,7 +102,7 @@ case class Transfer(from: String, to: String,
 				// Should always be two entries back - subcomponents of from and to components
 				case fromWells :: toWells :: _ =>
 					// Gather errors - if any then report them and finish
-					val errs = List(fromWells.getNoOption, toWells.getNoOption).flatMap((s) => s)
+					val errs = List(fromWells, toWells).flatMap(_.getNoOption)
 					if (errs.nonEmpty)
 						List(No(errs.mkString("; ")))
 					else {
