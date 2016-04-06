@@ -2,7 +2,6 @@ package controllers
 
 import controllers.RackController._
 import models.Component.ComponentType
-import models.db.TransferCollection
 import play.api.Routes
 import play.api.libs.json._
 import play.api.mvc._
@@ -246,12 +245,11 @@ object Application extends Controller {
 	 * @return result with
 	 */
 	def deleteCheck(id: String) = Action.async { request =>
-		TransferCollection.countTransfers(id).map((count) => {
-			Ok(views.html.deleteConfirm(id = id, count = count))
-		}).recover {
-			case err => BadRequest(
-				views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
-		}
+		ComponentController.transferCount[Result](id,
+			counted = (count) => Ok(views.html.deleteConfirm(id = id, count = count)),
+			error = (err) =>
+				BadRequest(views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
+		)
 	}
 
 	/**
@@ -266,7 +264,7 @@ object Application extends Controller {
 		def getResult(msg: String) = MessageHandler.homeRedirect(msg)
 		// Do delete
 		ComponentController.delete(id,
-			deleted = () => getResult(id + " successfully deleted"),
+			deleted = (_) => getResult(id + " successfully deleted"),
 			error = (t: Throwable) => getResult("Error deleting " + id + ": " + t.getLocalizedMessage))
 	}
 

@@ -7,7 +7,7 @@ import play.api.data.Form
 import play.api.libs.json._
 import play.api.mvc._
 import play.twirl.api.{HtmlFormat,Html}
-import utils.MessageHandler
+import utils.{Yes, No, YesOrNo, MessageHandler}
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -38,6 +38,8 @@ trait ComponentController[C <: Component] extends Controller {
 	/**
 	 * Method to use to take a form filled with data and return the html to be displayed after an update - supplied
 	 * by component type inheriting trait.
+	 * @param id component ID
+	 * @param hiddenFields hidden fields set to what's currently in component
 	 * @return method that converts a form to html to display (typically via a Play template view)
 	 */
 	def htmlForUpdate(id: String, hiddenFields: Option[HiddenFields]): (Form[C]) => Html
@@ -45,6 +47,7 @@ trait ComponentController[C <: Component] extends Controller {
 	/**
 	 * Method to use to take a form filled with data and return the html to be displayed after a create - supplied
 	 * by component type inheriting trait.
+	 * @param id component ID
 	 * @return method that converts a form to html to display (typically a Play template view)
 	 */
 	def htmlForCreate(id: String): (Form[C]) => Html
@@ -98,7 +101,6 @@ trait ComponentController[C <: Component] extends Controller {
 	 * b)Add additional messages to be displayed in the form
 	 * c)Create html from form
 	 * d)Get result - status with html as associated returned data
-	 *
 	 * @param status result status (e.g., Ok or BadRequest)
 	 * @param c component to display
 	 * @param request html request
@@ -124,7 +126,7 @@ trait ComponentController[C <: Component] extends Controller {
 	 */
 	def find(id: String, request: Request[AnyContent]) = {
 		findByID[C,Result](id,List(componentType),
-			// Found wanted component
+			// Found wanted component - go setup to update data
 			found = (c) => viewData(Ok, c, request,	htmlForUpdate(id, Some(c.hiddenFields)),
 				Map.empty, MessageHandler.setMessages),
 			// NotFound - just redirect to not found view
@@ -218,26 +220,145 @@ object ComponentController extends Controller {
 	 * @param id ID for item to be deleted
 	 * @param deleted callback if delete went well
 	 * @param error callback if error during delete
+	 * @tparam R result type
+	 * @return returns result of deleted or error callback
 	 */
-	def delete[R](id: String, deleted: () => R, error: (Throwable) => R) = {
+	def delete[R](id: String, deleted: (Int) => R, error: (Throwable) => R) = {
 		// Start up deletes of component as well as associated transfers
 		val componentRemove = TrackerCollection.remove(id)
 		val transferRemove = TransferCollection.removeTransfers(id)
-		for {cr <- componentRemove
+		(for {cr <- componentRemove
 			tr <- transferRemove
 		} yield {
 			(cr, tr) match {
 				case (Some(err), _) => error(err)
 				case (_, Some(err)) => error(err)
-				case _ => deleted()
+				case _ => deleted(1)
 			}
+		}).recover {
+			case err => error(err)
+		}
+	}
+
+	/**
+	 * Do delete on item and it subcomponents.  A "delete" means deleting the component itself as well as all transfers
+	 * leading in and out of it.
+	 * @param id ID for item to be deleted
+	 * @param success callback if operation(s) go well (input is # of deletes done)
+	 * @param error callback if error during operation
+	 * @tparam R result type
+	 * @return returns result of success or error callback
+	 */
+	def doSubsDelete[R](id: String, success: (Int) => R, error: (Throwable) => R) = {
+		// Get partially applied function to do deletion - now just need to supply ID
+		val doDelete =
+			delete[YesOrNo[Int]](_: String,
+				deleted = (_) => Yes(1), error = (err) => No(err.getLocalizedMessage))
+		doSubsOper[R, Int](id, doDelete, (l) => success(l.sum), error)
+	}
+
+	/**
+	 * Go get count of # of transfers for an item.
+	 * @param id ID for item to get counts for
+	 * @param counted callback if count retrieved
+	 * @param error callback if error during count
+	 * @tparam R result type for callbacks
+	 * @return returns result of counted or error callback
+	 */
+	def transferCount[R](id: String, counted: (Int) => R, error: (Throwable) => R) =
+		TransferCollection.countTransfers(id).map(counted)
+			.recover {
+				case err => error(err)
+			}
+
+	/**
+	 * Get count of # of transfers from/to and item and it's subcomponents.
+	 * @param id ID for item for which to get transfer count
+	 * @param success callback if operation(s) go well (# of transfers is input)
+	 * @param error callback if error during operation
+	 * @tparam R result type
+	 * @return returns result of success or error callback
+	 */
+	def doSubsTransferCount[R](id: String, success: (Int) => R, error: (Throwable) => R) = {
+		// Get partially applied function to get count - now just need to supply ID
+		val doCount =
+			transferCount[YesOrNo[Int]](_: String,
+				counted = Yes(_), error = (err) => No(err.getLocalizedMessage))
+		//def doCount(id: String) = TransferCollection.countTransfers(id).map(Yes(_))
+		doSubsOper[R, Int](id, doCount, (l) => success(l.sum), error)
+	}
+
+	/**
+	 * Do operation on item and it subcomponents.
+	 * @param id ID for item to be worked on
+	 * @param oper operation to do for each subcomponent and the main component
+	 * @param success callback if operation(s) go well (input is list of results)
+	 * @param error callback if error during operation
+	 * @tparam R result type for sucess and error callbacks
+	 * @tparam O result type for list input to success callback
+	 * @return returns result of success or error callback
+	 */
+	private def doSubsOper[R, O](id: String, oper: (String) => Future[YesOrNo[O]],
+								 success: (List[O]) => R, error: (Throwable) => R) = {
+		/*
+		 * Get method to get fetch subcomponents
+		 * @param c component to get subcomponents for
+		 * @return method to fetch subcomponents
+		 */
+		def getSubFetcher(c: Component) =
+			c match {
+				case sc: SubComponents => sc.getSubFetcher
+				case _ => None
+			}
+
+		// Get component
+		TrackerCollection.findIds(List(id)).flatMap((components) => {
+			// Get object from bson
+			ComponentFromJson.bsonToComponents(components) match {
+				// Should just be one found - if there are subcomponents to fetch then go delete each of them
+				case found :: Nil if getSubFetcher(found).isDefined =>
+					// Get subcomponent fetcher (wouldn't be here if one didn't exist)
+					val subF = getSubFetcher(found).get
+					// Go get subcomponents
+					subF()
+						.flatMap {
+							case Yes(toWells) =>
+								// Start up one operation for each main component and subcomponent
+								val opers = oper(id) :: toWells.values.map(oper).toList
+								// Gather all the futures into one to contain list of results
+								Future.sequence(opers)
+									.map((errsOpt) => {
+										// Get all errors there (eliminate Nones)
+										val errs = errsOpt.flatMap(_.getNoOption)
+										// Callback if all ok
+										if (errs.isEmpty)
+											success(errsOpt.flatMap(_.getYesOption))
+										// Otherwise throw exception to be caught
+										else
+											throw new Exception(s"Error accessing subcomponents: ${errs.mkString("; ")}")
+									})
+							// Throw exception to be caught
+							case No(err) =>
+								throw new Exception(s"Error finding subcomponents of $id: $err")
+						}
+				// No subcomponent found - do single operation
+				case found :: Nil =>
+					oper(id)
+						.map {
+							case No(err) => throw new Exception(s"Error accessing $id: $err")
+							case Yes(ret) => success(List(ret))
+						}
+				// Didn't find component - throw exception to be caught
+				case _ => throw new Exception(s"Failed to find ID $id")
+			}
+		}).recover {
+			case err => error(err)
 		}
 	}
 
 	/**
 	 * Find item by querying the mongo collection using an id.  We return a future that will call back with the
 	 * query results.
-	 *
 	 * @param id item id to search for
 	 * @param componentType list of component types to search for (if empty all types are allowed)
 	 * @param found callback to set result if item found
@@ -282,7 +403,6 @@ object ComponentController extends Controller {
 
 	/**
 	 * Complete request (e.g., create or update) for a tracker item in our mongo db collection using a form.
-	 *
 	 * @param form form used to retrieve input
 	 * @param afterBind callback after successful bind from form
 	 * @param onSuccess action to take after a successful verification of object

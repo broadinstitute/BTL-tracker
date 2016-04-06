@@ -191,7 +191,7 @@ case class Transfer(from: String, to: String,
 		def fromSub(wellMapping: Map[String, List[String]], fromSC: SubComponents#SubFetcher, toC: Component)() = {
 			fromSC().map {
 				case No(err) =>
-					List(No(s"Error finding subcomponents of $from"))
+					List(No(s"Error finding subcomponents of $from: $err"))
 				case Yes(wells) =>
 					// See if divided destination
 					(getLayout(toC) match {
@@ -241,7 +241,7 @@ case class Transfer(from: String, to: String,
 		def toSub(wellMapping: Map[String, List[String]], toSC: SubComponents#SubFetcher, fromC: Component)() = {
 			toSC().map {
 				case No(err) =>
-					List(No(s"Error finding subcomponents of $to"))
+					List(No(s"Error finding subcomponents of $to: $err"))
 				case Yes(toWells) =>
 					// See if divided source
 					getLayout(fromC) match {
@@ -347,7 +347,7 @@ case class Transfer(from: String, to: String,
 			(findFromC, findToC) match {
 				// Transfers into BSP rack not allowed
 				case (_, Some(toC: Rack))
-					if toC.initialContent.isDefined && toC.initialContent.get == ContentType.BSPtubes =>
+					if toC.initialContent.contains(ContentType.BSPtubes) =>
 					Future.successful(0, Some(s"Transfer into BSP rack not allowed (rack $to)"))
 				// Got them both
 				case (Some(fromC), Some(toC)) =>

@@ -9,6 +9,7 @@ package models
 import formats.CustomFormats._
 import mappings.CustomMappings._
 import Component.ComponentType
+import initialContents.InitialContents.ContentType
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -181,9 +182,13 @@ trait Component {
 	 * Return hidden fields initialized to what was found in a component.  Hidden fields are used to pass original
 	 * values for fields between the server and client.  The server sets them in a form and then reads them later
 	 * when the form is returned after processing by the client.
-	 * @return hidden fields found (for now just project)
+	 * @return hidden fields found
 	 */
-	def hiddenFields = HiddenFields(project)
+	def hiddenFields =
+		this match {
+			case c: Container => HiddenFields(project, c.initialContent)
+			case _ => HiddenFields(project, None)
+		}
 }
 
 /**
@@ -272,6 +277,7 @@ object Component {
 	val descriptionKey = "description"
 	val projectKey = "project"
 	val hiddenProjectKey = "hiddenProject"
+	val hiddenContentTypeKey = "hiddenContentType"
 
 	/**
 	 * Form mapping for a component.  Forms for objects that extend from component are a bit strange since forms do not
@@ -306,7 +312,7 @@ object Component {
 	 * The hidden fields within the component
 	 * @param project project as set before update
 	 */
-	case class HiddenFields(project: Option[String])
+	case class HiddenFields(project: Option[String], contentType : Option[ContentType.ContentType] = None)
 
 	/**
 	 * Form to get the hidden fields - a mapping to the component fields from which we pick out the hidden fields
@@ -314,7 +320,8 @@ object Component {
 	private val hiddenForm =
 		Form(mapping(
 			Component.formKey -> mapping(
-				Component.hiddenProjectKey -> optional(text)
+				Component.hiddenProjectKey -> optional(text),
+				Component.hiddenContentTypeKey -> optional(enum(ContentType))
 			)(HiddenFields.apply)(HiddenFields.unapply)
 		)(HiddenComponent.apply)(HiddenComponent.unapply))
 

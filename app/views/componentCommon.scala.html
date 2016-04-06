@@ -15,14 +15,16 @@
 @import models.Component
 
 @* Supply component type needed - it's a mandatory field we already know but don't need to display *@
-<input type="hidden" id="@{Component.formKey + "_" + Component.typeKey}" name="@{Component.formKey + "." + Component.typeKey}" value="@componentType" />
+<input type="hidden" id="@{Component.formKey + "_" + Component.typeKey}"
+name="@{Component.formKey + "." + Component.typeKey}" value="@componentType" />
 @textarea(componentForm(Component.formKey + "." + Component.descriptionKey), '_label -> "Description")
 @componentTags(componentForm, true)
 @inputText(componentForm(Component.formKey + "." + Component.projectKey), '_label -> "Project ID", 'style -> "display:inline;")
 @jiraLink(componentForm)
 @if(hiddenFields.isDefined) {
 	@if(hiddenFields.get.project.isDefined) {
-		<input type="hidden" id="@{Component.formKey + "." + Component.hiddenProjectKey}" name="@{Component.formKey + "." + Component.hiddenProjectKey}" value="@hiddenFields.get.project.get" />
+		<input type="hidden" id="@{Component.formKey + "." + Component.hiddenProjectKey}"
+		name="@{Component.formKey + "." + Component.hiddenProjectKey}" value="@hiddenFields.get.project.get" />
 	}
 }
 @* @inputText(componentForm(Location.locationKey), '_label -> "Location") *@

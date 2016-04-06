@@ -49,7 +49,7 @@ case class Plate(override val id: String,override val description: Option[String
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
 	override protected def isValid(request: Request[AnyContent]) =
-		isProjectValid(getHiddenField(request,_.project)).map((errMap) => {
+		isProjectValid(getHiddenFields(request)).map((errMap) => {
 			initialContent match {
 				case Some(content) if !InitialContents.isContentValidForDivision(content, layout) =>
 					errMap + (Some(Container.contentKey) -> s"$content is invalid for plate with $layout")

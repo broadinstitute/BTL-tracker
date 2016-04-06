@@ -76,7 +76,7 @@ case class Rack(override val id: String,override val description: Option[String]
  	 * @param request HTTP request (has hidden field with project set before update)
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	override protected def isValid(request: Request[AnyContent]) = isProjectValid(getHiddenField(request,_.project))
+	override protected def isValid(request: Request[AnyContent]) = isProjectValid(getHiddenFields(request))
 
 	/**
 	 * Make a new component that includes the ability to make a list of individual components from the ID list.

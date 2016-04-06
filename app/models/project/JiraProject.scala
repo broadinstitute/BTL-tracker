@@ -1,8 +1,10 @@
 package models.project
 
 import models.initialContents.InitialContents
+import models.initialContents.InitialContents.ContentType
 import models.{Rack, ComponentList, Component}
 import models.Component._
+import models.Container
 import org.broadinstitute.LIMStales.sampleRacks._
 import JiraDBs._
 
@@ -23,12 +25,23 @@ trait JiraProject {
 	/**
 	 * Check if what's set in request is valid.  Specifically we check if the project set contains the rack(s) or
 	 * plate(s).
-	 * @param hiddenProject Hidden field (normally from HTTP request) with project set before update
+	 * @param hidden Hidden field (normally from HTTP request) with project set before update
 	 * @return Future of map of form fields to errors - empty if no errors found
 	 */
-	protected def isProjectValid(hiddenProject: Option[String]) : Future[Map[Option[String], String]] = {
-		// If no project set or project hasn't changed then just return saying all is fine
-		if (project.isEmpty || hiddenProject == project)
+	protected def isProjectValid(hidden: Option[HiddenFields]) : Future[Map[Option[String], String]] = {
+		// Get project and initialContents before request
+		val (proj, initContent) = hidden match {
+			case Some(h) => (h.project, h.contentType)
+			case _ => (None, None)
+		}
+		// Check if we're changing to BSP initial content
+		val isChangingToBSP =
+			this match {
+				case c: Container => c.initialContent != initContent && c.initialContent.contains(ContentType.BSPtubes)
+				case _ => false
+			}
+		// If no project set or neither project nor content type changed then we're all set
+		if (project.isEmpty || (proj == project && !isChangingToBSP))
 			Future.successful(Map.empty)
 		else {
 			val proj = project.get
@@ -53,14 +66,15 @@ trait JiraProject {
 	}
 
 	/**
-	 * Check if project is associated with component.  If there is no association found then an error is returned.
+	 * Check if project is associated with component if it's a BSP rack.
+	 * If there is no association found then an error is returned.
 	 * @param id id of component
 	 * @param project id of project
 	 * @return map of errors (form field -> error); empty map if project is associated with component
 	 */
 	private def checkProject(id: String, project: String) : Future[Option[(Option[String], String)]] = {
 		this match {
-			case r : Rack if r.initialContent.isDefined && r.initialContent.get == InitialContents.ContentType.BSPtubes =>
+			case r : Rack if r.initialContent.contains(InitialContents.ContentType.BSPtubes) =>
 				import play.api.libs.concurrent.Execution.Implicits.defaultContext
 				Future {
 					// Component description (type id)
