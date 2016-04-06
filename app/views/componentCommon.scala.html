@@ -26,6 +26,10 @@ name="@{Component.formKey + "." + Component.typeKey}" value="@componentType" />
 		<input type="hidden" id="@{Component.formKey + "." + Component.hiddenProjectKey}"
 		name="@{Component.formKey + "." + Component.hiddenProjectKey}" value="@hiddenFields.get.project.get" />
 	}
+	@if(hiddenFields.get.contentType.isDefined) {
+		<input type="hidden" id="@{Component.formKey + "." + Component.hiddenContentTypeKey}"
+		name="@{Component.formKey + "." + Component.hiddenContentTypeKey}" value="@hiddenFields.get.contentType.get" />
+	}
 }
 @* @inputText(componentForm(Location.locationKey), '_label -> "Location") *@
 @if(validContents.isDefined) {
