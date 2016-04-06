@@ -238,6 +238,9 @@ object Application extends Controller {
 				Redirect(ComponentController.actions(data.t).addRoute(data.id)))
 	}
 
+	// @TODO Need front end to this to check if subcomponents or not - now called from view homeUpdateOption.scala.html
+	// If subcomponents then check if subcomponents to be deleted before either proceeding here or to deleteSubCheck
+	// If no subcomponents then immediately go here
 	/**
 	 * Go bring up view to confirm if delete is to proceed
 	 *
@@ -245,8 +248,23 @@ object Application extends Controller {
 	 * @return result with
 	 */
 	def deleteCheck(id: String) = Action.async { request =>
-		ComponentController.transferCount[Result](id,
+		ComponentController.transferCount(id,
 			counted = (count) => Ok(views.html.deleteConfirm(id = id, count = count)),
+			error = (err) =>
+				BadRequest(views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
+		)
+	}
+
+	/**
+	 * Go bring up view to confirm if delete of component and subcomponents is to proceed
+	 *
+	 * @param id component id to delete
+	 * @return action to take to delete component
+	 */
+	def deleteSubCheck(id: String) = Action.async { request =>
+		// @TODO Need alternative to deleteConfirm view below
+		ComponentController.doSubsTransferCount(id,
+			success = (count) => Ok(views.html.deleteConfirm(id = id, count = count)),
 			error = (err) =>
 				BadRequest(views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
 		)
@@ -265,7 +283,23 @@ object Application extends Controller {
 		// Do delete
 		ComponentController.delete(id,
 			deleted = (_) => getResult(id + " successfully deleted"),
-			error = (t: Throwable) => getResult("Error deleting " + id + ": " + t.getLocalizedMessage))
+			error = (t) => getResult("Error deleting " + id + ": " + t.getLocalizedMessage))
+	}
+
+	/**
+	 * Delete component and subcomponents based on ID supplied in get request
+	 *
+	 * @param id id of parent component to be deleted
+	 * @return action to take to delete specified component
+	 */
+	def deleteSubByID(id: String) = Action.async { request =>
+		// Make result - redirect to home page and set flashing value (to be set as global error) to be picked up
+		// on home page
+		def getResult(msg: String) = MessageHandler.homeRedirect(msg)
+		// Do delete
+		ComponentController.doSubsDelete(id,
+			success = (_) => getResult(id + " successfully deleted"),
+			error = (t) => getResult("Error deleting " + id + ": " + t.getLocalizedMessage))
 	}
 
 	/**
