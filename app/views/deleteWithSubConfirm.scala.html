@@ -1,0 +1,15 @@
+@(id: String, subComps: Int, trans: Int)
+@import helper._
+
+@* Call main template with title and html to display *@
+@main("Delete Subcomponent Confirmation"){
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	<h3>Do you want to delete @id's @subComps tube@if(subComps != 1){s} as well?</h3>
+	@form(controllers.routes.Application.deleteSubConfirm(id), 'style -> "display:inline;") {
+		<input type="submit" value="Delete them all!" style="display:inline;">
+	}
+	@form(controllers.routes.Application.deleteSingleConfirm(id), 'style -> "display:inline;") {
+		<input type="submit" value="Just the rack please!" style="display:inline;">
+	}
+}

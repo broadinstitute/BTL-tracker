@@ -217,9 +217,9 @@ trait ComponentController[C <: Component] extends Controller {
 object ComponentController extends Controller {
 	/**
 	 * Go delete item and associated transfers from DB.
-	 * @param id ID for item to be deleted
+	 * @param id      ID for item to be deleted
 	 * @param deleted callback if delete went well
-	 * @param error callback if error during delete
+	 * @param error   callback if error during delete
 	 * @tparam R result type
 	 * @return returns result of deleted or error callback
 	 */
@@ -228,7 +228,7 @@ object ComponentController extends Controller {
 		val componentRemove = TrackerCollection.remove(id)
 		val transferRemove = TransferCollection.removeTransfers(id)
 		(for {cr <- componentRemove
-			tr <- transferRemove
+			  tr <- transferRemove
 		} yield {
 			(cr, tr) match {
 				case (Some(err), _) => error(err)
@@ -243,25 +243,26 @@ object ComponentController extends Controller {
 	/**
 	 * Do delete on item and it subcomponents.  A "delete" means deleting the component itself as well as all transfers
 	 * leading in and out of it.
-	 * @param id ID for item to be deleted
+	 * @param id      ID for item to be deleted
 	 * @param success callback if operation(s) go well (input is # of deletes done)
-	 * @param error callback if error during operation
+	 * @param error   callback if error during operation
 	 * @tparam R result type
 	 * @return returns result of success or error callback
 	 */
 	def doSubsDelete[R](id: String, success: (Int) => R, error: (Throwable) => R) = {
-		// Get partially applied function to do deletion - now just need to supply ID
+		// Get partially completed function to do deletion - now just need to supply ID
 		val doDelete =
 			delete[YesOrNo[Int]](_: String,
 				deleted = (_) => Yes(1), error = (err) => No(err.getLocalizedMessage))
+		// Go do deletes
 		doSubsOper[R, Int](id, doDelete, (l) => success(l.sum), error)
 	}
 
 	/**
 	 * Go get count of # of transfers for an item.
-	 * @param id ID for item to get counts for
+	 * @param id      ID for item to get counts for
 	 * @param counted callback if count retrieved
-	 * @param error callback if error during count
+	 * @param error   callback if error during count
 	 * @tparam R result type for callbacks
 	 * @return returns result of counted or error callback
 	 */
@@ -272,58 +273,89 @@ object ComponentController extends Controller {
 			}
 
 	/**
+	 * Partially completed function to get transfer counts - now just need to supply ID
+	 */
+	private val doCount = transferCount[YesOrNo[Int]](_: String,
+		counted = Yes(_), error = (err) => No(err.getLocalizedMessage))
+
+	/**
 	 * Get count of # of transfers from/to and item and it's subcomponents.
-	 * @param id ID for item for which to get transfer count
-	 * @param success callback if operation(s) go well (# of transfers is input)
-	 * @param error callback if error during operation
+	 * @param id      ID for item for which to get transfer count
+	 * @param success callback if operation(s) go well (called with # of transfers)
+	 * @param error   callback if error during operation
 	 * @tparam R result type
 	 * @return returns result of success or error callback
 	 */
-	def doSubsTransferCount[R](id: String, success: (Int) => R, error: (Throwable) => R) = {
-		// Get partially applied function to get count - now just need to supply ID
-		val doCount =
-			transferCount[YesOrNo[Int]](_: String,
-				counted = Yes(_), error = (err) => No(err.getLocalizedMessage))
-		//def doCount(id: String) = TransferCollection.countTransfers(id).map(Yes(_))
+	def doSubsTransferCount[R](id: String, success: (Int) => R, error: (Throwable) => R) =
+	// Go get count of transfers
 		doSubsOper[R, Int](id, doCount, (l) => success(l.sum), error)
-	}
+
+	/**
+	 * Get count of # of components and associated # of transfers.
+	 * @param id      ID for item for which to get counts
+	 * @param success callback if operation(s) go well (called with # of components found, # of transfers found)
+	 * @param error   callback if error during operation
+	 * @tparam R result type
+	 * @return returns results of success or error callback
+	 */
+	def doComponentCounts[R](id: String, success: (Int, Int) => R, error: (Throwable) => R) =
+	// Go get count of components & associated transfers
+		doSubsOper[R, Int](id, doCount, (l) => success(l.size, l.sum), error)
+
+	/**
+	 * Get subcomponent well->ID map.  If there are any errors we simply return an empty map.
+	 * @param id id of component
+	 * @return well->subcomponentID map
+	 */
+	def getSubsIDs(id: String) =
+		TrackerCollection.findComponent(id).flatMap {
+			// Should just be one found - if there are subcomponents to fetch then go get map of them
+			case Some(found) if getSubFetcher(found).isDefined =>
+				// Get fetcher - wouldn't get here if one wasn't there
+				val subF = getSubFetcher(found).get
+				// Go get map of wells to subcomponent IDs
+				subF()
+					.map {
+						case Yes(wellsMap) => wellsMap
+						case _ => Map.empty[String, String]
+					}
+			case _ =>  Future.successful(Map.empty[String, String])
+		}
+
+	/**
+	 * Get method to get fetch subcomponents
+	 * @param c component to get subcomponents for
+	 * @return method to fetch subcomponents
+	 */
+	private def getSubFetcher(c: Component) =
+		c match {
+			case sc: SubComponents => sc.getSubFetcher
+			case _ => None
+		}
 
 	/**
 	 * Do operation on item and it subcomponents.
 	 * @param id ID for item to be worked on
-	 * @param oper operation to do for each subcomponent and the main component
+	 * @param oper operation to do for each subcomponent and the main component, input is ID
 	 * @param success callback if operation(s) go well (input is list of results)
 	 * @param error callback if error during operation
-	 * @tparam R result type for sucess and error callbacks
+	 * @tparam R result type for success and error callbacks
 	 * @tparam O result type for list input to success callback
 	 * @return returns result of success or error callback
 	 */
 	private def doSubsOper[R, O](id: String, oper: (String) => Future[YesOrNo[O]],
 								 success: (List[O]) => R, error: (Throwable) => R) = {
-		/*
-		 * Get method to get fetch subcomponents
-		 * @param c component to get subcomponents for
-		 * @return method to fetch subcomponents
-		 */
-		def getSubFetcher(c: Component) =
-			c match {
-				case sc: SubComponents => sc.getSubFetcher
-				case _ => None
-			}
-
 		// Get component
-		TrackerCollection.findIds(List(id)).flatMap((components) => {
-			// Get object from bson
-			ComponentFromJson.bsonToComponents(components) match {
-				// Should just be one found - if there are subcomponents to fetch then go delete each of them
-				case found :: Nil if getSubFetcher(found).isDefined =>
+		TrackerCollection.findComponent(id).flatMap {
+			// Should just be one found - if there are subcomponents to fetch then go operate on each of them
+			case Some(found) if getSubFetcher(found).isDefined =>
 					// Get subcomponent fetcher (wouldn't be here if one didn't exist)
 					val subF = getSubFetcher(found).get
 					// Go get subcomponents
 					subF()
 						.flatMap {
 							case Yes(toWells) =>
-								// Start up one operation for each main component and subcomponent
+								// Start up one operation for the main component and each subcomponent
 								val opers = oper(id) :: toWells.values.map(oper).toList
 								// Gather all the futures into one to contain list of results
 								Future.sequence(opers)
@@ -341,17 +373,16 @@ object ComponentController extends Controller {
 							case No(err) =>
 								throw new Exception(s"Error finding subcomponents of $id: $err")
 						}
-				// No subcomponent found - do single operation
-				case found :: Nil =>
-					oper(id)
-						.map {
-							case No(err) => throw new Exception(s"Error accessing $id: $err")
-							case Yes(ret) => success(List(ret))
-						}
-				// Didn't find component - throw exception to be caught
-				case _ => throw new Exception(s"Failed to find ID $id")
-			}
-		}).recover {
+			// No subcomponent found - do single operation
+			case Some(found) =>
+				oper(id)
+					.map {
+						case No(err) => throw new Exception(s"Error accessing $id: $err")
+						case Yes(ret) => success(List(ret))
+					}
+			// Didn't find component - throw exception to be caught
+			case _ => throw new Exception(s"Failed to find ID $id")
+		}.recover {
 			case err => error(err)
 		}
 	}

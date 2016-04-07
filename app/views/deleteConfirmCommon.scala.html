@@ -1,0 +1,15 @@
+@(id: String, count: Int, sub: Boolean, del: Call)
+@import helper._
+
+@* Call main template with title and html to display *@
+@main("Delete Confirmation"){
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	<h3>Sure you want to delete @id @if(sub){and its tubes }and @count associated transfer@if(count != 1){s}?</h3>
+	@form(del, 'style -> "display:inline;") {
+		<input type="submit" value="You betcha!" style="display:inline;">
+	}
+	@form(controllers.routes.Application.findByID(id), 'style -> "display:inline;") {
+		<input type="submit" value="No way!" style="display:inline;">
+	}
+}

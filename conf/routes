@@ -20,9 +20,16 @@ GET         /addStack                                   controllers.Application.
 # Post request to add a new item (posted data specified id and item type)
 POST        /stackIDs                                   controllers.Application.getStackIDs
 
-# Delete confirm and actual delete from get parameter
-GET         /deleteConfirm/:id                          controllers.Application.deleteCheck(id: String)
+# Confirm delete without subcomponents
+GET         /deleteTranConfirm/:id                      controllers.Application.deleteSingleConfirm(id: String)
+# Initial check for delete
+GET         /deleteStart/:id                            controllers.Application.deleteCheck(id: String)
+# Confirm delete with subcomponents
+GET         /deleteSubConfirm/:id                       controllers.Application.deleteSubConfirm(id: String)
+# Do delete without subcomponents
 GET         /delete/:id                                 controllers.Application.deleteByID(id: String)
+# Do delete with subcomponents
+GET         /deleteSub/:id                              controllers.Application.deleteSubByID(id: String)
 
 # Retrieve item
 GET         /find                                       controllers.FindController.find

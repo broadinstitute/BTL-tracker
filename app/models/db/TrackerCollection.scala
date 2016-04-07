@@ -1,7 +1,7 @@
 package models.db
 
 import utils.MessageHandler
-import models.Component
+import models.{ComponentFromJson, Component}
 import play.api.{Play, Logger}
 import play.api.libs.json._
 import play.api.mvc.Controller
@@ -97,6 +97,18 @@ object TrackerCollection extends Controller with MongoController {
 	 */
 	def findID[T: Reads](id: String) =
 		findOneWithJsonQuery(Json.toJson(Json.obj(Component.idKey -> id)))
+
+	/**
+	 * Find component.
+	 * @param id id of component
+	 * @return component object if found
+	 */
+	def findComponent(id: String) = {
+		findID[JsObject](id).map {
+			case Some(json) => Some(ComponentFromJson.getComponent(json))
+			case None => None
+		}
+	}
 
 	/**
 	 * Insert a component, via reactive mongo, into the tracker DB

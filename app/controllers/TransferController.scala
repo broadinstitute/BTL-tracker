@@ -634,7 +634,6 @@ object TransferController extends Controller {
 
 	/**
 	 * Display the well transfers between two components.
-	 *
 	 * @param from source component
 	 * @param to target component
 	 * @return puts up nice display of source plate with contents of wells set to destination wells
