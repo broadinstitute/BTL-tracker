@@ -7,7 +7,7 @@ import play.api.libs.json._
 import play.api.mvc._
 import models._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import utils.{No, MessageHandler}
+import utils.MessageHandler
 import utils.MessageHandler.FlashingKeys
 import java.io.File
 
@@ -361,8 +361,8 @@ object Application extends Controller {
 	 * @param id component ID
 	 * @return form filled in with component data requested
 	 */
-	def findRequestUsingID(id: String, request: Request[_],
-		okComponents: List[ComponentType.ComponentType] = List.empty)(getResult: (ComponentType.ComponentType, JsObject, Request[_]) => Result): Future[Result] = {
+	def findRequestUsingID(id: String, request: Request[_], okComponents: List[ComponentType.ComponentType] = List.empty)
+						  (getResult: (ComponentType.ComponentType, JsObject, Request[_]) => Result): Future[Result] = {
 		ComponentController.findByID[JsObject, Result](id = id, componentType = okComponents,
 			found = (json) => {
 				val cType = (json \ Component.typeKey).as[String]

@@ -1,13 +1,13 @@
 package controllers
 
 import models._
-import models.db.{TransferCollection, TrackerCollection}
-import models.Component.{HiddenFields,ComponentType}
+import models.db.{ TransferCollection, TrackerCollection }
+import models.Component.{ HiddenFields, ComponentType }
 import play.api.data.Form
 import play.api.libs.json._
 import play.api.mvc._
-import play.twirl.api.{HtmlFormat,Html}
-import utils.{Yes, No, YesOrNo, MessageHandler}
+import play.twirl.api.{ HtmlFormat, Html }
+import utils.{ Yes, No, YesOrNo, MessageHandler }
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -66,7 +66,7 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @param completionStr completion status to set as global message in form
 	 * @return html to create stack of plates
 	 */
-	def makeStackHtml(id: String, completionStr: String) : Html
+	def makeStackHtml(id: String, completionStr: String): Html
 
 	/**
 	 * Component type, supplied by component inheriting trait (maybe someday make a macro to get this based on C type?)
@@ -75,10 +75,10 @@ trait ComponentController[C <: Component] extends Controller {
 
 	/**
 	 * Make an object from json
- 	 * @param json input json
+	 * @param json input json
 	 * @return object returned via reading of Json
 	 */
-	def componentFromJson(json: JsObject) : C
+	def componentFromJson(json: JsObject): C
 
 	/**
 	 * Add - just say ok and display form for creating component
@@ -110,13 +110,12 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @return result containing html to be displayed
 	 */
 	private def viewData(status: Status, c: C, request: Request[AnyContent], html: (Form[C]) => Html,
-	                     msgs: Map[Option[String], String],
-	                     messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) = {
+		msgs: Map[Option[String], String],
+		messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) = {
 		val filledForm = MessageHandler.addStatusFlash(request, form.fill(c))
 		val formWithMsgs = messageSetter(msgs, filledForm)
 		status(html(formWithMsgs))
 	}
-
 
 	/**
 	 * Find - if all goes well return with display of found component.
@@ -125,9 +124,9 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @return resulting html to display wanted component
 	 */
 	def find(id: String, request: Request[AnyContent]) = {
-		findByID[C,Result](id,List(componentType),
+		findByID[C, Result](id, List(componentType),
 			// Found wanted component - go setup to update data
-			found = (c) => viewData(Ok, c, request,	htmlForUpdate(id, Some(c.hiddenFields)),
+			found = (c) => viewData(Ok, c, request, htmlForUpdate(id, Some(c.hiddenFields)),
 				Map.empty, MessageHandler.setMessages),
 			// NotFound - just redirect to not found view
 			notFound = MessageHandler.notFoundRedirect
@@ -184,7 +183,7 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @return future update component (on error displays form with errors)
 	 */
 	def update(id: String, request: Request[AnyContent],
-	           preUpdate: (C) => Future[Map[Option[String], String]] = (_) => Future.successful(Map.empty)) = {
+			   preUpdate: (C) => Future[Map[Option[String], String]] = (_) => Future.successful(Map.empty)) = {
 		doRequestFromForm(form,
 			afterBind = (c: C) => c,
 			// Note that onSuccess returns a future
@@ -217,9 +216,9 @@ trait ComponentController[C <: Component] extends Controller {
 object ComponentController extends Controller {
 	/**
 	 * Go delete item and associated transfers from DB.
-	 * @param id      ID for item to be deleted
+	 * @param id ID for item to be deleted
 	 * @param deleted callback if delete went well
-	 * @param error   callback if error during delete
+	 * @param error callback if error during delete
 	 * @tparam R result type
 	 * @return returns result of deleted or error callback
 	 */
@@ -227,8 +226,10 @@ object ComponentController extends Controller {
 		// Start up deletes of component as well as associated transfers
 		val componentRemove = TrackerCollection.remove(id)
 		val transferRemove = TransferCollection.removeTransfers(id)
-		(for {cr <- componentRemove
-			  tr <- transferRemove
+		// Line futures up for completion and callback with results
+		(for {
+			cr <- componentRemove
+			tr <- transferRemove
 		} yield {
 			(cr, tr) match {
 				case (Some(err), _) => error(err)
@@ -241,11 +242,11 @@ object ComponentController extends Controller {
 	}
 
 	/**
-	 * Do delete on item and it subcomponents.  A "delete" means deleting the component itself as well as all transfers
+	 * Do delete an item and it subcomponents.  A "delete" means deleting the component itself as well as all transfers
 	 * leading in and out of it.
-	 * @param id      ID for item to be deleted
+	 * @param id ID for item to be deleted
 	 * @param success callback if operation(s) go well (input is # of deletes done)
-	 * @param error   callback if error during operation
+	 * @param error callback if error during operation
 	 * @tparam R result type
 	 * @return returns result of success or error callback
 	 */
@@ -260,9 +261,9 @@ object ComponentController extends Controller {
 
 	/**
 	 * Go get count of # of transfers for an item.
-	 * @param id      ID for item to get counts for
+	 * @param id ID for item to get counts for
 	 * @param counted callback if count retrieved
-	 * @param error   callback if error during count
+	 * @param error callback if error during count
 	 * @tparam R result type for callbacks
 	 * @return returns result of counted or error callback
 	 */
@@ -273,34 +274,34 @@ object ComponentController extends Controller {
 			}
 
 	/**
-	 * Partially completed function to get transfer counts - now just need to supply ID
+	 * Partially applied function to get transfer counts - just need to supply ID to make actual call
 	 */
 	private val doCount = transferCount[YesOrNo[Int]](_: String,
 		counted = Yes(_), error = (err) => No(err.getLocalizedMessage))
 
 	/**
 	 * Get count of # of transfers from/to and item and it's subcomponents.
-	 * @param id      ID for item for which to get transfer count
+	 * @param id ID for item for which to get transfer count
 	 * @param success callback if operation(s) go well (called with # of transfers)
-	 * @param error   callback if error during operation
+	 * @param error callback if error during operation
 	 * @tparam R result type
 	 * @return returns result of success or error callback
 	 */
 	def doSubsTransferCount[R](id: String, success: (Int) => R, error: (Throwable) => R) =
-	// Go get count of transfers
-		doSubsOper[R, Int](id, doCount, (l) => success(l.sum), error)
+		// Go get count of transfers
+		doSubsOper[R, Int](id = id, oper = doCount, success = (l) => success(l.sum), error = error)
 
 	/**
 	 * Get count of # of components and associated # of transfers.
-	 * @param id      ID for item for which to get counts
+	 * @param id ID for item for which to get counts
 	 * @param success callback if operation(s) go well (called with # of components found, # of transfers found)
-	 * @param error   callback if error during operation
+	 * @param error callback if error during operation
 	 * @tparam R result type
 	 * @return returns results of success or error callback
 	 */
 	def doComponentCounts[R](id: String, success: (Int, Int) => R, error: (Throwable) => R) =
-	// Go get count of components & associated transfers
-		doSubsOper[R, Int](id, doCount, (l) => success(l.size, l.sum), error)
+		// Go get count of components & associated transfers
+		doSubsOper[R, Int](id = id, oper = doCount, success = (l) => success(l.size, l.sum), error = error)
 
 	/**
 	 * Get subcomponent well->ID map.  If there are any errors we simply return an empty map.
@@ -319,7 +320,7 @@ object ComponentController extends Controller {
 						case Yes(wellsMap) => wellsMap
 						case _ => Map.empty[String, String]
 					}
-			case _ =>  Future.successful(Map.empty[String, String])
+			case _ => Future.successful(Map.empty[String, String])
 		}
 
 	/**
@@ -334,45 +335,45 @@ object ComponentController extends Controller {
 		}
 
 	/**
-	 * Do operation on item and it subcomponents.
+	 * Do operation on item and its subcomponents.
 	 * @param id ID for item to be worked on
-	 * @param oper operation to do for each subcomponent and the main component, input is ID
+	 * @param oper operation to do for each subcomponent and the main component, ID is input to oper
 	 * @param success callback if operation(s) go well (input is list of results)
 	 * @param error callback if error during operation
 	 * @tparam R result type for success and error callbacks
-	 * @tparam O result type for list input to success callback
+	 * @tparam O result type for operations done on items
 	 * @return returns result of success or error callback
 	 */
 	private def doSubsOper[R, O](id: String, oper: (String) => Future[YesOrNo[O]],
-								 success: (List[O]) => R, error: (Throwable) => R) = {
+		success: (List[O]) => R, error: (Throwable) => R) = {
 		// Get component
 		TrackerCollection.findComponent(id).flatMap {
 			// Should just be one found - if there are subcomponents to fetch then go operate on each of them
 			case Some(found) if getSubFetcher(found).isDefined =>
-					// Get subcomponent fetcher (wouldn't be here if one didn't exist)
-					val subF = getSubFetcher(found).get
-					// Go get subcomponents
-					subF()
-						.flatMap {
-							case Yes(toWells) =>
-								// Start up one operation for the main component and each subcomponent
-								val opers = oper(id) :: toWells.values.map(oper).toList
-								// Gather all the futures into one to contain list of results
-								Future.sequence(opers)
-									.map((errsOpt) => {
-										// Get all errors there (eliminate Nones)
-										val errs = errsOpt.flatMap(_.getNoOption)
-										// Callback if all ok
-										if (errs.isEmpty)
-											success(errsOpt.flatMap(_.getYesOption))
-										// Otherwise throw exception to be caught
-										else
-											throw new Exception(s"Error accessing subcomponents: ${errs.mkString("; ")}")
-									})
-							// Throw exception to be caught
-							case No(err) =>
-								throw new Exception(s"Error finding subcomponents of $id: $err")
-						}
+				// Get subcomponent fetcher (wouldn't be here if one didn't exist)
+				val subF = getSubFetcher(found).get
+				// Go get subcomponents
+				subF()
+					.flatMap {
+						case Yes(toWells) =>
+							// Start up one operation for the main component and each subcomponent
+							val opers = oper(id) :: toWells.values.map(oper).toList
+							// Gather all the futures into one to contain list of results
+							Future.sequence(opers)
+								.map((errsOpt) => {
+									// Get all errors there (eliminate Nones)
+									val errs = errsOpt.flatMap(_.getNoOption)
+									// Callback if all ok
+									if (errs.isEmpty)
+										success(errsOpt.flatMap(_.getYesOption))
+									// Otherwise throw exception to be caught
+									else
+										throw new Exception(s"Error accessing subcomponents: ${errs.mkString("; ")}")
+								})
+						// Throw exception to be caught
+						case No(err) =>
+							throw new Exception(s"Error finding subcomponents of $id: $err")
+					}
 			// No subcomponent found - do single operation
 			case Some(found) =>
 				oper(id)
@@ -398,14 +399,14 @@ object ComponentController extends Controller {
 	 * @tparam R type of result
 	 * @return future result, as determined by callbacks, of query
 	 */
-	def findByID[T : Reads, R](id: String,componentType: List[ComponentType.ComponentType], found: (T) => R,
-	                           notFound: (String,List[ComponentType.ComponentType]) => R) = {
+	def findByID[T: Reads, R](id: String, componentType: List[ComponentType.ComponentType], found: (T) => R,
+		notFound: (String, List[ComponentType.ComponentType]) => R) = {
 		// let’s do our query to a single item with the wanted id (and component type(s) if supplied)
 		val findMap =
 			if (componentType.isEmpty)
 				Json.obj(Component.idKey -> id)
 			else
-				Json.obj(Component.idKey -> id,Component.typeKey -> Json.obj("$in" -> componentType.map(_.toString)))
+				Json.obj(Component.idKey -> id, Component.typeKey -> Json.obj("$in" -> componentType.map(_.toString)))
 		// Using implicit reader and execution context
 		val item = TrackerCollection.findOneWithJsonQuery(Json.toJson(findMap))
 		// First map for future (maps initial future results into new results set by found callback)
@@ -422,12 +423,12 @@ object ComponentController extends Controller {
 	 * @return None if id found, otherwise error message
 	 */
 	def isIdValid(componentId: Option[String], validComponents: List[ComponentType.ComponentType],
-	              idType: String) =
+		idType: String) =
 		componentId match {
-			case Some(id) => findByID[JsObject,Option[String]](id,validComponents,
+			case Some(id) => findByID[JsObject, Option[String]](id, validComponents,
 				found = (_) => None,
-				notFound = (_,_) =>
-					Some(MessageHandler.notFoundComponentMessage(id,validComponents) +
+				notFound = (_, _) =>
+					Some(MessageHandler.notFoundComponentMessage(id, validComponents) +
 						" - change " + idType + " set or register " + idType + " " + id))
 			case None => Future.successful(None)
 		}
@@ -442,11 +443,10 @@ object ComponentController extends Controller {
 	 * @tparam I type of component being requested
 	 * @return future to return request results
 	 */
-	private def doRequestFromForm[I <: Component : Writes](form: Form[I],
-														   afterBind: (I) => I,
-	                                                       onSuccess: (I) => Future[Result],
-	                                                       onFailure: Form[I] => HtmlFormat.Appendable)
-	                                                      (request: Request[AnyContent]): Future[Result] = {
+	private def doRequestFromForm[I <: Component: Writes](form: Form[I],
+		afterBind: (I) => I,
+		onSuccess: (I) => Future[Result],
+		onFailure: Form[I] => HtmlFormat.Appendable)(request: Request[AnyContent]): Future[Result] = {
 		import play.api.libs.concurrent.Execution.Implicits.defaultContext
 		// Bind data to new form
 		val bForm = form.bindFromRequest()(request)
@@ -469,9 +469,9 @@ object ComponentController extends Controller {
 				}
 			}
 		).recover {
-			// On exception return bad request with html filled by call back
-			case err => BadRequest(onFailure(bForm.withGlobalError(MessageHandler.exceptionMessage(err))))
-		}
+				// On exception return bad request with html filled by call back
+				case err => BadRequest(onFailure(bForm.withGlobalError(MessageHandler.exceptionMessage(err))))
+			}
 	}
 
 	/**
@@ -481,7 +481,7 @@ object ComponentController extends Controller {
 	 * @param createStackView Method to create html to be used to add stack of components
 	 */
 	case class ControllerActions(updateRoute: (String) => Call, addRoute: (String) => Call,
-								 createStackView: (String, String) => Html)
+		createStackView: (String, String) => Html)
 
 	/**
 	 * Map of calls to use for redirects to find (by id) or add a component and json to component conversions

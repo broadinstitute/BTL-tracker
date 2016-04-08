@@ -108,7 +108,7 @@ object TransferContents {
 			 */
 			def getBspContent(c: Component) =
 				c match {
-					case rack: Rack if rack.initialContent.isEmpty || rack.initialContent.get == ContentType.BSPtubes =>
+					case rack: Rack if rack.initialContent.contains(ContentType.BSPtubes) =>
 						Rack.getBSPmatch(id = rack.id,
 							found = (matches, ssfIssue) => {
 								// Get results of bsp matching into a map of wells to sample info
