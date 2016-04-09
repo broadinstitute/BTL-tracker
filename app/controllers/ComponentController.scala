@@ -360,12 +360,12 @@ object ComponentController extends Controller {
 							val opers = oper(id) :: toWells.values.map(oper).toList
 							// Gather all the futures into one to contain list of results
 							Future.sequence(opers)
-								.map((errsOpt) => {
+								.map((yesOrNos) => {
 									// Get all errors there (eliminate Nones)
-									val errs = errsOpt.flatMap(_.getNoOption)
-									// Callback if all ok
+									val errs = yesOrNos.flatMap(_.getNoOption)
+									// Callback to success function with list of subcomponents found
 									if (errs.isEmpty)
-										success(errsOpt.flatMap(_.getYesOption))
+										success(yesOrNos.flatMap(_.getYesOption))
 									// Otherwise throw exception to be caught
 									else
 										throw new Exception(s"Error accessing subcomponents: ${errs.mkString("; ")}")
@@ -374,7 +374,7 @@ object ComponentController extends Controller {
 						case No(err) =>
 							throw new Exception(s"Error finding subcomponents of $id: $err")
 					}
-			// No subcomponent found - do single operation
+			// No subcomponent found - do single operation and callback to success function with list of 1
 			case Some(found) =>
 				oper(id)
 					.map {
@@ -384,6 +384,7 @@ object ComponentController extends Controller {
 			// Didn't find component - throw exception to be caught
 			case _ => throw new Exception(s"Failed to find ID $id")
 		}.recover {
+			// If an error (thrown by our own code or elsewhere) then callback to error function
 			case err => error(err)
 		}
 	}
