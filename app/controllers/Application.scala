@@ -321,7 +321,7 @@ object Application extends Controller {
 			// On success
 			(_) => getResult(id + " successfully deleted"),
 			// On failure
-			(t: Throwable) => getResult("Error deleting " + id + ": " + t.getLocalizedMessage)
+			(t: Throwable) => getResult("Error deleting " + id + ": " + MessageHandler.exceptionMessage(t))
 		)
 	}
 

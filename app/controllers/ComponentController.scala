@@ -347,46 +347,48 @@ object ComponentController extends Controller {
 	private def doSubsOper[R, O](id: String, oper: (String) => Future[YesOrNo[O]],
 		success: (List[O]) => R, error: (Throwable) => R) = {
 		// Get component
-		TrackerCollection.findComponent(id).flatMap {
-			// Should just be one found - if there are subcomponents to fetch then go operate on each of them
-			case Some(found) if getSubFetcher(found).isDefined =>
-				// Get subcomponent fetcher (wouldn't be here if one didn't exist)
-				val subF = getSubFetcher(found).get
-				// Go get subcomponents
-				subF()
-					.flatMap {
-						case Yes(toWells) =>
-							// Start up one operation for the main component and each subcomponent
-							val opers = oper(id) :: toWells.values.map(oper).toList
-							// Gather all the futures into one to contain list of results
-							Future.sequence(opers)
-								.map((yesOrNos) => {
-									// Get all errors there (eliminate Nones)
-									val errs = yesOrNos.flatMap(_.getNoOption)
-									// Callback to success function with list of subcomponents found
-									if (errs.isEmpty)
-										success(yesOrNos.flatMap(_.getYesOption))
-									// Otherwise throw exception to be caught
-									else
-										throw new Exception(s"Error accessing subcomponents: ${errs.mkString("; ")}")
-								})
-						// Throw exception to be caught
-						case No(err) =>
-							throw new Exception(s"Error finding subcomponents of $id: $err")
-					}
-			// No subcomponent found - do single operation and callback to success function with list of 1
-			case Some(found) =>
-				oper(id)
-					.map {
-						case No(err) => throw new Exception(s"Error accessing $id: $err")
-						case Yes(ret) => success(List(ret))
-					}
-			// Didn't find component - throw exception to be caught
-			case _ => throw new Exception(s"Failed to find ID $id")
-		}.recover {
-			// If an error (thrown by our own code or elsewhere) then callback to error function
-			case err => error(err)
-		}
+		TrackerCollection.findComponent(id)
+			.flatMap {
+				// Should just be one found - if there are subcomponents to fetch then go operate on each of them
+				case Some(found) if getSubFetcher(found).isDefined =>
+					// Get subcomponent fetcher (wouldn't be here if one didn't exist)
+					val subF = getSubFetcher(found).get
+					// Go get subcomponents
+					subF()
+						.flatMap {
+							case Yes(toWells) =>
+								// Start up one operation for the main component and each subcomponent
+								val opers = oper(id) :: toWells.values.map(oper).toList
+								// Gather all the futures into one to contain list of results
+								Future.sequence(opers)
+									.map((yesOrNos) => {
+										// Get all errors there (eliminate Nones)
+										val errs = yesOrNos.flatMap(_.getNoOption)
+										// Callback to success function with list of subcomponents found
+										if (errs.isEmpty)
+											success(yesOrNos.flatMap(_.getYesOption))
+										// Otherwise throw exception to be caught
+										else
+											throw new Exception(s"Error accessing subcomponents: ${errs.mkString("; ")}")
+									})
+							// Throw exception to be caught
+							case No(err) =>
+								throw new Exception(s"Error finding subcomponents of $id: $err")
+						}
+				// No subcomponent found - do single operation and callback to success function with list of 1
+				case Some(found) =>
+					oper(id)
+						.map {
+							case No(err) => throw new Exception(s"Error accessing $id: $err")
+							case Yes(ret) => success(List(ret))
+						}
+				// Didn't find component - throw exception to be caught
+				case _ => throw new Exception(s"Failed to find ID $id")
+			}
+			.recover {
+				// If an error (thrown by our own code or elsewhere) then callback to error function
+				case err => error(err)
+			}
 	}
 
 	/**
