@@ -110,8 +110,8 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @return result containing html to be displayed
 	 */
 	private def viewData(status: Status, c: C, request: Request[AnyContent], html: (Form[C]) => Html,
-		msgs: Map[Option[String], String],
-		messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) = {
+						 msgs: Map[Option[String], String],
+						 messageSetter: (Map[Option[String], String], Form[C]) => Form[C]) = {
 		val filledForm = MessageHandler.addStatusFlash(request, form.fill(c))
 		val formWithMsgs = messageSetter(msgs, filledForm)
 		status(html(formWithMsgs))
@@ -126,14 +126,18 @@ trait ComponentController[C <: Component] extends Controller {
 	def find(id: String, request: Request[AnyContent]) = {
 		findByID[C, Result](id, List(componentType),
 			// Found wanted component - go setup to update data
-			found = (c) => viewData(Ok, c, request, htmlForUpdate(id, Some(c.hiddenFields)),
-				Map.empty, MessageHandler.setMessages),
+			found = (c) => viewData(status = Ok, c = c, request = request,
+				html = htmlForUpdate(id, Some(c.hiddenFields)),
+				msgs = Map.empty, messageSetter = MessageHandler.setMessages),
 			// NotFound - just redirect to not found view
 			notFound = MessageHandler.notFoundRedirect
 		).recover {
-			case err => BadRequest(views.html.index(
-				Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
-		}
+				case err => BadRequest(
+					views.html.index(
+						Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))
+					)
+				)
+			}
 	}
 
 	/**
@@ -167,8 +171,11 @@ trait ComponentController[C <: Component] extends Controller {
 						onSuccess = (status) => MessageHandler.homeRedirect(status),
 						// Recover from exception - return form with errors
 						onFailure =
-							(err) => BadRequest(htmlForCreate(id)(
-								form.withGlobalError(MessageHandler.exceptionMessage(err)))))
+							(err) => BadRequest(
+								htmlForCreate(id)
+								(form.withGlobalError(MessageHandler.exceptionMessage(err)))
+							)
+					)
 			},
 			// if trouble then show form that should be updated with error messages
 			onFailure = (f: Form[C]) => if (isStack) htmlForCreateStack(f) else htmlForCreate(id)(f)
@@ -196,19 +203,25 @@ trait ComponentController[C <: Component] extends Controller {
 							// Go home and tell everyone what we've done
 							onSuccess = (msg) => MessageHandler.homeRedirect(msg),
 							// Recover from exception - return form with errors
-							onFailure = (err) => BadRequest(htmlForUpdate(id, Component.getHiddenFields(request))
-							(form.withGlobalError(MessageHandler.exceptionMessage(err))))
+							onFailure = (err) =>
+								BadRequest(
+									htmlForUpdate(id = id, hiddenFields = Component.getHiddenFields(request))
+									(form.withGlobalError(MessageHandler.exceptionMessage(err)))
+								)
 						)
 					} else {
 						// If pre-update returned errors then return form with those errors - remember original
 						// hidden fields so any changes made to them are ignored for now
 						Future.successful(
-							viewData(BadRequest, data, request,
-								htmlForUpdate(id, Component.getHiddenFields(request)), errs, MessageHandler.setFailureMsgs))
-					})
+							viewData(status = BadRequest, c = data, request = request,
+								html = htmlForUpdate(id = id, hiddenFields = Component.getHiddenFields(request)),
+								msgs = errs, messageSetter = MessageHandler.setFailureMsgs)
+						)
+					}
+				)
 			},
 			// if trouble then show form that should be updated with error messages
-			onFailure = (f: Form[C]) => htmlForUpdate(id, Component.getHiddenFields(request))(f)
+			onFailure = (f: Form[C]) => htmlForUpdate(id = id, hiddenFields = Component.getHiddenFields(request))(f)
 		)(request)
 	}
 }
@@ -256,7 +269,7 @@ object ComponentController extends Controller {
 			delete[YesOrNo[Int]](_: String,
 				deleted = (_) => Yes(1), error = (err) => No(err.getLocalizedMessage))
 		// Go do deletes
-		doSubsOper[R, Int](id, doDelete, (l) => success(l.sum), error)
+		doSubsOper[R, Int](id = id, oper = doDelete, success = (l) => success(l.sum), error = error)
 	}
 
 	/**
@@ -362,25 +375,25 @@ object ComponentController extends Controller {
 								// Gather all the futures into one to contain list of results
 								Future.sequence(opers)
 									.map((yesOrNos) => {
-										// Get all errors there (eliminate Nones)
+										// Get all errors there (flatMap eliminates Nones)
 										val errs = yesOrNos.flatMap(_.getNoOption)
-										// Callback to success function with list of subcomponents found
-										if (errs.isEmpty)
-											success(yesOrNos.flatMap(_.getYesOption))
-										// Otherwise throw exception to be caught
-										else
+										// If any errors throw exception to be caught
+										if (errs.nonEmpty)
 											throw new Exception(s"Error accessing subcomponents: ${errs.mkString("; ")}")
+										// Otherwise callback to success function with list of subcomponents found
+										else
+											success(yesOrNos.flatMap(_.getYesOption))
 									})
 							// Throw exception to be caught
 							case No(err) =>
 								throw new Exception(s"Error finding subcomponents of $id: $err")
 						}
-				// No subcomponent found - do single operation and callback to success function with list of 1
+				// No subcomponent found - do single operation and callback to success function with single entry list
 				case Some(found) =>
 					oper(id)
 						.map {
-							case No(err) => throw new Exception(s"Error accessing $id: $err")
 							case Yes(ret) => success(List(ret))
+							case No(err) => throw new Exception(s"Error accessing $id: $err")
 						}
 				// Didn't find component - throw exception to be caught
 				case _ => throw new Exception(s"Failed to find ID $id")
@@ -428,11 +441,15 @@ object ComponentController extends Controller {
 	def isIdValid(componentId: Option[String], validComponents: List[ComponentType.ComponentType],
 		idType: String) =
 		componentId match {
-			case Some(id) => findByID[JsObject, Option[String]](id, validComponents,
-				found = (_) => None,
-				notFound = (_, _) =>
-					Some(MessageHandler.notFoundComponentMessage(id, validComponents) +
-						" - change " + idType + " set or register " + idType + " " + id))
+			case Some(id) =>
+				findByID[JsObject, Option[String]](id = id, componentType = validComponents,
+					found = (_) => None,
+					notFound = (_, _) =>
+						Some(
+							MessageHandler.notFoundComponentMessage(id = id, componentType = validComponents) +
+								s" - change component type set or register $idType $id"
+						)
+				)
 			case None => Future.successful(None)
 		}
 
@@ -454,8 +471,10 @@ object ComponentController extends Controller {
 		// Bind data to new form
 		val bForm = form.bindFromRequest()(request)
 		bForm.fold(
-			formWithErrors => Future.successful(
-				BadRequest(onFailure(MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError)))),
+			formWithErrors =>
+				Future.successful(
+					BadRequest(onFailure(MessageHandler.formGlobalError(formWithErrors, MessageHandler.validationError)))
+				),
 			data => {
 				// Allow data to be modified (used for stack requests)
 				val newData = afterBind(data)
@@ -474,7 +493,7 @@ object ComponentController extends Controller {
 		).recover {
 				// On exception return bad request with html filled by call back
 				case err => BadRequest(onFailure(bForm.withGlobalError(MessageHandler.exceptionMessage(err))))
-			}
+		}
 	}
 
 	/**
