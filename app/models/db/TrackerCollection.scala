@@ -132,8 +132,11 @@ object TrackerCollection extends Controller with MongoController {
 		val okPrefix = "OK:"
 		val notOkPrefix = "NOK:"
 		val inserts = for (d <- data) yield {
-			doComponentDBOperation(trackerCollection.insert(_: C), "registration", d,
-				(s: String) => s"$okPrefix$s", (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}")
+			doComponentDBOperation(
+				oper = trackerCollection.insert(_: C), operLabel = "registration", data = d,
+				onSuccess = (s: String) => s"$okPrefix$s",
+				onFailure = (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}"
+			)
 		}
 		Future.fold(inserts)((List.empty[String], List.empty[String])){
 			case ((ok: List[String], bad: List[String]), next: String) =>
@@ -154,7 +157,10 @@ object TrackerCollection extends Controller with MongoController {
 	 */
 	def updateComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) = {
 		val selector = Json.obj(Component.idKey -> data.id, Component.typeKey -> data.component.toString)
-		doComponentDBOperation(trackerCollection.update(selector, _: C), "update", data, onSuccess, onFailure)
+		doComponentDBOperation(
+			oper = trackerCollection.update(selector, _: C), operLabel = "update", data = data,
+			onSuccess = onSuccess, onFailure = onFailure
+		)
 	}
 
 	/**
