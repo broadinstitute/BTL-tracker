@@ -19,6 +19,8 @@ object InitialContents {
 		val NexteraSetB = Value("NexteraXP v2 Index Set B")
 		val NexteraSetC = Value("NexteraXP v2 Index Set C")
 		val NexteraSetD = Value("NexteraXP v2 Index Set D")
+		val NexteraSetE = Value("NexteraXP v2 Index Set E")
+		val Nextera384SetA = Value("NexteraXP v2 Index 384-well Set A")
 		val TruGrade384Set1 = Value("Trugrade 384-well Set 1")
 		val TruGrade96Set1 = Value("Trugrade 96-well Set 1")
 		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
@@ -45,8 +47,8 @@ object InitialContents {
 		 * List of all molecular barcode sets
 		 */
 		val molBarcodes = List(
-			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,TruGrade384Set1,TruGrade96Set1,TruGrade96Set2,
-			TruGrade96Set3,TruGrade96Set4
+			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
+			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4
 		)
 
 		/**
@@ -107,6 +109,8 @@ object InitialContents {
 		NexteraSetB -> List(DIM8x12),
 		NexteraSetC -> List(DIM8x12),
 		NexteraSetD -> List(DIM8x12),
+		NexteraSetE -> List(DIM8x12),
+		Nextera384SetA -> List(DIM16x24),
 		TruGrade384Set1 -> List(DIM16x24),
 		TruGrade96Set1 -> List(DIM8x12),
 		TruGrade96Set2 -> List(DIM8x12),
@@ -129,6 +133,8 @@ object InitialContents {
 		NexteraSetB -> MolecularBarcodes.mbSetB,
 		NexteraSetC -> MolecularBarcodes.mbSetC,
 		NexteraSetD -> MolecularBarcodes.mbSetD,
+		NexteraSetE -> MolecularBarcodes.mbSetE,
+		Nextera384SetA -> MolecularBarcodes.mbSet384A,
 		TruGrade384Set1 -> MolecularBarcodes.mbTG384S1,
 		TruGrade96Set1 -> MolecularBarcodes.mbTG96S1,
 		TruGrade96Set2 -> MolecularBarcodes.mbTG96S2,

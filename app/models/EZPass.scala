@@ -176,7 +176,7 @@ object EZPass {
 	 * batches, which is much faster (4 parallel requests for 24 projects each complete in about 3 seconds), after an
 	 * initial pass through all the EZPass data.  So here's how it goes:
 	 * 1)For each row (setFields method) save the data found for that row and start up a future to retrieve the LSID
-	 * for that row.  The LSID is needed to retrieve the project name for the row later.
+	 * for that row (using GSSR ID as input).  The LSID is needed to retrieve the project name for the row later.
 	 * 2)Once all the rows are done (allDone method) wait for all the LSIDs to be retrieved and then send off a small
 	 * number of parallel requests to get the project names associated with the LSIDs.
 	 * 3)After the projects are retrieved put them into the proper rows data and return with all the data set,
@@ -464,7 +464,7 @@ object EZPass {
 	private def getGssrSample(bsp: MergeBsp) = bsp.gssrSample
 	private def getCollabSample(bsp: MergeBsp) = bsp.collabSample
 	private def getIndividual(bsp: MergeBsp) = bsp.individual
-	private def getLibrary(bsp: MergeBsp) = bsp.library
+	private def getLibrary(bsp: MergeBsp) = bsp.sampleID
 	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
 	// Map of headers to methods to retrieve bsp values
 	private val bspMap : Map[String, (MergeBsp) => Option[String]]=

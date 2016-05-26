@@ -27,13 +27,13 @@ object TransferContents {
 	 * @param gssrSample bsp GSSR barcode
 	 * @param collabSample bsp collaborator sample ID
 	 * @param individual bsp collaborator participant
-	 * @param library bsp collaborator library ID
+	 * @param sampleID bsp sample ID
 	 * @param antibody antibody requested for sample
 	 * @param pos position in rack for tube
 	 */
 	case class MergeBsp(project: String, projectDescription: Option[String], sampleTube: String,
-		gssrSample: Option[String], collabSample: Option[String], individual: Option[String],
-		library: Option[String], antibody: Option[String], pos: String) {
+						gssrSample: Option[String], collabSample: Option[String], individual: Option[String],
+						sampleID: Option[String], antibody: Option[String], pos: String) {
 		// Override equals and hash to make it simpler
 		override def equals(arg: Any) = {
 			arg match {
@@ -119,7 +119,7 @@ object TransferContents {
 												project = ssfIssue.issue, projectDescription = ssfIssue.summary,
 												sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
 												collabSample = tube.collaboratorSample,
-												individual = tube.collaboratorParticipant, library = tube.sampleID,
+												individual = tube.collaboratorParticipant, sampleID = tube.sampleID,
 												antibody = tube.antiBody, pos = tube.pos
 											)),
 											mid = Set.empty, antibody = Set.empty))

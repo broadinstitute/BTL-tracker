@@ -116,7 +116,7 @@ object Application extends Controller {
 							val sample =
 								addBrk(subLink,
 									content.bsp match {
-										case Some(bsp) => bsp.library.getOrElse("unknown")
+										case Some(bsp) => bsp.sampleID.getOrElse("unknown")
 										case None => ""
 									}
 								)

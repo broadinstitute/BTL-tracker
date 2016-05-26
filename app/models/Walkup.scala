@@ -43,14 +43,16 @@ object Walkup {
 				if (sample.isEmpty)
 					None
 				else {
+					// Get MIDs
 					val (mid1, mid2) = inp.mid.headOption match {
 						case Some(mid) =>
 							val mids = MolecularBarcodes.splitSequence(mid.sequence)
 							if (mids.isEmpty) ("", "")
 							else if (mids.size == 1) (mids(0), "")
-							else (mids(0), mids(1))
+							else (mids(1), mids(0)) // p7 barcode comes first in WUS
 						case None => ("", "")
 					}
+					// Return array of values found, ordered by headers
 					Some(headers.map((s) =>
 						if (s == sampleName) sample
 						else if (s == bc1) mid1

@@ -35,7 +35,7 @@ object MolecularBarcodes {
 	 * @param name name
 	 * @param name1 alternate name
 	 */
-	class MolBarcodeNextera(seq: String, name: String, name1: String) extends MolBarcode(seq, name)
+	class MolBarcodeNextera(seq: String, name: String, val name1: String) extends MolBarcode(seq, name)
 	// Companion object with apply - can't have case class extending from case class so apply will do
 	object MolBarcodeNextera {
 		def apply(seq: String, name: String, name1: String) = new MolBarcodeNextera(seq,name,name1)
@@ -68,7 +68,7 @@ object MolecularBarcodes {
 	 */
 	case class MolBarcodeNexteraPair(i5: MolBarcode, i7: MolBarcode) extends MolBarcodePair {
 		def getName = "Illumina_P5-" + i5.name + "_P7-" + i7.name
-		def getSeq = i5.seq + seqSplit + i7.getRevCompliment + seqSplit
+		def getSeq = i5.seq + seqSplit + i7.seq + seqSplit
 		def isNextera = true
 	}
 
@@ -101,6 +101,7 @@ object MolecularBarcodes {
 	// Create i5 Nextera Molecular barcodes
 	private val mbS502 = MolBarcodeNextera("CTCTCTAT","Lexof","S502")
 	private val mbS503 = MolBarcodeNextera("TATCCTCT","Wojol","S503")
+	private val mbS504 = MolBarcodeNextera("AGAGTAGA","Datan","S504")
 	private val mbS505 = MolBarcodeNextera("GTAAGGAG","Tadid","S505")
 	private val mbS506 = MolBarcodeNextera("ACTGCATA","Copaw","S506")
 	private val mbS507 = MolBarcodeNextera("AAGGAGTA","Biniw","S507")
@@ -117,30 +118,32 @@ object MolecularBarcodes {
 	private val mbS522 = MolBarcodeNextera("TTATGCGA","Zayen","S522")
 
 	// Create i7 Nextera Molecular barcodes
-	private val mbN701 = MolBarcodeNextera("TCGCCTTA","Waren","N701")
-	private val mbN702 = MolBarcodeNextera("CTAGTACG","Kocod","N702")
-	private val mbN703 = MolBarcodeNextera("TTCTGCCT","Dihib","N703")
-	private val mbN704 = MolBarcodeNextera("GCTCAGGA","Xeyap","N704")
-	private val mbN705 = MolBarcodeNextera("AGGAGTCC","Ralel","N705")
-	private val mbN706 = MolBarcodeNextera("CATGCCTA","Wipay","N706")
-	private val mbN707 = MolBarcodeNextera("GTAGAGAG","Lexoc","N707")
-	private val mbN710 = MolBarcodeNextera("CAGCCTCG","Karey","N710")
-	private val mbN711 = MolBarcodeNextera("TGCCTCTT","Bidih","N711")
-	private val mbN712 = MolBarcodeNextera("TCCTCTAC","Tanin","N712")
-	private val mbN714 = MolBarcodeNextera("TCATGAGC","Pohon","N714")
-	private val mbN715 = MolBarcodeNextera("CCTGAGAT","Fexar","N715")
-	private val mbN716 = MolBarcodeNextera("TAGCGAGT","Cokew","N716")
-	private val mbN718 = MolBarcodeNextera("GTAGCTCC","Rapoc","N718")
-	private val mbN719 = MolBarcodeNextera("TACTACGC","Piwiw","N719")
-	private val mbN720 = MolBarcodeNextera("AGGCTCCG","Kidel","N720")
-	private val mbN721 = MolBarcodeNextera("GCAGCGTA","Wepop","N721")
-	private val mbN722 = MolBarcodeNextera("CTGCGCAT","Fiked","N722")
-	private val mbN723 = MolBarcodeNextera("GAGCGCTA","Wikex","N723")
-	private val mbN724 = MolBarcodeNextera("CGCTCAGT","Conik","N724")
-	private val mbN726 = MolBarcodeNextera("GTCTTAGG","Jobic","N726")
-	private val mbN727 = MolBarcodeNextera("ACTGATCG","Kaxat","N727")
-	private val mbN728 = MolBarcodeNextera("TAGCTGCA","Yedew","N728")
-	private val mbN729 = MolBarcodeNextera("GACGTCGA","Xicix","N729")
+	private val mbN701 = MolBarcodeNextera("TAAGGCGA","Waren","N701")
+	private val mbN702 = MolBarcodeNextera("CGTACTAG","Kocod","N702")
+	private val mbN703 = MolBarcodeNextera("AGGCAGAA","Dihib","N703")
+	private val mbN704 = MolBarcodeNextera("TCCTGAGC","Xeyap","N704")
+	private val mbN705 = MolBarcodeNextera("GGACTCCT","Ralel","N705")
+	private val mbN706 = MolBarcodeNextera("TAGGCATG","Wipay","N706")
+	private val mbN707 = MolBarcodeNextera("CTCTCTAC","Lexoc","N707")
+	private val mbN708 = MolBarcodeNextera("CAGAGAGG","Hidar","N708")
+	private val mbN709 = MolBarcodeNextera("GCTACGCT","Pocil","N709")
+	private val mbN710 = MolBarcodeNextera("CGAGGCTG","Karey","N710")
+	private val mbN711 = MolBarcodeNextera("AAGAGGCA","Bidih","N711")
+	private val mbN712 = MolBarcodeNextera("GTAGAGGA","Tanin","N712")
+	private val mbN714 = MolBarcodeNextera("GCTCATGA","Pohon","N714")
+	private val mbN715 = MolBarcodeNextera("ATCTCAGG","Fexar","N715")
+	private val mbN716 = MolBarcodeNextera("ACTCGCTA","Cokew","N716")
+	private val mbN718 = MolBarcodeNextera("GGAGCTAC","Rapoc","N718")
+	private val mbN719 = MolBarcodeNextera("GCGTAGTA","Piwiw","N719")
+	private val mbN720 = MolBarcodeNextera("CGGAGCCT","Kidel","N720")
+	private val mbN721 = MolBarcodeNextera("TACGCTGC","Wepop","N721")
+	private val mbN722 = MolBarcodeNextera("ATGCGCAG","Fiked","N722")
+	private val mbN723 = MolBarcodeNextera("TAGCGCTC","Wikex","N723")
+	private val mbN724 = MolBarcodeNextera("ACTGAGCG","Conik","N724")
+	private val mbN726 = MolBarcodeNextera("CCTAAGAC","Jobic","N726")
+	private val mbN727 = MolBarcodeNextera("CGATCAGT","Kaxat","N727")
+	private val mbN728 = MolBarcodeNextera("TGCAGCTA","Yedew","N728")
+	private val mbN729 = MolBarcodeNextera("TCGACGTC","Xicix","N729")
 
 	/**
 	 * Trait for MID plates made up of pairs
@@ -194,11 +197,17 @@ object MolecularBarcodes {
 		val rPp = 16 // 8 rows per plate
 	}
 
-	// Set up row and column contents for Nextera paired barcodes - then making the sets are easy
+	// Set up row and column contents for Nextera paired barcodes - then making the sets is easy
 	private val mbSetABRows = List(mbS502,mbS503,mbS505,mbS506,mbS507,mbS508,mbS510,mbS511)
 	private val mbSetCDRows = List(mbS513,mbS515,mbS516,mbS517,mbS518,mbS520,mbS521,mbS522)
 	private val mbSetACCols = List(mbN701,mbN702,mbN703,mbN704,mbN705,mbN706,mbN707,mbN710,mbN711,mbN712,mbN714,mbN715)
 	private val mbSetBDCols = List(mbN716,mbN718,mbN719,mbN720,mbN721,mbN722,mbN723,mbN724,mbN726,mbN727,mbN728,mbN729)
+	private val mbSetERows = List(mbS517,mbS502,mbS503,mbS504,mbS505,mbS506,mbS507,mbS508)
+	private val mbSetECols = List(mbN701,mbN702,mbN703,mbN704,mbN705,mbN706,mbN707,mbN708,mbN709,mbN710,mbN711,mbN712)
+	private val mbSet384ERows = List(mbS502,mbS503,mbS505,mbS506,mbS507,mbS508,mbS510,mbS511,mbS513,mbS515,mbS516,
+		mbS517,mbS518,mbS520,mbS521,mbS522)
+	private val mbSet384ECols = List(mbN701,mbN702,mbN703,mbN704,mbN705,mbN706,mbN707,mbN710,mbN711,mbN712,mbN714,
+		mbN715,mbN716,mbN718,mbN719,mbN720,mbN721,mbN722,mbN723,mbN724,mbN726,mbN727,mbN728,mbN729)
 	// NexteraXP v2 Index Set A
 	val mbSetA = MolBarcodeContents(MIDNexteraPair96.makeSet(mbSetABRows,mbSetACCols))
 	// NexteraXP v2 Index Set B
@@ -207,6 +216,10 @@ object MolecularBarcodes {
 	val mbSetC = MolBarcodeContents(MIDNexteraPair96.makeSet(mbSetCDRows,mbSetACCols))
 	// NexteraXP v2 Index Set D
 	val mbSetD = MolBarcodeContents(MIDNexteraPair96.makeSet(mbSetCDRows,mbSetBDCols))
+	// NexteraXP v2 Index Set E
+	val mbSetE = MolBarcodeContents(MIDNexteraPair96.makeSet(mbSetERows,mbSetECols))
+	// NexteraXP v2 Index 384 Set E
+	val mbSet384A = MolBarcodeContents(MIDNexteraPair384.makeSet(mbSet384ERows,mbSet384ECols))
 
 	// Trugrade Set1 (384 well plate)
 	val mbTG384S1 = MolBarcodeContents(Map(
