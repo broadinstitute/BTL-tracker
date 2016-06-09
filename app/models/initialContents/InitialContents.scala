@@ -26,6 +26,8 @@ object InitialContents {
 		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
 		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
+		val SQM96SetA = Value("SQM Set A")
+		val SQM96SetAFlipped = Value("SQM Set A Flipped")
 		// Antibodies (only for placement in single sample containers (e.g., tube))
 		val ABRnaPolII = Value("RNAPolII")
 		val ABH3K4me1 = Value("H3K4me1")
@@ -48,7 +50,7 @@ object InitialContents {
 		 */
 		val molBarcodes = List(
 			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
-			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4
+			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped
 		)
 
 		/**
@@ -66,7 +68,7 @@ object InitialContents {
 
 		/**
 		 * Is content type a molecular barcode set?
- *
+		 *
 		 * @param ct content type to check
 		 * @return true if content type is a molecular barcode set
 		 */
@@ -74,7 +76,7 @@ object InitialContents {
 
 		/**
 		 * Is content type a antibody?
- *
+		 *
 		 * @param ct content type to check
 		 * @return true if content type is a antibody
 		 */
@@ -86,7 +88,7 @@ object InitialContents {
 
 		/**
 		 * Get optional content type from string.  Set as None if missing or invalid.
- *
+		 *
 		 * @param content content type as string
 		 * @return optional content type found
 		 */
@@ -115,7 +117,9 @@ object InitialContents {
 		TruGrade96Set1 -> List(DIM8x12),
 		TruGrade96Set2 -> List(DIM8x12),
 		TruGrade96Set3 -> List(DIM8x12),
-		TruGrade96Set4 -> List(DIM8x12)
+		TruGrade96Set4 -> List(DIM8x12),
+		SQM96SetA -> List(DIM8x12),
+		SQM96SetAFlipped -> List(DIM8x12)
 	)
 
 	/**
@@ -139,7 +143,9 @@ object InitialContents {
 		TruGrade96Set1 -> MolecularBarcodes.mbTG96S1,
 		TruGrade96Set2 -> MolecularBarcodes.mbTG96S2,
 		TruGrade96Set3 -> MolecularBarcodes.mbTG96S3,
-		TruGrade96Set4 -> MolecularBarcodes.mbTG96S4
+		TruGrade96Set4 -> MolecularBarcodes.mbTG96S4,
+		SQM96SetA -> MolecularBarcodes.mbSQM96S1,
+		SQM96SetAFlipped -> MolecularBarcodes.mbSQM96S1flipped
 	)
 
 	// Sorted list of display values for putting in drop down lists, etc
@@ -151,7 +157,7 @@ object InitialContents {
 
 	/**
 	 * Initial contents
- *
+	 *
 	 * @tparam C content class type
 	 */
 	trait ContentsMap[C] {

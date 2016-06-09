@@ -73,6 +73,17 @@ object MolecularBarcodes {
 	}
 
 	/**
+	 * SQM molecular barcode pairs in a well
+	 * @param i5 i5 barcode
+	 * @param i7 i7 barcode
+	 */
+	case class MolBarcodeSQMPair(i5: MolBarcode, i7: MolBarcode) extends MolBarcodePair {
+		def getName = "SQM_P5-" + i5.name + "_P7-" + i7.name
+		def getSeq = i5.seq + seqSplit + i7.seq + seqSplit
+		def isNextera = false
+	}
+
+	/**
 	 * Split up a sequence into it's individual barcodes
 	 * @param seq barcode sequence (individual or pair)
 	 * @return array of individual barcode sequences
@@ -146,6 +157,35 @@ object MolecularBarcodes {
 	private val mbN729 = MolBarcodeNextera("TCGACGTC","Xicix","N729")
 
 	/**
+	 * Get well name in format "A01" - "H12"
+	 * @param col # of columns per row (12 for 96-well plate, 24 for 384-well plate)
+	 * @param well well number (0 based from upper left corner to lower right corner)
+	 * @return well name
+	 */
+	private def getWellName(col: Int, well: Int) = f"${(well / col) + 'A'}%c${(well % col) + 1}%02d"
+
+	/**
+	 * Flip (turn 180 degrees) the contents of a barcode plate - contents of upper left corner become
+	 * contents of lower right corner
+	 * @param in barcode plate
+	 * @return barcode plate with
+	 */
+	private def flip(in: MolBarcodeContents) = {
+		val size = in.contents.size
+		val cols = size match {
+			case 96 => 12
+			case 384 => 24
+			case _ => throw new Exception("Invalid plate size")
+		}
+		val last = size - 1
+		val flippedContents =
+			(for (indx <- 0 to last) yield {
+				getWellName(cols, last - indx) -> in.contents(getWellName(cols, indx))
+			}).toMap
+		in.copy(contents = flippedContents)
+	}
+
+	/**
 	 * Trait for MID plates made up of pairs
  	 */
 	private trait MIDPairPlate {
@@ -157,7 +197,7 @@ object MolecularBarcodes {
 		def getPair(i5: MolBarcode, i7: MolBarcode): MolBarcodePair
 		// List of well names (important to be lazy to get initialized at right time - in particular if makeSet
 		// is called before it is initialized that's trouble if it's not lazy)
-		lazy val wellList = List.tabulate(wPr * rPp)((x) => f"${(x / wPr) + 'A'}%c${(x % wPr) + 1}%02d")
+		lazy val wellList = List.tabulate(wPr * rPp)((x) => getWellName(wPr, x))
 
 		/**
 		 * Make a MID set
@@ -635,4 +675,204 @@ object MolecularBarcodes {
 	val mbTG96S3 = MolBarcodeContents(getTruGradeQuadriant(TransferWells.qFrom384(Q3)))
 	// TruGrade 96-well Set4
 	val mbTG96S4 = MolBarcodeContents(getTruGradeQuadriant(TransferWells.qFrom384(Q4)))
+
+	// SQM Set1 (96 well plate)
+	val mbSQM96S1 = MolBarcodeContents(Map(
+		"A01" ->
+			MolBarcodeSQMPair(MolBarcode("ATCGACTG","DualIndex_361_PondFwdPrimer"), MolBarcode("AAGTAGAG", "tagged_57")),
+		"B01" ->
+			MolBarcodeSQMPair(MolBarcode("GCTAGCAG","DualIndex_535_PondFwdPrimer"), MolBarcode("GGTCCAGA","tagged_726")),
+		"C01" ->
+			MolBarcodeSQMPair(MolBarcode("TACTCTCC","DualIndex_698_PondFwdPrimer"), MolBarcode("GCACATCT","tagged_630")),
+		"D01" ->
+			MolBarcodeSQMPair(MolBarcode("TGACAGCA","DualIndex_911_PondFwdPrimer"), MolBarcode("TTCGCTGA","tagged_954")),
+		"E01" ->
+			MolBarcodeSQMPair(MolBarcode("GCAGGTTG","DualIndex_305_PondFwdPrimer"), MolBarcode("AGCAATTC","tagged_190")),
+		"F01" ->
+			MolBarcodeSQMPair(MolBarcode("TTCCAGCT","DualIndex_208_PondFwdPrimer"), MolBarcode("CACATCCT","tagged_332")),
+		"G01" ->
+			MolBarcodeSQMPair(MolBarcode("TAGTTAGC","DualIndex_676_PondFwdPrimer"), MolBarcode("CCAGTTAG","tagged_393")),
+		"H01" ->
+			MolBarcodeSQMPair(MolBarcode("AGCGCTAA","DualIndex_940_PondFwdPrimer"), MolBarcode("AAGGATGT","tagged_52")),
+		"A02" ->
+			MolBarcodeSQMPair(MolBarcode("CGGTTCTT","DualIndex_35_PondFwdPrimer"), MolBarcode("ACACGATC","tagged_100")),
+		"B02" ->
+			MolBarcodeSQMPair(MolBarcode("TAGCATTG","DualIndex_324_PondFwdPrimer"), MolBarcode("CATGCTTA","tagged_375")),
+		"C02" ->
+			MolBarcodeSQMPair(MolBarcode("AATTCAAC","DualIndex_772_PondFwdPrimer"), MolBarcode("GTATAACA","tagged_741")),
+		"D02" ->
+			MolBarcodeSQMPair(MolBarcode("TTCACAGA","DualIndex_881_PondFwdPrimer"), MolBarcode("TGCTCGAC","tagged_908")),
+		"E02" ->
+			MolBarcodeSQMPair(MolBarcode("GCTCTCTT","DualIndex_40_PondFwdPrimer"), MolBarcode("AACTTGAC","tagged_34")),
+		"F02" ->
+			MolBarcodeSQMPair(MolBarcode("TGACTTGG","DualIndex_381_PondFwdPrimer"), MolBarcode("AGTTGCTT","tagged_236")),
+		"G02" ->
+			MolBarcodeSQMPair(MolBarcode("TATGGTTC","DualIndex_558_PondFwdPrimer"), MolBarcode("TCGGAATG","tagged_869")),
+		"H02" ->
+			MolBarcodeSQMPair(MolBarcode("CACTAGCC","DualIndex_715_PondFwdPrimer"), MolBarcode("TTGAGCCT","tagged_960")),
+		"A03" ->
+			MolBarcodeSQMPair(MolBarcode("AACCTCTT","DualIndex_41_PondFwdPrimer"), MolBarcode("TGTTCCGA","tagged_930")),
+		"B03" ->
+			MolBarcodeSQMPair(MolBarcode("CTACATTG","DualIndex_325_PondFwdPrimer"), MolBarcode("AGGATCTA","tagged_214")),
+		"C03" ->
+			MolBarcodeSQMPair(MolBarcode("GCGATTAC","DualIndex_736_PondFwdPrimer"), MolBarcode("CATAGCGA","tagged_367")),
+		"D03" ->
+			MolBarcodeSQMPair(MolBarcode("AATTGGCC","DualIndex_708_PondFwdPrimer"), MolBarcode("CCTATGCC","tagged_426")),
+		"E03" ->
+			MolBarcodeSQMPair(MolBarcode("AATTGCTT","DualIndex_43_PondFwdPrimer"), MolBarcode("TGTCGGAT","tagged_927")),
+		"F03" ->
+			MolBarcodeSQMPair(MolBarcode("TTGGTCTG","DualIndex_348_PondFwdPrimer"), MolBarcode("ATAGCGTC","tagged_250")),
+		"G03" ->
+			MolBarcodeSQMPair(MolBarcode("CATCCTGG","DualIndex_391_PondFwdPrimer"), MolBarcode("CCTACCAT","tagged_422")),
+		"H03" ->
+			MolBarcodeSQMPair(MolBarcode("GGATTAAC","DualIndex_765_PondFwdPrimer"), MolBarcode("ATTCTAGG","tagged_293")),
+		"A04" ->
+			MolBarcodeSQMPair(MolBarcode("CGCATATT","DualIndex_68_PondFwdPrimer"), MolBarcode("CATGATCG","tagged_373")),
+		"B04" ->
+			MolBarcodeSQMPair(MolBarcode("TCATTCGA","DualIndex_862_PondFwdPrimer"), MolBarcode("TCTGGCGA","tagged_880")),
+		"C04" ->
+			MolBarcodeSQMPair(MolBarcode("GTCCAATC","DualIndex_626_PondFwdPrimer"), MolBarcode("GACAGTAA","tagged_579")),
+		"D04" ->
+			MolBarcodeSQMPair(MolBarcode("CTTGGCTT","DualIndex_890_PondFwdPrimer"), MolBarcode("CAGGAGCC","tagged_357")),
+		"E04" ->
+			MolBarcodeSQMPair(MolBarcode("CCAACGCT","DualIndex_203_PondFwdPrimer"), MolBarcode("TCGCCTTG","tagged_866")),
+		"F04" ->
+			MolBarcodeSQMPair(MolBarcode("TCCACTTC","DualIndex_569_PondFwdPrimer"), MolBarcode("ATTATGTT","tagged_289")),
+		"G04" ->
+			MolBarcodeSQMPair(MolBarcode("AATCTCCA","DualIndex_914_PondFwdPrimer"), MolBarcode("GAAGAAGT","tagged_564")),
+		"H04" ->
+			MolBarcodeSQMPair(MolBarcode("GTCTGCAC","DualIndex_760_PondFwdPrimer"), MolBarcode("TACTTAGC","tagged_800")),
+		"A05" ->
+			MolBarcodeSQMPair(MolBarcode("CTGCTCCT","DualIndex_211_PondFwdPrimer"), MolBarcode("CGTTACCA","tagged_498")),
+		"B05" ->
+			MolBarcodeSQMPair(MolBarcode("TTAGCCAG","DualIndex_540_PondFwdPrimer"), MolBarcode("AGGTTATC","tagged_223")),
+		"C05" ->
+			MolBarcodeSQMPair(MolBarcode("GCTGATTC","DualIndex_572_PondFwdPrimer"), MolBarcode("TTACGCAC","tagged_938")),
+		"D05" ->
+			MolBarcodeSQMPair(MolBarcode("GAATCGAC","DualIndex_751_PondFwdPrimer"), MolBarcode("CCTTCGCA","tagged_438")),
+		"E05" ->
+			MolBarcodeSQMPair(MolBarcode("AGTCACCT","DualIndex_221_PondFwdPrimer"), MolBarcode("AAGACACT","tagged_38")),
+		"F05" ->
+			MolBarcodeSQMPair(MolBarcode("CACGATTC","DualIndex_573_PondFwdPrimer"), MolBarcode("ATTGTCTG","tagged_298")),
+		"G05" ->
+			MolBarcodeSQMPair(MolBarcode("GCTCCGAT","DualIndex_267_PondFwdPrimer"), MolBarcode("TCCAGCAA","tagged_851")),
+		"H05" ->
+			MolBarcodeSQMPair(MolBarcode("GCACAATT","DualIndex_67_PondFwdPrimer"), MolBarcode("TAATGAAC","tagged_786")),
+		"A06" ->
+			MolBarcodeSQMPair(MolBarcode("GCTGCACT","DualIndex_233_PondFwdPrimer"), MolBarcode("TCCTTGGT","tagged_861")),
+		"B06" ->
+			MolBarcodeSQMPair(MolBarcode("GAACTTCG","DualIndex_444_PondFwdPrimer"), MolBarcode("GTCTGATG","tagged_754")),
+		"C06" ->
+			MolBarcodeSQMPair(MolBarcode("CTGTATTC","DualIndex_571_PondFwdPrimer"), MolBarcode("GTCATCTA","tagged_745")),
+		"D06" ->
+			MolBarcodeSQMPair(MolBarcode("ATATCCGA","DualIndex_870_PondFwdPrimer"), MolBarcode("TTGAATAG","tagged_959")),
+		"E06" ->
+			MolBarcodeSQMPair(MolBarcode("GCGGACTT","DualIndex_281_PondFwdPrimer"), MolBarcode("TCTCGGTC","tagged_875")),
+		"F06" ->
+			MolBarcodeSQMPair(MolBarcode("GCGATATT","DualIndex_591_PondFwdPrimer"), MolBarcode("CAGCAAGG","tagged_352")),
+		"G06" ->
+			MolBarcodeSQMPair(MolBarcode("GAATATCA","DualIndex_897_PondFwdPrimer"), MolBarcode("GAACCTAG","tagged_559")),
+		"H06" ->
+			MolBarcodeSQMPair(MolBarcode("CAACTGAT","DualIndex_260_PondFwdPrimer"), MolBarcode("CCAGAGCT","tagged_388")),
+		"A07" ->
+			MolBarcodeSQMPair(MolBarcode("CCTGTCAT","DualIndex_276_PondFwdPrimer"), MolBarcode("AACGCATT","tagged_23")),
+		"B07" ->
+			MolBarcodeSQMPair(MolBarcode("GACGGTTA","DualIndex_773_PondFwdPrimer"), MolBarcode("CCAACATT","tagged_379")),
+		"C07" ->
+			MolBarcodeSQMPair(MolBarcode("CTATTAGC","DualIndex_677_PondFwdPrimer"), MolBarcode("CTGTAATC","tagged_542")),
+		"D07" ->
+			MolBarcodeSQMPair(MolBarcode("TCCAACCA","DualIndex_922_PondFwdPrimer"), MolBarcode("TATCTGCC","tagged_821")),
+		"E07" ->
+			MolBarcodeSQMPair(MolBarcode("CTGGCTAT","DualIndex_249_PondFwdPrimer"), MolBarcode("AATGTTCT","tagged_78")),
+		"F07" ->
+			MolBarcodeSQMPair(MolBarcode("CAGCGATT","DualIndex_58_PondFwdPrimer"), MolBarcode("CGCCTTCC","tagged_469")),
+		"G07" ->
+			MolBarcodeSQMPair(MolBarcode("CCATCACA","DualIndex_928_PondFwdPrimer"), MolBarcode("GACCAGGA","tagged_581")),
+		"H07" ->
+			MolBarcodeSQMPair(MolBarcode("GGCAATAC","DualIndex_742_PondFwdPrimer"), MolBarcode("TGCTGCTG","tagged_910")),
+		"A08" ->
+			MolBarcodeSQMPair(MolBarcode("CACTTCAT","DualIndex_274_PondFwdPrimer"), MolBarcode("ACAGGTAT","tagged_109")),
+		"B08" ->
+			MolBarcodeSQMPair(MolBarcode("CAAGCTTA","DualIndex_779_PondFwdPrimer"), MolBarcode("CAACTCTC","tagged_309")),
+		"C08" ->
+			MolBarcodeSQMPair(MolBarcode("AGGTACCA","DualIndex_920_PondFwdPrimer"), MolBarcode("GCCGTCGA","tagged_655")),
+		"D08" ->
+			MolBarcodeSQMPair(MolBarcode("TCCATAAC","DualIndex_768_PondFwdPrimer"), MolBarcode("TAAGCACA","tagged_778")),
+		"E08" ->
+			MolBarcodeSQMPair(MolBarcode("GTCCTCAT","DualIndex_277_PondFwdPrimer"), MolBarcode("ACTAAGAC","tagged_151")),
+		"F08" ->
+			MolBarcodeSQMPair(MolBarcode("AGTACTGC","DualIndex_636_PondFwdPrimer"), MolBarcode("CAGCGGTA","tagged_355")),
+		"G08" ->
+			MolBarcodeSQMPair(MolBarcode("CTTGAATC","DualIndex_625_PondFwdPrimer"), MolBarcode("GCCTAGCC","tagged_657")),
+		"H08" ->
+			MolBarcodeSQMPair(MolBarcode("CCAACTAA","DualIndex_942_PondFwdPrimer"), MolBarcode("TATCCAGG","tagged_818")),
+		"A09" ->
+			MolBarcodeSQMPair(MolBarcode("AATACCAT","DualIndex_283_PondFwdPrimer"), MolBarcode("AGGTAAGG","tagged_218")),
+		"B09" ->
+			MolBarcodeSQMPair(MolBarcode("TCAGGCTT","DualIndex_44_PondFwdPrimer"), MolBarcode("ATTCCTCT","tagged_291")),
+		"C09" ->
+			MolBarcodeSQMPair(MolBarcode("GAACGCTA","DualIndex_807_PondFwdPrimer"), MolBarcode("GTAACATC","tagged_732")),
+		"D09" ->
+			MolBarcodeSQMPair(MolBarcode("CTGACATC","DualIndex_623_PondFwdPrimer"), MolBarcode("TCGCTAGA","tagged_868")),
+		"E09" ->
+			MolBarcodeSQMPair(MolBarcode("GCCACCAT","DualIndex_284_PondFwdPrimer"), MolBarcode("ATTATCAA","tagged_288")),
+		"F09" ->
+			MolBarcodeSQMPair(MolBarcode("CGACTCTC","DualIndex_597_PondFwdPrimer"), MolBarcode("CAATAGTC","tagged_320")),
+		"G09" ->
+			MolBarcodeSQMPair(MolBarcode("TGCTATTA","DualIndex_784_PondFwdPrimer"), MolBarcode("GTCCACAG","tagged_747")),
+		"H09" ->
+			MolBarcodeSQMPair(MolBarcode("CTTCTGGC","DualIndex_646_PondFwdPrimer"), MolBarcode("TCTGCAAG","tagged_878")),
+		"A10" ->
+			MolBarcodeSQMPair(MolBarcode("ATGAATTA","DualIndex_787_PondFwdPrimer"), MolBarcode("AACAATGG","tagged_3")),
+		"B10" ->
+			MolBarcodeSQMPair(MolBarcode("TACTCCAG","DualIndex_537_PondFwdPrimer"), MolBarcode("CTAACTCG","tagged_500")),
+		"C10" ->
+			MolBarcodeSQMPair(MolBarcode("ATCATACC","DualIndex_723_PondFwdPrimer"), MolBarcode("GAAGGAAG","tagged_567")),
+		"D10" ->
+			MolBarcodeSQMPair(MolBarcode("CCTCTAAC","DualIndex_766_PondFwdPrimer"), MolBarcode("TGTAATCA","tagged_924")),
+		"E10" ->
+			MolBarcodeSQMPair(MolBarcode("ATCTTCTC","DualIndex_593_PondFwdPrimer"), MolBarcode("ACAGTTGA","tagged_110")),
+		"F10" ->
+			MolBarcodeSQMPair(MolBarcode("CAGCTCAC","DualIndex_757_PondFwdPrimer"), MolBarcode("CTATGCGT","tagged_509")),
+		"G10" ->
+			MolBarcodeSQMPair(MolBarcode("GGTTATCT","DualIndex_184_PondFwdPrimer"), MolBarcode("GACCGTTG","tagged_583")),
+		"H10" ->
+			MolBarcodeSQMPair(MolBarcode("TCCGCATA","DualIndex_824_PondFwdPrimer"), MolBarcode("TTGTCTAT","tagged_968")),
+		"A11" ->
+			MolBarcodeSQMPair(MolBarcode("TGCTTCAC","DualIndex_756_PondFwdPrimer"), MolBarcode("ACTGTATC","tagged_163")),
+		"B11" ->
+			MolBarcodeSQMPair(MolBarcode("GCTTCCTA","DualIndex_809_PondFwdPrimer"), MolBarcode("CTGCGGAT","tagged_534")),
+		"C11" ->
+			MolBarcodeSQMPair(MolBarcode("GACCATCT","DualIndex_188_PondFwdPrimer"), MolBarcode("GACCTAAC","tagged_584")),
+		"D11" ->
+			MolBarcodeSQMPair(MolBarcode("CTGGTATT","DualIndex_63_PondFwdPrimer"), MolBarcode("TTAATCAG","tagged_934")),
+		"E11" ->
+			MolBarcodeSQMPair(MolBarcode("TTAATCAC","DualIndex_758_PondFwdPrimer"), MolBarcode("AGCATGGA","tagged_195")),
+		"F11" ->
+			MolBarcodeSQMPair(MolBarcode("CGCGAATA","DualIndex_828_PondFwdPrimer"), MolBarcode("CTGTGGCG","tagged_544")),
+		"G11" ->
+			MolBarcodeSQMPair(MolBarcode("GCTCACCA","DualIndex_921_PondFwdPrimer"), MolBarcode("GATATCCA","tagged_616")),
+		"H11" ->
+			MolBarcodeSQMPair(MolBarcode("TCATGTCT","DualIndex_174_PondFwdPrimer"), MolBarcode("TTATATCT","tagged_944")),
+		"A12" ->
+			MolBarcodeSQMPair(MolBarcode("ATCCTTAA","DualIndex_933_PondFwdPrimer"), MolBarcode("AGGTCGCA","tagged_220")),
+		"B12" ->
+			MolBarcodeSQMPair(MolBarcode("TTCTTGGC","DualIndex_643_PondFwdPrimer"), MolBarcode("CTACCAGG","tagged_504")),
+		"C12" ->
+			MolBarcodeSQMPair(MolBarcode("CATCACTT","DualIndex_59_PondFwdPrimer"), MolBarcode("ACCAACTG","tagged_117")),
+		"D12" ->
+			MolBarcodeSQMPair(MolBarcode("CGAACTTC","DualIndex_570_PondFwdPrimer"), MolBarcode("TGCAAGTA","tagged_899")),
+		"E12" ->
+			MolBarcodeSQMPair(MolBarcode("GACATTAA","DualIndex_935_PondFwdPrimer"), MolBarcode("AGGTGCGA","tagged_222")),
+		"F12" ->
+			MolBarcodeSQMPair(MolBarcode("TTCACCTT","DualIndex_55_PondFwdPrimer"), MolBarcode("CGCTATGT","tagged_474")),
+		"G12" ->
+			MolBarcodeSQMPair(MolBarcode("CCAATCTG","DualIndex_351_PondFwdPrimer"), MolBarcode("GCCGCAAC","tagged_652")),
+		"H12" ->
+			MolBarcodeSQMPair(MolBarcode("CGACAGTT","DualIndex_33_PondFwdPrimer"), MolBarcode("TGTAACTC","tagged_923"))
+	))
+
+
+	// SQM Set1 flipped
+	val mbSQM96S1flipped = flip(mbSQM96S1)
 }
