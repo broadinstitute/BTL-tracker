@@ -1,7 +1,8 @@
 @(transferForm: Form[TransferForm], fromID: String, toID: String, project: Option[String],
 	fromQuad: Boolean = false, toQuad: Boolean = false,
 	dataMandatory: Boolean = false, isQuadToQuad: Boolean = false,
-	isQuadToTube: Boolean = false, isTubeToQuad: Boolean = false, isTubeToMany: Boolean = false)
+	isQuadToTube: Boolean = false, isTubeToQuad: Boolean = false, isTubeToMany: Boolean = false,
+	canBeSampleOnly: Boolean = false)
 @import helper._
 @import models.Transfer
 
@@ -16,6 +17,13 @@
 			'readonly -> "readonly", '_showConstraints -> false, '_label -> "To ID")
         @inputText(transferForm(Transfer.transferKey + "." + Transfer.projectKey).copy(value=project),
 			'readonly -> "readonly", '_showConstraints -> false, '_label -> "Project")
+		@if(canBeSampleOnly) {
+			@checkbox(transferForm(Transfer.transferKey + "." + Transfer.isSampleOnlyKey),
+				'_label -> "Only transfer wells with samples?", 'style -> "display:inline;", '_showConstraints -> false)
+		} else {
+			<input type="hidden" id="@{Transfer.transferKey + "." + Transfer.isSampleOnlyKey}"
+			name="@{Transfer.transferKey + "." + Transfer.isSampleOnlyKey}" value=false />
+		}
 		@if(fromQuad) {
 			@if(dataMandatory) {
 				@select(field = transferForm(Transfer.transferKey + "." + Transfer.fromQuadKey),
@@ -41,7 +49,9 @@
 		<input type="hidden" id="@{Transfer.isQuadToQuadKey}" name="@{Transfer.isQuadToQuadKey}" value="@isQuadToQuad" />
 		<input type="hidden" id="@{Transfer.isQuadToTubeKey}" name="@{Transfer.isQuadToTubeKey}" value="@isQuadToTube" />
 		<input type="hidden" id="@{Transfer.isTubeToQuadKey}" name="@{Transfer.isTubeToQuadKey}" value="@isTubeToQuad" />
-		<input type="hidden" id="@{Transfer.transferKey + "_" + Transfer.isTubeToManyKey}" name="@{Transfer.transferKey + "." + Transfer.isTubeToManyKey}" value="@isTubeToMany" />
+		<input type="hidden" id="@{Transfer.canBeSampleOnlyKey}" name="@{Transfer.canBeSampleOnlyKey}" value="@canBeSampleOnly" />
+		<input type="hidden" id="@{Transfer.transferKey + "_" + Transfer.isTubeToManyKey}"
+		name="@{Transfer.transferKey + "." + Transfer.isTubeToManyKey}" value="@isTubeToMany" />
 		<input type="submit" value="Transfer" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

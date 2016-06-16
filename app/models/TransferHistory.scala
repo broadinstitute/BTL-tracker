@@ -165,16 +165,17 @@ object TransferHistory extends Controller with MongoController {
 	}
 
 	/**
-	  * An edge for a transfer graph
-	  *
-	  * @param fromQuad optional source quad of component transfer is coming from
-	  * @param toQuad optional destination quad of component transfer is going to
-	  * @param cherries optional list of indicies to cherry picked wells
-	  * @param isTubeToMany transfer is from one well to many (e.g., tube to plate)
-	  * @param time when transfer was done
-	  */
+	 * An edge for a transfer graph
+	 *
+	 * @param fromQuad optional source quad of component transfer is coming from
+	 * @param toQuad optional destination quad of component transfer is going to
+	 * @param cherries optional list of indicies to cherry picked wells
+	 * @param isTubeToMany transfer is from one well to many (e.g., tube to plate)
+	 * @param isSampleOnly only transfer wells that contain samples
+	 * @param time when transfer was done
+	 */
 	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad], slice: Option[Slice],
-							cherries: Option[List[Int]], isTubeToMany: Boolean, time: Long)
+							cherries: Option[List[Int]], isTubeToMany: Boolean, isSampleOnly: Boolean, time: Long)
 
 	/**
 	  * Will adding this node to the graph make it cyclic?
@@ -220,7 +221,7 @@ object TransferHistory extends Controller with MongoController {
 					(findComponent(t.from) ~+#>
 						findComponent(t.to))(TransferEdge(fromQuad = t.fromQuad, toQuad = t.toQuad,
 						slice = t.slice, cherries = t.cherries,
-						isTubeToMany = t.isTubeToMany, time = t.time)))
+						isTubeToMany = t.isTubeToMany, isSampleOnly = t.isSampleOnly, time = t.time)))
 			}
 		)
 		// When future with list of edges returns make it into a graph
@@ -384,19 +385,25 @@ object TransferHistory extends Controller with MongoController {
 						def makeQuadSliceStmt(slice: Option[Slice]) =
 							slice.map((s) => s" (${s.toString})").getOrElse("")
 						// Make edge label: If a quad/slice transfer then quad/slice we're going to or from
+						val samplesOnly = if (edgeLabel.asInstanceOf[TransferEdge].isSampleOnly) "samples " else ""
 						edgeLabel match {
-							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _, _, _) if fromQ != toQ =>
+							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _, _, _, _) if fromQ != toQ =>
 								Some(root,
-									makeEdgeStmt(s"from ${fromQ.toString} to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(Some(fromQ), _, qSlice, _, _, _) =>
-								Some(root, makeEdgeStmt(s"from ${fromQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(_, Some(toQ), qSlice, _, _, _) =>
-								Some(root, makeEdgeStmt(s"to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(_, _, Some(slice), _, _, _) =>
-								Some(root, makeEdgeStmt(slice.toString))
+									makeEdgeStmt(s"${samplesOnly}from ${fromQ.toString} to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
+							case TransferEdge(Some(fromQ), _, qSlice, _, _, _, _) =>
+								Some(root, makeEdgeStmt(s"${samplesOnly}from ${fromQ.toString}${makeQuadSliceStmt(qSlice)}"))
+							case TransferEdge(_, Some(toQ), qSlice, _, _, _, _) =>
+								Some(root, makeEdgeStmt(s"${samplesOnly}to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
+							case TransferEdge(_, _, Some(slice), _, _, _, _) =>
+								Some(root, makeEdgeStmt(s"${samplesOnly}${slice.toString}"))
 							case _ =>
+								val attrs =
+									if (samplesOnly.nonEmpty)
+										List(DotAttr(Id("label"), Id(samplesOnly)))
+									else
+										List.empty[DotAttr]
 								Some(root, DotEdgeStmt(node_1Id = NodeId(getNodeId(source)),
-									node_2Id = NodeId(getNodeId(target))))
+									node_2Id = NodeId(getNodeId(target)), attrList = attrs))
 						}
 				}
 

@@ -253,7 +253,8 @@ object TransferContents {
 			def takeQuadrant(in: MergeTotalContents, out: MergeTotalContents, transfer: TransferEdge) =
 				getNextWellMapping(soFar = in, fromComponent = in.component, toComponent = out.component,
 					fromQuad = transfer.fromQuad, toQuad = transfer.toQuad, quadSlice = transfer.slice,
-					cherries = transfer.cherries, isTubeToMany = transfer.isTubeToMany, getSameMapping = false) {
+					cherries = transfer.cherries, isTubeToMany = transfer.isTubeToMany,
+					isSampleOnly = transfer.isSampleOnly, getSameMapping = false) {
 					/*
 				     * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
 				     * @param in input component contents
@@ -299,7 +300,23 @@ object TransferContents {
 				// If going to a component without divisions (e.g., a tube) put all of input into one "well"
 				val inContent =
 					if (output.component.isInstanceOf[ContainerDivisions]) inWithQuads
-					else Map(oneWell -> getAsOneResult(inWithQuads))
+					else {
+						// If we only want wells with samples (to avoid MIDs that are unattached) then eliminate
+						// any results for wells in input that don't include a sample
+						val inputs =
+							if (transfer.isSampleOnly) {
+								inWithQuads.map {
+									case (well, contents) =>
+										if (contents.exists(_.bsp.isDefined))
+											well -> contents
+										else
+											well -> Set.empty[MergeResult]
+								}
+							} else {
+								inWithQuads
+							}
+						Map(oneWell -> getAsOneResult(inputs))
+					}
 				val outContents = output.wells
 				//@TODO Need to use TruGrade quadrant plates to keep MID names matched with well name?
 				// Merge input into output - combine maps to get entries that might be in one but not the other and
@@ -412,6 +429,7 @@ object TransferContents {
 	 * @param cherries cherry picked wells being transferred
 	 * @param makeOut callback to return result - called with (soFar, component, input->output wells picked)
 	 * @param isTubeToMany input is a tube being transferred to one or more wells in a multi-well component
+	 * @param isSampleOnly only transfer wells containing samples
 	 * @param getSameMapping return mapping of wells if transfer of entire components with same division
 	 * @tparam T type of parameter tracking results
 	 * @return result of makeOut callback or original input (soFar) if complete component move and getSameMapping false
@@ -419,11 +437,12 @@ object TransferContents {
 	def getNextWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component,
 							  fromQuad: Option[Quad], toQuad: Option[Quad],
 							  quadSlice: Option[Slice], cherries: Option[List[Int]],
-							  isTubeToMany: Boolean, getSameMapping: Boolean)
+							  isTubeToMany: Boolean, isSampleOnly: Boolean, getSameMapping: Boolean)
 							 (makeOut: (T, Division.Division, Map[String, List[String]]) => T) =
 		Transfer(from = fromComponent.id, to = toComponent.id, fromQuad = fromQuad, toQuad = toQuad,
-			project = None, slice = quadSlice, cherries = cherries, isTubeToMany = isTubeToMany)
-		    .getWellMapping(soFar = soFar, fromComponent = fromComponent, toComponent = toComponent,
+			project = None, slice = quadSlice, cherries = cherries,
+			isTubeToMany = isTubeToMany, isSampleOnly = isSampleOnly)
+			.getWellMapping(soFar = soFar, fromComponent = fromComponent, toComponent = toComponent,
 				getSameMapping = getSameMapping)(makeOut = makeOut)
 
 }

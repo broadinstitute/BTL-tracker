@@ -14,7 +14,7 @@
 		@inputText(robotForm(RobotForm.fileNameKey).copy(value=Some(abRack + "_toABPlate")),
 			'_label -> "Output filename")
 		@checkbox(robotForm(RobotForm.continueOnErrorKey),
-			'_label -> "Continue on non-fatal errors", '_showConstraints -> false)
+			'_label -> "Continue on non-fatal errors?", '_showConstraints -> false)
 		<input type="submit" value="Download Robot Instructions" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

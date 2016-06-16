@@ -58,18 +58,20 @@ object TransferController extends Controller {
 	 * @param isQuadToTube true if slice transfer must have from quadrant
 	 * @param isTubeToQuad true if slice transfer must have to quadrant
 	 * @param isTubeToMany true if transferring tube to a multi-welled container
+	 * @param canBeSampleOnly true if transferring from a plate to a tube and option to only transfer wells with samples
 	 * @return action to get additional transfer information wanted
 	 */
 	def transferWithParams(fromID: String, toID: String, project: Option[String],
 	                       fromQuad: Boolean, toQuad: Boolean,
 						   dataMandatory: Boolean, isQuadToQuad: Boolean, isQuadToTube: Boolean,
-						   isTubeToQuad: Boolean, isTubeToMany: Boolean) = {
+						   isTubeToQuad: Boolean, isTubeToMany: Boolean, canBeSampleOnly: Boolean) = {
 		Action { request =>
 			Ok(views.html.transfer(
 				transferForm = MessageHandler.addStatusFlash(request = request, data = Transfer.form),
 				fromID = fromID, toID = toID, project = project,
 				fromQuad = fromQuad, toQuad = toQuad, dataMandatory = dataMandatory, isQuadToQuad = isQuadToQuad,
-				isQuadToTube = isQuadToTube, isTubeToQuad = isTubeToQuad, isTubeToMany = isTubeToMany))
+				isQuadToTube = isQuadToTube, isTubeToQuad = isTubeToQuad, isTubeToMany = isTubeToMany,
+				canBeSampleOnly = canBeSampleOnly))
 		}
 	}
 
@@ -199,15 +201,16 @@ object TransferController extends Controller {
 	 * @param isQuadToTube true if sliced transfer is from quadrant to non-divided component
 	 * @param isTubeToQuad true if slice transfer must have to quadrant
 	 * @param isTubeToMany true if transferring tube to a multi-welled container
+	 * @param canBeSampleOnly true if transferring from a plate to a tube and option to only transfer wells with samples
 	 * @return redirect to transferWithParams to query for additional information
 	 */
 	private def transferIncomplete(data: TransferStart, fromQuad: Boolean, toQuad: Boolean,
 								   dataMandatory: Boolean, isQuadToQuad : Boolean, isQuadToTube: Boolean,
-								   isTubeToQuad: Boolean, isTubeToMany: Boolean) = {
+								   isTubeToQuad: Boolean, isTubeToMany: Boolean, canBeSampleOnly: Boolean) = {
 		val result = Redirect(routes.TransferController.transferWithParams(fromID = data.from, toID = data.to,
 			project = data.project, fromQuad = fromQuad, toQuad = toQuad, dataMandatory = dataMandatory,
 			isQuadToQuad = isQuadToQuad, isQuadToTube = isQuadToTube,
-			isTubeToQuad = isTubeToQuad, isTubeToMany = isTubeToMany))
+			isTubeToQuad = isTubeToQuad, isTubeToMany = isTubeToMany, canBeSampleOnly = canBeSampleOnly))
 		val quadPlural = if (fromQuad && toQuad) "s" else ""
 		val quadsThere = if (fromQuad || toQuad) " and quadrant" else ""
 		val infoType = if (dataMandatory) s"Specify quadrant$quadPlural and optionally slice"
@@ -230,7 +233,8 @@ object TransferController extends Controller {
 		// size containers)
 		transferIncomplete(data = data, fromQuad = fromQuad, toQuad = toQuad,
 			dataMandatory = (fromQuad && !toQuad) || (toQuad && !fromQuad),
-			isQuadToQuad = toQuad && fromQuad, isQuadToTube = false, isTubeToQuad = false, isTubeToMany = false)
+			isQuadToQuad = toQuad && fromQuad, isQuadToTube = false, isTubeToQuad = false, isTubeToMany = false,
+			canBeSampleOnly = false)
 	}
 
 	/**
@@ -242,7 +246,8 @@ object TransferController extends Controller {
 	 */
 	private def fromTubeTransferIncomplete(data: TransferStart, toQuad: Boolean) = {
 		transferIncomplete(data = data, fromQuad = false, toQuad = toQuad, dataMandatory = false,
-			isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = toQuad, isTubeToMany = true)
+			isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = toQuad, isTubeToMany = true,
+			canBeSampleOnly = false)
 	}
 
 	/**
@@ -254,7 +259,8 @@ object TransferController extends Controller {
 	 */
 	private def toTubeTransferIncomplete(data: TransferStart, fromQuad: Boolean) =
 		transferIncomplete(data = data, fromQuad  = fromQuad, toQuad = false, dataMandatory = false,
-			isQuadToQuad = false, isQuadToTube = fromQuad, isTubeToQuad = false, isTubeToMany = false)
+			isQuadToQuad = false, isQuadToTube = fromQuad, isTubeToQuad = false, isTubeToMany = false,
+			canBeSampleOnly = true)
 
 	/**
 	 * Result when transfer start form had errors
@@ -658,7 +664,7 @@ object TransferController extends Controller {
 						TransferContents.getNextWellMapping(soFar = outSoFar, fromComponent = fromComponent.get,
 							toComponent = toComponent.get, fromQuad = next.fromQuad, toQuad = next.toQuad,
 							quadSlice = next.slice, cherries = next.cherries,
-							isTubeToMany = isFromTube, getSameMapping = true) {
+							isTubeToMany = isFromTube, isSampleOnly = next.isSampleOnly, getSameMapping = true) {
 							case (wellsSoFar, div, newWells) =>
 								val keys = wellsSoFar.keySet ++ newWells.keySet
 								keys.map((k) => {

@@ -101,9 +101,9 @@ class EZPassSpec extends TestSpec with TestConfig {
 
 			// Test of combining rack of samples and plate of MIDs into a plate
 			doTest(List(
-				Transfer(fakeRack, "ATM", None, None, None, None, None, isTubeToMany = false),
-				Transfer("ATM", "T", None, None, None, None, None, isTubeToMany = false),
-				Transfer("MID", "ATM", None, None, None, None, None, isTubeToMany = false)),
+				Transfer(fakeRack, "ATM", None, None, None, None, None, isTubeToMany = false, isSampleOnly = false),
+				Transfer("ATM", "T", None, None, None, None, None, isTubeToMany = false, isSampleOnly = false),
+				Transfer("MID", "ATM", None, None, None, None, None, isTubeToMany = false, isSampleOnly = false)),
 				rackSize, None
 			)
 
@@ -111,18 +111,25 @@ class EZPassSpec extends TestSpec with TestConfig {
 			// Test of combining slice of rack of samples and plate of MIDs into a plate
 			val sliceWells = TransferWells.slice96to96wells(Slice.S1, None).keySet
 			doTest(List(
-				Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1), None, isTubeToMany = false),
-				Transfer("ATM", "T", None, None, None, Some(Slice.S1), None, isTubeToMany = false),
-				Transfer("MID", "ATM", None, None, None, Some(Slice.S1), None, isTubeToMany = false)),
+				Transfer(fakeRack, "ATM", None, None, None, Some(Slice.S1), None,
+					isTubeToMany = false, isSampleOnly = false),
+				Transfer("ATM", "T", None, None, None, Some(Slice.S1), None,
+					isTubeToMany = false, isSampleOnly = false),
+				Transfer("MID", "ATM", None, None, None, Some(Slice.S1), None,
+					isTubeToMany = false, isSampleOnly = false)),
 				sliceWells.size, Some(sliceWells)
 			)
 
 			// Test of transfer of rack and MIDs to and from 384 well plate with a slice of final plate sent to the tube
 			val sliceWellsQS = TransferWells.slice96to96wells(Slice.S2, None).keySet
-			doTest(List(Transfer(fakeRack, "P384", None, Some(Transfer.Quad.Q1), None, None, None, isTubeToMany = false),
-				Transfer("MID", "P384", None, Some(Transfer.Quad.Q1), None, None, None, isTubeToMany = false),
-				Transfer("P384", "ATM", Some(Transfer.Quad.Q1), None, None, None, None, isTubeToMany = false),
-				Transfer("ATM", "T", None, None, None, Some(Slice.S2), None, isTubeToMany = false)),
+			doTest(List(Transfer(fakeRack, "P384", None, Some(Transfer.Quad.Q1), None, None, None,
+				isTubeToMany = false, isSampleOnly = false),
+				Transfer("MID", "P384", None, Some(Transfer.Quad.Q1), None, None, None,
+					isTubeToMany = false, isSampleOnly = false),
+				Transfer("P384", "ATM", Some(Transfer.Quad.Q1), None, None, None, None,
+					isTubeToMany = false, isSampleOnly = false),
+				Transfer("ATM", "T", None, None, None, Some(Slice.S2), None,
+					isTubeToMany = false, isSampleOnly = false)),
 				sliceWellsQS.size, Some(sliceWellsQS))
 		}
 	}

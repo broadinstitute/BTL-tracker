@@ -224,9 +224,9 @@ object TestData {
 			(None,Some("No antibody assigned to sample tube 0177159372")))
 
 	val abTransfers =
-		List(Transfer("AB-T1","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(0, 1, 2, 3, 4, 5, 6, 7)),true),
-			Transfer("AB-T3","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(16, 17, 18, 19, 20, 21, 22, 23)),true),
-			Transfer("AB-T2","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(12, 13, 14, 15, 8, 9, 10, 11)),true))
+		List(Transfer("AB-T1","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(0, 1, 2, 3, 4, 5, 6, 7)),true, false),
+			Transfer("AB-T3","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(16, 17, 18, 19, 20, 21, 22, 23)),true, false),
+			Transfer("AB-T2","AB-PLATE",None,None,None,Some(Transfer.Slice.CP),Some(List(12, 13, 14, 15, 8, 9, 10, 11)),true, false))
 
 	val bspDataHeader =
 		"""Sample ID	Stock Sample	Participant ID(s)	Collection	Volume	Conc	Manufacturer Tube Barcode	Container	Position	Container Name	Collaborator Participant ID	Collaborator Sample ID	Collaborator Sample ID_2	Country	State	Sample Collection Year	Tissue Site	Antibody	Control Sample"""

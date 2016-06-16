@@ -30,10 +30,12 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * @param slice optional slice to transfer
  * @param cherries wells cherry picked (indicies to wells going across first)
  * @param isTubeToMany true if transferring tube to a multi-welled container
+ * @param isSampleOnly true if transferring from a plate to a tube and only want to transfer wells with samples
  */
 case class Transfer(from: String, to: String,
 					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String],
-					slice: Option[Transfer.Slice.Slice], cherries: Option[List[Int]], isTubeToMany: Boolean) {
+					slice: Option[Transfer.Slice.Slice], cherries: Option[List[Int]], isTubeToMany: Boolean,
+					isSampleOnly: Boolean) {
 
 	import models.Transfer.Quad._
 	import models.Transfer.Slice._
@@ -50,7 +52,8 @@ case class Transfer(from: String, to: String,
 			sliceStr + quad.map((q) => s"$q of $id").getOrElse(id)
 		}
 		val (fromSlice, toSlice) = if (isTubeToMany) (None, slice) else (slice, None)
-		"transfer from " + qDesc(from, fromQuad, fromSlice) + " to " + qDesc(to, toQuad, toSlice)
+		val samples = if (isSampleOnly) "of samples only " else ""
+		"transfer " + samples + "from " + qDesc(from, fromQuad, fromSlice) + " to " + qDesc(to, toQuad, toSlice)
 	}
 
 
@@ -164,7 +167,8 @@ case class Transfer(from: String, to: String,
 														Transfer(from = fromSub, to = toSub,
 															fromQuad = None, toQuad = None,
 															project = this.project, slice = None,
-															cherries = None, isTubeToMany = false)))
+															cherries = None, isTubeToMany = false,
+															isSampleOnly = false)))
 												// Didn't find destination well subcomponent
 												case None => None
 											}
@@ -221,7 +225,8 @@ case class Transfer(from: String, to: String,
 									case Some(fromSub) =>
 										Some(Yes(Transfer(from = fromSub, to = to,
 											fromQuad = None, toQuad = None, project = project,
-											slice = None, cherries = None, isTubeToMany = false)))
+											slice = None, cherries = None,
+											isTubeToMany = false, isSampleOnly = false)))
 									case None => None
 								}
 							})
@@ -275,7 +280,8 @@ case class Transfer(from: String, to: String,
 												case Some(toSub) =>
 													Some(Yes(Transfer(from = from, to = toSub,
 														fromQuad = None, toQuad = None, project = project,
-														slice = None, cherries = None, isTubeToMany = false)))
+														slice = None, cherries = None,
+														isTubeToMany = false, isSampleOnly = false)))
 												case None => None
 											}
 										})
@@ -485,8 +491,8 @@ case class Transfer(from: String, to: String,
  */
 case class TransferStart(from: String, to: String, project: Option[String]) {
 	def toTransferForm = TransferForm(toTransfer, dataMandatory = false,
-		isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = false)
-	def toTransfer = Transfer(from, to, None, None, project, None, None, isTubeToMany = false)
+		isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = false, canBeSampleOnly = false)
+	def toTransfer = Transfer(from, to, None, None, project, None, None, isTubeToMany = false, isSampleOnly = false)
 }
 
 /**
@@ -495,9 +501,10 @@ case class TransferStart(from: String, to: String, project: Option[String]) {
  * @param isQuadToQuad true if quadrant transfers must be quad to quad (both source and destination have quadrants)
  * @param isQuadToTube true if transfer from a source with quadrants to a non-divided component
  * @param isTubeToQuad true if slice transfer must have to quadrant
+ * @param canBeSampleOnly true if plate to tube transfer where only wells with samples can be transferred
  */
 case class TransferForm(transfer: Transfer, dataMandatory: Boolean, isQuadToQuad: Boolean,
-						isQuadToTube: Boolean, isTubeToQuad: Boolean)
+						isQuadToTube: Boolean, isTubeToQuad: Boolean, canBeSampleOnly: Boolean)
 
 // Companion object
 object Transfer {
@@ -558,6 +565,7 @@ object Transfer {
 	val sliceKey = "slice"
 	val cherriesKey = "cherries"
 	val isTubeToManyKey = "isTubeToMany"
+	val isSampleOnlyKey = "isSampleOnly"
 
 	// Mapping to create/read Transfer objects
 	val transferMapping = mapping(
@@ -568,7 +576,8 @@ object Transfer {
 		projectKey -> optional(text),
 		sliceKey -> optional(enum(Slice)),
 		cherriesKey -> optional(list(number)),
-		isTubeToManyKey -> boolean
+		isTubeToManyKey -> boolean,
+		isSampleOnlyKey -> boolean
 	)(Transfer.apply)(Transfer.unapply)
 
 	// Keys for form
@@ -577,6 +586,7 @@ object Transfer {
 	val isQuadToQuadKey = "isQuadToQuad"
 	val isQuadToTubeKey = "isQuadToTube"
 	val isTubeToQuadKey = "isTubeToQuad"
+	val canBeSampleOnlyKey = "canBeSampleOnly"
 
 	// Mapping to create/read Transfer form
 	val transferFormMapping = mapping(
@@ -584,7 +594,8 @@ object Transfer {
 		mandatoryKey -> boolean,
 		isQuadToQuadKey -> boolean,
 		isQuadToTubeKey -> boolean,
-		isTubeToQuadKey -> boolean
+		isTubeToQuadKey -> boolean,
+		canBeSampleOnlyKey -> boolean
 	)(TransferForm.apply)(TransferForm.unapply)
 
 	// Form used for transferring - it includes verification to see if proper set of quadrants are set.  If a
@@ -647,7 +658,7 @@ object Transfer {
 		val wellIdxs = getCherryIndicies(div, wells)
 		// Create transfer from tube to wells in plate
 		Transfer(from = tube, to = plate, fromQuad = None, toQuad = None, project = proj,
-			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = true)
+			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = true, isSampleOnly = false)
 	}
 
 	/**
@@ -665,7 +676,7 @@ object Transfer {
 		val wellIdxs = getCherryIndicies(div, wells)
 		// Create transfer to tube from wells in plate
 		Transfer(from = plate, to = tube, fromQuad = None, toQuad = None, project = proj,
-			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = false)
+			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = false, isSampleOnly = false)
 	}
 }
 
@@ -683,9 +694,9 @@ class TransferWithTime(override val from: String, override val to: String,
 					   override val toQuad: Option[Transfer.Quad.Quad],
 					   override val project: Option[String], override val slice: Option[Transfer.Slice.Slice],
 					   override val cherries: Option[List[Int]],
-					   override val isTubeToMany: Boolean,
+					   override val isTubeToMany: Boolean, override val isSampleOnly: Boolean,
 					   val time: Long)
-	extends Transfer(from, to, fromQuad, toQuad, project, slice, cherries, isTubeToMany)
+	extends Transfer(from, to, fromQuad, toQuad, project, slice, cherries, isTubeToMany, isSampleOnly)
 
 /**
  * Companion object
@@ -699,5 +710,5 @@ object TransferWithTime {
 	 */
 	def apply(transfer: Transfer, time: Long) : TransferWithTime =
 		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad,
-			transfer.project, transfer.slice, transfer.cherries, transfer.isTubeToMany, time)
+			transfer.project, transfer.slice, transfer.cherries, transfer.isTubeToMany, transfer.isSampleOnly, time)
 }
