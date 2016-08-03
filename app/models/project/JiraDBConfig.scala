@@ -1,8 +1,10 @@
 package models.project
 
 import org.broadinstitute.LIMStales.mongo.config.DatabaseUsingConfigFactory
-import org.broadinstitute.LIMStales.mongo.{BtllimsPlateOpers,BtllimsBspOpers,BtllimsRackOpers}
-import org.broadinstitute.LIMStales.mongo.{BtllimsPlateCollection,BtllimsBspCollection, BtllimsRackCollection}
+import org.broadinstitute.LIMStales.mongo.
+{BtllimsPlateOpers,BtllimsBspOpers,BtllimsRackOpers,BtllimsSampleMapOpers}
+import org.broadinstitute.LIMStales.mongo.
+{BtllimsPlateCollection,BtllimsBspCollection, BtllimsRackCollection,BtllimsSampleMapCollection}
 import play.api.Play
 
 /**
@@ -21,6 +23,8 @@ trait JiraDBConfig extends DatabaseUsingConfigFactory {
 		Play.current.configuration.getString("DBConfig.bspCollection").getOrElse(super.bspCollection)
 	abstract override def rackCollection =
 		Play.current.configuration.getString("DBConfig.rackCollection").getOrElse(super.rackCollection)
+	abstract override def sampleMapCollection =
+		Play.current.configuration.getString("DBConfig.sampleMapCollection").getOrElse(super.sampleMapCollection)
 }
 
 object JiraDBConfig extends JiraDBConfig
@@ -32,6 +36,7 @@ object JiraDBs {
 	object BtllimsRackOpers extends BtllimsRackCollection(JiraDBConfig) with BtllimsRackOpers
 	object BtllimsBspOpers extends BtllimsBspCollection(JiraDBConfig) with BtllimsBspOpers
 	object BtllimsPlateOpers extends BtllimsPlateCollection(JiraDBConfig) with BtllimsPlateOpers
+	object BtllimsSampleMapOpers extends BtllimsSampleMapCollection(JiraDBConfig) with BtllimsSampleMapOpers
 }
 
 

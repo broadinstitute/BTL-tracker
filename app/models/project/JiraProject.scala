@@ -2,9 +2,9 @@ package models.project
 
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
-import models.{Rack, ComponentList, Component}
+import models._
 import models.Component._
-import models.Container
+import org.broadinstitute.LIMStales.sampleRacks.RackScan
 import org.broadinstitute.LIMStales.sampleRacks._
 import JiraDBs._
 
@@ -34,10 +34,11 @@ trait JiraProject {
 			case Some(h) => (h.project, h.contentType)
 			case _ => (None, None)
 		}
-		// Check if we're changing to BSP initial content
+		// Check if we're changing to sample initial content
 		val isChangingToBSP =
 			this match {
-				case c: Container => c.initialContent != initContent && c.initialContent.contains(ContentType.BSPtubes)
+				case c: Container => c.initialContent != initContent &&
+					(c.initialContent.contains(ContentType.BSPtubes) || c.initialContent.contains(ContentType.SamplePlate))
 				case _ => false
 			}
 		// If no project set or neither project nor content type changed then we're all set
@@ -66,40 +67,50 @@ trait JiraProject {
 	}
 
 	/**
-	 * Check if project is associated with component if it's a BSP rack.
+	 * Check if project is associated with component if it's a BSP rack or sample plate.
 	 * If there is no association found then an error is returned.
 	 * @param id id of component
 	 * @param project id of project
 	 * @return map of errors (form field -> error); empty map if project is associated with component
 	 */
 	private def checkProject(id: String, project: String) : Future[Option[(Option[String], String)]] = {
+
+		import play.api.libs.concurrent.Execution.Implicits.defaultContext
+		def findEntry[T](getList: (String) => (List[SSFIssueList[T]], Option[String]),
+						 errStr: (String, String) => String) = {
+			Future {
+				// Component description (type id)
+				val componentID = component.toString + " " + id
+				// Key to project in form
+				val projectFormKey = formKey + "." + projectKey
+				// Go get contents for issue
+				val (entries, err) = getList(id)
+				if (entries.isEmpty) {
+					// Nothing returned - set global error (if DB error) or project specific error if no projects found
+					if (err.isDefined) {
+						Some(None -> ("Error looking for " + component.toString + " in projects database: " + err.get))
+					} else {
+						Some(Some(projectFormKey) -> errStr(componentID, project))
+					}
+				} else {
+					// Entry returned - if it's for our project then we're happy - otherwise return error
+					if (entries.exists(_.issue == project))
+						None
+					else
+						Some(Some(projectFormKey) -> (componentID + " is not included in specified project.  " +
+							component.toString + " found in project" +
+							(if (entries.size != 1) "s " else " ") + entries.map(_.issue).mkString(",") + "."))
+				}
+			}
+		}
+
 		this match {
 			case r : Rack if r.initialContent.contains(InitialContents.ContentType.BSPtubes) =>
-				import play.api.libs.concurrent.Execution.Implicits.defaultContext
-				Future {
-					// Component description (type id)
-					val componentID = component.toString + " " + id
-					// Key to project in form
-					val projectFormKey = formKey + "." + projectKey
-					// Go get contents for issue
-					val (entries, err) = JiraProject.getBspIssueCollection(id)
-					if (entries.isEmpty) {
-						// Nothing returned - set global error (if DB error) or project specific error if no projects found
-						if (err.isDefined) {
-							Some(None -> ("Error looking for " + component.toString + " in projects database: " + err.get))
-						} else {
-							Some(Some(projectFormKey) -> ("No projects found for " + componentID))
-						}
-					} else {
-						// Entry returned - if it's for our project then we're happy - otherwise return error
-						if (entries.exists(_.issue == project))
-							None
-						else
-							Some(Some(projectFormKey) -> (componentID + " is not included in specified project.  " +
-								component.toString + " found in project" +
-								(if (entries.size != 1) "s " else " ") + entries.map(_.issue).mkString(",") + "."))
-					}
-				}
+				findEntry[BSPScan](JiraProject.getBspIssueCollection,
+					(componentID, _) => "No projects found for " + componentID)
+			case p: Plate if p.initialContent.contains(InitialContents.ContentType.SamplePlate) =>
+				findEntry[SampleMapEntry]((_) => JiraProject.getSampleMapCollection(project),
+					(_, project) => "No sample map found for " + project)
 			case _ => Future.successful(None)
 		}
 	}
@@ -144,6 +155,14 @@ object JiraProject {
 	 */
 	def getPlateIssueCollection(id: String) =
 		getIssueCollection[SamplePlate](() => BtllimsPlateOpers.retrievePlate(id).toList)
+
+	/**
+	 * Get the sample map for a project id (Jira ticket #)
+	 * @param id project ID
+	 * @return list of sample maps along with associated project information (optional error message returned as well)
+	 */
+	def getSampleMapCollection(id: String) =
+		getIssueCollection[SampleMapEntry](() => BtllimsSampleMapOpers.findSSF(id).toList)
 
 	/**
 	 * Get a list of entries

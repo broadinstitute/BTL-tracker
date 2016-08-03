@@ -1,6 +1,6 @@
 package models
 
-import models.TransferContents.{MergeMid, MergeBsp, MergeResult}
+import models.TransferContents.{MergeMid, MergeSample, MergeResult}
 import models.project.SquidProject
 import org.broadinstitute.spreadsheets.HeadersToValues
 import play.api.data.Form
@@ -459,29 +459,29 @@ object EZPass {
 	}
 
 	// Values from bsp data - methods to retrieve specific values
-	private def getProject(bsp: MergeBsp) = Some(bsp.project)
-	private def getProjectDescription(bsp: MergeBsp) = bsp.projectDescription
-	private def getGssrSample(bsp: MergeBsp) = bsp.gssrSample
-	private def getCollabSample(bsp: MergeBsp) = bsp.collabSample
-	private def getIndividual(bsp: MergeBsp) = bsp.individual
-	private def getLibrary(bsp: MergeBsp) = bsp.sampleID
+	private def getProject(bsp: MergeSample) = Some(bsp.project)
+	private def getProjectDescription(bsp: MergeSample) = bsp.projectDescription
+	private def getGssrSample(bsp: MergeSample) = bsp.gssrSample
+	private def getCollabSample(bsp: MergeSample) = bsp.collabSample
+	private def getIndividual(bsp: MergeSample) = bsp.individual
+	private def getLibrary(bsp: MergeSample) = bsp.sampleID
 	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
 	// Map of headers to methods to retrieve bsp values
-	private val bspMap : Map[String, (MergeBsp) => Option[String]]=
+	private val bspMap : Map[String, (MergeSample) => Option[String]]=
 		Map("Additional Sample Information" -> getProject, // Jira ticket
 			"Project Title Description (e.g. MG1655 Jumping Library Dev.)" -> getProjectDescription, // Ticket summary
 			gssrBarcodeLabel -> getGssrSample,
 			"Collaborator Sample ID" -> getCollabSample,
 			"Individual Name (aka Patient ID, Required for human subject samples)" -> getIndividual,
 			"Library Name (External Collaborator Library ID)" -> getLibrary,
-			squidProjectLabel -> ((bsp: MergeBsp) => None)) // If project is requested it's picked up later
+			squidProjectLabel -> ((bsp: MergeSample) => None)) // If project is requested it's picked up later
 
 	/**
 	 * Get bsp fields - go through bsp map and return new map with fetched values
 	 * @param bsp bsp data
 	 * @return map of headers to values
 	 */
-	private def getBspFields(bsp: MergeBsp) = bspMap.map {
+	private def getBspFields(bsp: MergeSample) = bspMap.map {
 		case (k, v) => k -> v(bsp)
 	}
 

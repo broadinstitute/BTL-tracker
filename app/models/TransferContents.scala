@@ -6,6 +6,7 @@ import models.Transfer.Slice._
 import models.initialContents.InitialContents
 import models.TransferHistory.TransferEdge
 import InitialContents.ContentType
+import models.project.JiraProject
 
 import scala.concurrent.Future
 
@@ -20,28 +21,29 @@ import scalax.collection.edge.LkDiEdge
 object TransferContents {
 
 	/**
-	 * BSP entry for merged results.
+	 * Sample entry for merged results.
 	 * @param project jira ticket ID
 	 * @param projectDescription jira summary
-	 * @param sampleTube bsp tube barcode
-	 * @param gssrSample bsp GSSR barcode
-	 * @param collabSample bsp collaborator sample ID
-	 * @param individual bsp collaborator participant
-	 * @param sampleID bsp sample ID
+	 * @param sampleTube tube barcode (if rack), otherwise plate barcode
+	 * @param gssrSample GSSR barcode
+	 * @param collabSample collaborator sample ID
+	 * @param origCollabID original collaborator sample ID
+	 * @param individual collaborator participant
+	 * @param sampleID original sample ID
 	 * @param antibody antibody requested for sample
 	 * @param pos position in rack for tube
 	 */
-	case class MergeBsp(project: String, projectDescription: Option[String], sampleTube: String,
-						gssrSample: Option[String], collabSample: Option[String], individual: Option[String],
-						sampleID: Option[String], antibody: Option[String], pos: String) {
+	case class MergeSample(project: String, projectDescription: Option[String], sampleTube: String,
+						   gssrSample: Option[String], collabSample: Option[String], origCollabID: Option[String],
+						   individual: Option[String], sampleID: Option[String], antibody: Option[String], pos: String) {
 		// Override equals and hash to make it simpler
 		override def equals(arg: Any) = {
 			arg match {
-				case MergeBsp(p, _, s, _, _, _, _, _, _) => p == project && s == sampleTube
+				case MergeSample(p, _, s, _, _, _, _, _, _, ps) => p == project && s == sampleTube && ps == pos
 				case _ => false
 			}
 		}
-		override def hashCode = (project.hashCode * 31) + sampleTube.hashCode
+		override def hashCode = (project.hashCode * 31 * 31) + (sampleTube.hashCode * 31) + pos.hashCode
 	}
 
 	/**
@@ -67,7 +69,7 @@ object TransferContents {
 	 * @param mid MIDs associated with sample
 	 * @param antibody antibodies associated with sample
 	 */
-	case class MergeResult(bsp: Option[MergeBsp], mid: Set[MergeMid], antibody: Set[String])
+	case class MergeResult(bsp: Option[MergeSample], mid: Set[MergeMid], antibody: Set[String])
 
 	/**
 	 * Object used to keep track of all contents being merged together.
@@ -97,6 +99,7 @@ object TransferContents {
 	 * @return future returning contents of component
 	 */
 	def getContents(componentID: String) : Future[Option[TransferContents.MergeTotalContents]] = {
+		val emptyResult = Map.empty[String, MergeResult]
 		// First make a graph of the transfers leading into the component.  That gives us a reasonable way to rummage
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		TransferHistory.makeSourceGraph(componentID).map(f = (graph) => {
@@ -115,10 +118,11 @@ object TransferContents {
 								val bspMatches = matches.flatMap {
 									case ((well, (matchFound, Some(tube)))) =>
 										Some(well -> MergeResult(
-											bsp = Some(MergeBsp(
+											bsp = Some(MergeSample(
 												project = ssfIssue.issue, projectDescription = ssfIssue.summary,
 												sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
 												collabSample = tube.collaboratorSample,
+												origCollabID = tube.collaboratorSample,
 												individual = tube.collaboratorParticipant, sampleID = tube.sampleID,
 												antibody = tube.antiBody, pos = tube.pos
 											)),
@@ -129,9 +133,42 @@ object TransferContents {
 								(bspMatches, List.empty[String])
 							},
 							// BSP info not found for rack - return empty map and error
-							notFound = (err) => (Map.empty[String, MergeResult], List(err)))
-					// Not a rack - nothing to return
-					case _ => (Map.empty[String, MergeResult], List.empty[String])
+							notFound = (err) => (emptyResult, List(err)))
+					case plate: Plate
+						if plate.initialContent.contains(ContentType.SamplePlate) =>
+						plate.project match {
+							case Some(project) =>
+								val (samples, err) = JiraProject.getSampleMapCollection(project)
+								samples.find(_.issue == project) match {
+									case Some(projectSamples) =>
+										val result = projectSamples.list.map(
+											(sample) => {
+												sample.pos -> MergeResult(
+													bsp = Some(MergeSample(
+														project = project,
+														projectDescription = projectSamples.summary,
+														sampleTube = plate.id, gssrSample = None,
+														collabSample = Some(sample.sampleID),
+														origCollabID = Some(sample.origSampleID),
+														individual = None, sampleID = Some(sample.sampleID),
+														antibody = None, pos = sample.pos
+													)),
+													mid = Set.empty, antibody = Set.empty)
+											}
+										)
+										(result.toMap, List.empty[String])
+									case None =>
+										val errList = err match {
+											case Some(err) => List(err)
+											case None =>
+												List(s"Unable to find sample map for ${plate.id} (project $project)")
+										}
+										(emptyResult, errList)
+								}
+							case None => (emptyResult, List(s"No project set for sample plate ${plate.id}"))
+						}
+					// Not a rack or sample plate - nothing to return
+					case _ => (emptyResult, List.empty[String])
 				}
 
 			/*

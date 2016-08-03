@@ -1,6 +1,6 @@
 name := "tracker"
 
-version := "2.2.0"
+version := "2.3.0"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
@@ -14,6 +14,6 @@ libraryDependencies ++= Seq(
 	"org.apache.poi" % "poi" % "3.9",
 	"org.apache.poi" % "poi-ooxml" % "3.9",
 	"org.broadinstitute" %% "spreadsheets" % "1.0.6",
-	"org.broadinstitute" %% "sampleracks" % "1.11.1",
-	"org.broadinstitute" %% "mongo" % "1.15.0"
+	"org.broadinstitute" %% "sampleracks" % "1.12.0",
+	"org.broadinstitute" %% "mongo" % "1.16.0"
 )

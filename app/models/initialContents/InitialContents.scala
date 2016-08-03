@@ -28,6 +28,8 @@ object InitialContents {
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
 		val SQM96SetA = Value("SQM Set A")
 		val SQM96SetAFlipped = Value("SQM Set A Flipped")
+		// Plate of samples
+		val SamplePlate = Value("Sample Plate")
 		// Antibodies (only for placement in single sample containers (e.g., tube))
 		val ABRnaPolII = Value("RNAPolII")
 		val ABH3K4me1 = Value("H3K4me1")
@@ -54,6 +56,11 @@ object InitialContents {
 		)
 
 		/**
+		 * List of valid plate contents
+		 */
+		val plateContents = SamplePlate :: molBarcodes
+
+		/**
 		 * List of all antibodies
 		 */
 		val antiBodies = List(
@@ -68,7 +75,6 @@ object InitialContents {
 
 		/**
 		 * Is content type a molecular barcode set?
-		 *
 		 * @param ct content type to check
 		 * @return true if content type is a molecular barcode set
 		 */
@@ -76,7 +82,6 @@ object InitialContents {
 
 		/**
 		 * Is content type a antibody?
-		 *
 		 * @param ct content type to check
 		 * @return true if content type is a antibody
 		 */
@@ -88,7 +93,6 @@ object InitialContents {
 
 		/**
 		 * Get optional content type from string.  Set as None if missing or invalid.
-		 *
 		 * @param content content type as string
 		 * @return optional content type found
 		 */
@@ -119,12 +123,12 @@ object InitialContents {
 		TruGrade96Set3 -> List(DIM8x12),
 		TruGrade96Set4 -> List(DIM8x12),
 		SQM96SetA -> List(DIM8x12),
-		SQM96SetAFlipped -> List(DIM8x12)
+		SQM96SetAFlipped -> List(DIM8x12),
+		SamplePlate -> List(DIM8x12, DIM16x24)
 	)
 
 	/**
 	 * Is the content valid for the division?
- *
 	 * @param content content of container
 	 * @param div division type of container
 	 * @return true if container with division can hold content
@@ -149,15 +153,24 @@ object InitialContents {
 	)
 
 	// Sorted list of display values for putting in drop down lists, etc
-	def getContentDisplayValues(validContents: List[ContentType.ContentType]) =
-		validContents.map(_.toString).sorted
+	def getContentDisplayValues(validContents: List[ContentType.ContentType]) = {
+		// Contents to always display first
+		val displayFirst = List(SamplePlate, BSPtubes, ABtubes)
+		// Get group of contents in displayFirst list vs. rest of list
+		val contentsByDisplayFirst = validContents.groupBy((ct) => displayFirst.contains(ct))
+		// Sort contents we want sorted
+		val emptyContent = List.empty[InitialContents.ContentType.ContentType]
+		val contentsToSort = contentsByDisplayFirst.getOrElse(false, emptyContent)
+		val sortedContents = contentsToSort.map(_.toString).sorted
+		// Return display first contents followed by sorted contents
+		contentsByDisplayFirst.getOrElse(true, emptyContent).map(_.toString) ++ sortedContents
+	}
 
 	// Get list of display value for all types
 	def getAllContentDisplayValues = getContentDisplayValues(ContentType.values.toList)
 
 	/**
 	 * Initial contents
-	 *
 	 * @tparam C content class type
 	 */
 	trait ContentsMap[C] {
@@ -166,18 +179,17 @@ object InitialContents {
 	}
 
 	/**
-	  * Antibody data.
-	  *
-	  * @param volume Volume (uL) to use
-	  * @param species species
-	  * @param isMono mono or poly clonal
-	  * @param isControl control antibody
-	  */
+	 * Antibody data.
+	 * @param volume Volume (uL) to use
+	 * @param species species
+	 * @param isMono mono or poly clonal
+	 * @param isControl control antibody
+	 */
 	case class AntiBodyData(volume: Int, species: String, isMono: Boolean, isControl: Boolean)
 
 	/**
-	  * Map to get fixed information for each antibody
-	  */
+	 * Map to get fixed information for each antibody
+	 */
 	lazy val antibodyMap = Map(
 		ABRnaPolII -> AntiBodyData(1, "Mouse", true, false),
 		ABH3K4me1 -> AntiBodyData(1, "Rabbit", true, false),

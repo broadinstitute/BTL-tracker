@@ -85,7 +85,7 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 
 	val validLocations = List(ComponentType.Freezer)
 	val validTransfers = List(ComponentType.Plate,ComponentType.Tube,ComponentType.Rack)
-	val validContents = InitialContents.ContentType.molBarcodes
+	val validContents = InitialContents.ContentType.plateContents
 
 	/**
 	 * Form to use in view of plate
