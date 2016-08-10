@@ -2,6 +2,7 @@ package models
 
 import models.TransferContents.MergeResult
 import models.initialContents.MolecularBarcodes
+import org.broadinstitute.LIMStales.sampleRacks.SampleMapEntry
 
 /**
  * Create a walkup sequencing sheet.
@@ -28,15 +29,8 @@ object Walkup {
 				// Get sample name
 				val sample = inp.bsp match {
 					case Some(bsp) =>
-						// Get collaborator name, allowing just alphanumeric and "_" and "-" characters
-						// Then append antibody name if there is one and original rack position
-						val sName = bsp.collabSample.getOrElse("").replaceAll("[^-_a-zA-Z0-9]","")
-						val abName =
-							inp.antibody.headOption match {
-								case Some(ab) => s"_$ab"
-								case _ => ""
-							}
-						sName + abName + s"_${bsp.pos}"
+						SampleMapEntry.fixStr(in = bsp.origCollabID.getOrElse(""),
+							append = SampleMapEntry.getExtra(bsp.pos, inp.antibody.headOption), maxLen = 50)
 					case None => ""
 				}
 				// If no sample name then skip it, otherwise set next line in spreadsheet with sample name and MIDs
