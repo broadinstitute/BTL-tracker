@@ -341,7 +341,7 @@ object EZPass {
 		 * @param setContext context kept for handling EZpass
  		 * @param index sample number
 		 * @param results results from transfers
-		 * @param samplesFound # of bsp samples found so far
+		 * @param samplesFound # of samples found so far
 		 * @return (context, total # of samples found)
 		 */
 		@tailrec
@@ -351,11 +351,11 @@ object EZPass {
 			else {
 				// Go get next row of data and process it
 				val result = results.next()
-				val ezPassResults = result.bsp match {
-					case Some(bsp) =>
-						// Get bsp and squid optional values
+				val ezPassResults = result.sample match {
+					case Some(sample) =>
+						// Get sample and squid optional values
 						// Put together optional string values (leave out those that are not set)
-						val strOptionFields = getBspFields(bsp).flatMap {
+						val strOptionFields = getSampleFields(sample).flatMap {
 							case (k, Some(str)) => List(k -> str)
 							case _ => List.empty
 						}
@@ -458,31 +458,31 @@ object EZPass {
 		}
 	}
 
-	// Values from bsp data - methods to retrieve specific values
-	private def getProject(bsp: MergeSample) = Some(bsp.project)
-	private def getProjectDescription(bsp: MergeSample) = bsp.projectDescription
-	private def getGssrSample(bsp: MergeSample) = bsp.gssrSample
-	private def getCollabSample(bsp: MergeSample) = bsp.collabSample
-	private def getIndividual(bsp: MergeSample) = bsp.individual
-	private def getLibrary(bsp: MergeSample) = bsp.sampleID
-	// private def getSampleTube(bsp: MergeBsp) = Some(bsp.sampleTube)
-	// Map of headers to methods to retrieve bsp values
-	private val bspMap : Map[String, (MergeSample) => Option[String]]=
+	// Values from sample data - methods to retrieve specific values
+	private def getProject(sample: MergeSample) = Some(sample.project)
+	private def getProjectDescription(sample: MergeSample) = sample.projectDescription
+	private def getGssrSample(sample: MergeSample) = sample.gssrSample
+	private def getCollabSample(sample: MergeSample) = sample.collabSample
+	private def getIndividual(sample: MergeSample) = sample.individual
+	private def getLibrary(sample: MergeSample) = sample.sampleID
+	// private def getSampleTube(sample: MergeSample) = Some(sample.sampleTube)
+	// Map of headers to methods to retrieve sample values
+	private val sampleMap : Map[String, (MergeSample) => Option[String]]=
 		Map("Additional Sample Information" -> getProject, // Jira ticket
 			"Project Title Description (e.g. MG1655 Jumping Library Dev.)" -> getProjectDescription, // Ticket summary
 			gssrBarcodeLabel -> getGssrSample,
 			"Collaborator Sample ID" -> getCollabSample,
 			"Individual Name (aka Patient ID, Required for human subject samples)" -> getIndividual,
 			"Library Name (External Collaborator Library ID)" -> getLibrary,
-			squidProjectLabel -> ((bsp: MergeSample) => None)) // If project is requested it's picked up later
+			squidProjectLabel -> ((sample: MergeSample) => None)) // If project is requested it's picked up later
 
 	/**
-	 * Get bsp fields - go through bsp map and return new map with fetched values
-	 * @param bsp bsp data
+	 * Get sample fields - go through sample map and return new map with fetched values
+	 * @param sample sample data
 	 * @return map of headers to values
 	 */
-	private def getBspFields(bsp: MergeSample) = bspMap.map {
-		case (k, v) => k -> v(bsp)
+	private def getSampleFields(sample: MergeSample) = sampleMap.map {
+		case (k, v) => k -> v(sample)
 	}
 
 	// Values from MIDs - methods to retreive values
@@ -582,7 +582,7 @@ object EZPass {
 
 	// All the headers to be set in the EZPass
 	private val headers =
-		(bspMap.keys ++ midFields.keys ++ constantFields.keys ++
+		(sampleMap.keys ++ midFields.keys ++ constantFields.keys ++
 			calcIntFields.keys ++ calcFloatFields.keys ++ calcStrFields.keys).toList
 
 	// EZPASS fields we don't know how to fill in yet

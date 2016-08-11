@@ -189,7 +189,7 @@ object RackScan extends DBOpers[RackScan] {
 					case None =>
 						if (isContentsEmpty(contents))
 							(tube -> Set.empty[String], None)
-						else if (contents.wells.head._2.flatMap(_.bsp).nonEmpty)
+						else if (contents.wells.head._2.flatMap(_.sample).nonEmpty)
 							(tube -> Set.empty[String], Some(s"${tube.id} contains samples with antibodies"))
 						else if (contents.wells.head._2.flatMap(_.mid).nonEmpty)
 							(tube -> Set.empty[String], Some(s"${tube.id} contains MIDs with antibodies"))

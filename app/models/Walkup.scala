@@ -27,10 +27,10 @@ object Walkup {
 			headers = headerLocs, input = samples,
 			getValues = (inp: MergeResult, headers) => {
 				// Get sample name
-				val sample = inp.bsp match {
-					case Some(bsp) =>
-						SampleMapEntry.fixStr(in = bsp.origCollabID.getOrElse(""),
-							append = SampleMapEntry.getExtra(bsp.pos, inp.antibody.headOption), maxLen = 50)
+				val sample = inp.sample match {
+					case Some(sample) =>
+						SampleMapEntry.fixStr(in = sample.origCollabID.getOrElse(""),
+							append = SampleMapEntry.getExtra(sample.pos, inp.antibody.headOption), maxLen = 50)
 					case None => ""
 				}
 				// If no sample name then skip it, otherwise set next line in spreadsheet with sample name and MIDs

@@ -160,7 +160,7 @@ object Robot {
 					else if (sample.size != 1)
 						(None, Some(s"Multiple samples found in well $well of ${sampleContainer.id}"))
 					else {
-						sample.head.bsp match {
+						sample.head.sample match {
 							case None =>
 								(None, Some(s"No sample assigned to well $well of ${sampleContainer.id}"))
 							case Some(bsp) =>

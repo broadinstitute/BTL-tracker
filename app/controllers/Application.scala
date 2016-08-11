@@ -115,8 +115,8 @@ object Application extends Controller {
 							// Get sample, molecular barcodes and antibodies to display
 							val sample =
 								addBrk(subLink,
-									content.bsp match {
-										case Some(bsp) => bsp.sampleID.getOrElse("unknown")
+									content.sample match {
+										case Some(sample) => sample.sampleID.getOrElse("unknown")
 										case None => ""
 									}
 								)

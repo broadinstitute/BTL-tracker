@@ -65,11 +65,11 @@ object TransferContents {
 
 	/**
 	 * Single sample and associated MIDs and antibodies.
-	 * @param bsp sample information
+	 * @param sample sample information
 	 * @param mid MIDs associated with sample
 	 * @param antibody antibodies associated with sample
 	 */
-	case class MergeResult(bsp: Option[MergeSample], mid: Set[MergeMid], antibody: Set[String])
+	case class MergeResult(sample: Option[MergeSample], mid: Set[MergeMid], antibody: Set[String])
 
 	/**
 	 * Object used to keep track of all contents being merged together.
@@ -104,12 +104,12 @@ object TransferContents {
 		// through all the transfers that have been done.  We map that graph into our component's contents
 		TransferHistory.makeSourceGraph(componentID).map(f = (graph) => {
 			/*
-			 * Get bsp sample information - if a rack we go look up if there's bsp information associated with the
-			 * component.
+			 * Get sample information - if a rack we go look up if there's bsp information associated with the
+			 * component.  If a plate then look for sample map.
 			 * @param c Component to find bsp sample information for
 			 * @return optional match, by well, of bsp sample information found
 			 */
-			def getBspContent(c: Component) =
+			def getSampleContent(c: Component) =
 				c match {
 					case rack: Rack if rack.initialContent.contains(ContentType.BSPtubes) =>
 						Rack.getBSPmatch(id = rack.id,
@@ -118,7 +118,7 @@ object TransferContents {
 								val bspMatches = matches.flatMap {
 									case ((well, (matchFound, Some(tube)))) =>
 										Some(well -> MergeResult(
-											bsp = Some(MergeSample(
+											sample = Some(MergeSample(
 												project = ssfIssue.issue, projectDescription = ssfIssue.summary,
 												sampleTube = tube.barcode, gssrSample = tube.gssrBarcode,
 												collabSample = tube.collaboratorSample,
@@ -144,7 +144,7 @@ object TransferContents {
 										val result = projectSamples.list.map(
 											(sample) => {
 												sample.pos -> MergeResult(
-													bsp = Some(MergeSample(
+													sample = Some(MergeSample(
 														project = project,
 														projectDescription = projectSamples.summary,
 														sampleTube = plate.id, gssrSample = None,
@@ -207,14 +207,14 @@ object TransferContents {
 														else {
 															val mids = contents.flatMap(_.mid)
 															val abs = contents.flatMap(_.antibody)
-															val bsps = contents.flatMap(_.bsp)
+															val bsps = contents.flatMap(_.sample)
 															val err =
 																if (bsps.nonEmpty)
 																	Some(s"Samples not supported in rack tube (${tube.id} in ${rack.id}")
 																else
 																	None
 															Some(pos ->
-																MergeResult(bsp = None, mid = mids, antibody = abs), err)
+																MergeResult(sample = None, mid = mids, antibody = abs), err)
 														}
 													case _ => None
 												}
@@ -230,14 +230,14 @@ object TransferContents {
 							case Some(ic) if ContentType.isMolBarcode(ic) =>
 								val mids = InitialContents.contents(ic).contents.map {
 									case (well, mbw) =>
-										well -> MergeResult(bsp = None,
+										well -> MergeResult(sample = None,
 											mid = Set(MergeMid(sequence = mbw.getSeq, name = mbw.getName,
 												isNextera = mbw.isNextera)), antibody = Set.empty)
 								}
 								(mids, List.empty[String])
 							// Antibody can only be initial content of an undivided container
 							case Some(ic) if ContentType.isAntibody(ic) =>
-								(Map(oneWell -> MergeResult(bsp = None, mid = Set.empty,
+								(Map(oneWell -> MergeResult(sample = None, mid = Set.empty,
 									antibody = Set(ic.toString))), List.empty[String])
 							case _ => (Map.empty[String, MergeResult], List.empty[String])
 						}
@@ -245,8 +245,8 @@ object TransferContents {
 				}
 
 			/*
-			 * Get initial contents for a component - contents can include bsp input (for a rack) or MIDs (for a plate)
-			 * or ABs (for a tube)
+			 * Get initial contents for a component - contents can include sample information (for a rack or plate) or
+			 * MIDs (for a plate) or ABs (for a tube)
 			 * @param component component
 			 * @return results with contents found
 			 */
@@ -254,19 +254,20 @@ object TransferContents {
 				// Make map with single MergeResult into a set of MergeResults
 				def mapWithSet(in: Map[String, MergeResult]) = in.map { case (k, v) => k -> Set(v) }
 
-				// Get bsp and initial content and then merge the results together
-				val bsps = getBspContent(component)
+				// Get sample and initial content and then merge the results together
+				val samples = getSampleContent(component)
 				val midsAndAbs = getInitialContent(component)
-				val errs = bsps._2 ++ midsAndAbs._2
-				if (bsps._1.isEmpty) MergeTotalContents(component = component, wells = mapWithSet(midsAndAbs._1),
+				val errs = samples._2 ++ midsAndAbs._2
+				if (samples._1.isEmpty) MergeTotalContents(component = component, wells = mapWithSet(midsAndAbs._1),
 					errs = errs)
-				else if (midsAndAbs._1.isEmpty) MergeTotalContents(component = component, wells = mapWithSet(bsps._1),
+				else if (midsAndAbs._1.isEmpty) MergeTotalContents(component = component, wells = mapWithSet(samples._1),
 					errs = errs)
 				else {
-					// Merge together bsp and initial contents maps
-					val wellMap = bsps._1 ++ midsAndAbs._1.map {
-						case (well, res) => bsps._1.get(well) match {
-							case Some(bsp) => well -> MergeResult(bsp = bsp.bsp, mid = res.mid, antibody = res.antibody)
+					// Merge together sample and initial contents maps
+					val wellMap = samples._1 ++ midsAndAbs._1.map {
+						case (well, res) => samples._1.get(well) match {
+							case Some(sample) =>
+								well -> MergeResult(sample = sample.sample, mid = res.mid, antibody = res.antibody)
 							case _ => well -> res
 						}
 					}
@@ -323,8 +324,8 @@ object TransferContents {
 
 			/*
 			 * Merge input into output.  When merging/folding for each well if there are MIDs that are not attached
-			 * yet (MergeResult with bsp set to None) then attach them to all the samples (and get rid of MergeResult
-			 * with bsp set to None).
+			 * yet (MergeResult with sample set to None) then attach them to all the samples (and get rid of MergeResult
+			 * with sample set to None).
 			 * @param input input being merged into output
 			 * @param output output being merged into
 			 * @param transfer transfer that was done from input to output
@@ -344,7 +345,7 @@ object TransferContents {
 							if (transfer.isSampleOnly) {
 								inWithQuads.map {
 									case (well, contents) =>
-										if (contents.exists(_.bsp.isDefined))
+										if (contents.exists(_.sample.isDefined))
 											well -> contents
 										else
 											well -> Set.empty[MergeResult]
@@ -412,12 +413,12 @@ object TransferContents {
 	 */
 	private def mergeWellResults(results: Set[MergeResult]) = {
 		// Separate those with and without initial values
-		val initialsVsSamples = results.groupBy(_.bsp.isDefined)
+		val initialsVsSamples = results.groupBy(_.sample.isDefined)
 		val initials = initialsVsSamples.getOrElse(key = false, default = Set.empty)
 		val samples = initialsVsSamples.getOrElse(key = true, default = Set.empty)
 		// Merge together lists attaching MIDs/ABs not yet associated with samples
 		if (initials.isEmpty || samples.isEmpty) results
-		else samples.map((sample) => MergeResult(bsp = sample.bsp, mid = sample.mid ++ initials.flatMap(_.mid),
+		else samples.map((sample) => MergeResult(sample = sample.sample, mid = sample.mid ++ initials.flatMap(_.mid),
 			antibody = sample.antibody ++ initials.flatMap(_.antibody)))
 	}
 

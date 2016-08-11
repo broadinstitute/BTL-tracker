@@ -549,7 +549,7 @@ object TransferController extends Controller {
 							def getLibraryName (results: Set[MergeResult]) =
 								results.foldLeft(None: Option[String])((sofar, next) => {
 									// Get optional library from this result
-									val lib = next.bsp.flatMap(_.sampleID)
+									val lib = next.sample.flatMap(_.sampleID)
 									// Add it to what found so far
 									sofar match {
 										case Some(res) => if (lib.isDefined) Some(s"$res $lib") else Some(res)
