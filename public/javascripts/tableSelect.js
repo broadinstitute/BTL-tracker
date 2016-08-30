@@ -23,84 +23,179 @@ function tableSelect(tableName) {
             numRows++;
         }
     }
-    // Get # of td elements per row
+    // Get # of td elements per row and per column
     var elesPerRow = numEles/numRows;
-    // Last cell selected
-    var selectionPivot = 0;
+    // Last min. cell selected
+    var selectionMinPivot = 0;
+    // Last max. cell selected
+    var selectionMaxPivot = 0;
     // 1 for left button, 2 for middle, and 3 for right.
     var LEFT_MOUSE_BUTTON = 1;
     // Get jQuery array to loop through it
     var idTds = $(tds);
+    // Get array of html ths and total # of ths - need to use Array.prototype since getElementsByTagName returns
+    // a NodeList which does not support array functions (e.g., filter) and we want to filter out any elements
+    // with no inner text (e.g., the corner th which is not a row/column header)
+    var ths = Array.prototype.filter.call(document.getElementById('cherryTable').getElementsByTagName('th'),
+        function(x) {return x.innerText != '' });
+    // Set # of headers that are for columns (same as # of elements per row)
+    var colHeaders = elesPerRow;
+    // Setup event handler for headers - first get jQuery array to loop through it
+    var idThs = $(ths);
+    // Setup event handler for headers
+    idThs.each(function (idx, val) {
+        // Now declare event handler for click
+        $(val).mousedown(function (event) {
+            initElem(val);
+            // Is it a column header?
+            var colHeader = idx < colHeaders;
+            // Get index of first element to be selected
+            var eleIdx = colHeader ? idx : (idx - colHeaders) * elesPerRow;
+            // Init array to return selected indicies
+            var selectedEles = [];
+            // Loop through saving indicies in array
+            if (colHeader)  {
+                for (var i = eleIdx; i < numEles; i = i + elesPerRow) {
+                    selectedEles.push(i);
+                }
+            } else {
+                for (var ii = eleIdx; ii < eleIdx + elesPerRow; ii++) {
+                    selectedEles.push(ii);
+                }
+            }
+            doSelections(event, eleIdx, selectedEles, colHeader);
+        });
+    });
+    // Setup event handler for details
     idTds.each(function (idx, val) {
+        // Now declare event handler for click
+        $(val).mousedown(function (event) {
+            initElem(val);
+            doSelections(event, idx, [idx], true);
+        });
+    });
+
+    // Do selections with
+    // Event that happened
+    // Index to first element selected
+    // Array of indicies selected (in sorted order)
+    // Columns being selected
+    function doSelections(event, eleIdx, selectedEles, cols) {
+        // Select elements in a range, either across rows or columns
+        function selectRange() {
+            var frstSelect = selectedEles[0];
+            var lstSelect = selectedEles[selectedEles.length - 1];
+            if (cols) {
+                var start = flipFlipIdx(Math.min(flipIdx(selectionMinPivot), flipIdx(selectionMaxPivot),
+                    flipIdx(frstSelect), flipIdx(lstSelect)));
+                var end = flipFlipIdx(Math.max(flipIdx(selectionMinPivot), flipIdx(selectionMaxPivot),
+                    flipIdx(frstSelect), flipIdx(lstSelect)));
+                selectElemsDownRows(Math.min(start, end), Math.max(start, end));
+            } else {
+                var start = Math.min(selectionMinPivot, frstSelect);
+                var end = Math.max(selectionMaxPivot, lstSelect);
+                selectElemRange(start, end);
+            }
+        }
+        // If not left mouse button then leave it for someone else
+        if (event.which != LEFT_MOUSE_BUTTON) {
+            return;
+        }
+        // Just a click - make selection current row/column clicked on
+        if (!event.ctrlKey && !event.shiftKey) {
+            clearAll();
+            selectEles(selectedEles);
+            selectionMinPivot = selectedEles[0];
+            selectionMaxPivot = selectedEles[selectedEles.length - 1];
+            return;
+        }
+        // Cntrl/Shift click - add to current selections cells between (inclusive) last single selection and cell
+        // clicked on
+        if (event.ctrlKey && event.shiftKey) {
+            selectRange();
+            return;
+        }
+        // Cntrl click - keep current selections and add toggle of selection on the single cell clicked on
+        if (event.ctrlKey) {
+            toggleEles(selectedEles);
+            selectionMinPivot = selectedEles[0];
+            selectionMaxPivot = selectedEles[selectedEles.length - 1];
+            return;
+        }
+        // Shift click - make current selections cells between (inclusive) last single selection and cell clicked on
+        if (event.shiftKey) {
+            clearAll();
+            selectRange();
+        }
+    }
+
+    // Setup some initial behavior when there's a mouse click
+    function initElem(val) {
         // onselectstart because IE doesn't respect the css `user-select: none;`
         val.onselectstart = function () {
             return false;
         };
         // Prevent cntrl/click from displaying browser menu on table elements
         // Alternative is to have oncontextmenu="return false;" set on table body html tag
-        $(idTds[idx]).on("contextmenu", function(evt) {evt.preventDefault();});
-        // Now declare event handler for click
-        $(val).mousedown(function (event) {
-            // If not left mouse button then leave it for someone else
-            if (event.which != LEFT_MOUSE_BUTTON) {
-                return;
-            }
-            var ele = tds[idx];
-            // Just a click - make current selection single cell clicked on
-            if (!event.ctrlKey && !event.shiftKey) {
-                clearAll();
-                toggleElem(ele);
-                selectionPivot = idx;
-                return;
-            }
-            // Cntrl/Shift click - add to current selections cells between (inclusive) last single selection and cell
-            // clicked on
-            if (event.ctrlKey && event.shiftKey) {
-                selectElemsBetweenIndexes(selectionPivot, idx);
-                return;
-            }
-            // Cntrl click - keep current selections and add toggle of selection on the single cell clicked on
-            if (event.ctrlKey) {
-                toggleElem(ele);
-                selectionPivot = idx;
-            }
-            // Shift click - make current selections cells between (inclusive) last single selection and cell clicked on
-            if (event.shiftKey) {
-                clearAll();
-                selectElemsBetweenIndexes(selectionPivot, idx);
-            }
-        });
-    });
+        $(val).on("contextmenu", function(evt) {evt.preventDefault();});
+    }
+
+    // Select elements using array of indicies
+    function selectEles(a) {
+        for (var i = 0; i < a.length; i++) {
+            tds[a[i]].className = 'selected';
+        }
+    }
+
+    // Toggle elements using array of indicies
+    function toggleEles(a) {
+        for (var i = 0; i < a.length; i++) {
+            toggleElem(tds[a[i]]);
+        }
+    }
 
     // Toggle element between selected and not selected
     function toggleElem(elem) {
         elem.className = elem.className == 'selected' ? '' : 'selected';
     }
 
+    function selectElemRange(ia, ib) {
+        var bot = Math.min(ia, ib);
+        var top = Math.max(ia, ib);
+        for (var i = bot; i <= top; i++) {
+            tds[i].className = 'selected';
+        }
+    }
+
+    // Get re: index row and element from original index
+    function re(idx) {return {row: Math.floor(idx/elesPerRow), ele: idx%elesPerRow}}
+    // Get index from re made from original index
+    function getIdx(rei) {return rei.row*elesPerRow + rei.ele}
+    // Get new re by swapping row and element
+    function swapCoords(rei) {return {row: rei.ele, ele: rei.row}}
+    // Get re from flipped index
+    function flipRe(idx) {return {row: Math.floor(idx/numRows), ele: idx%numRows}}
+    // Get index from flipped re
+    function flipGetIdx(rei) {return rei.row*numRows + rei.ele}
+    // Get flipped index
+    function flipIdx(idx) {return flipGetIdx(swapCoords(re(idx)))}
+    // Get flipped index flipped back
+    function flipFlipIdx(idx) {return getIdx(swapCoords(flipRe(idx)))}
     // Set elements in a range - selection is flipped since we want to go down rows
-    function selectElemsBetweenIndexes(ia, ib) {
-        // Get re: index row and element from original index
-        function re(idx) {return {row: Math.floor(idx/elesPerRow), ele: idx%elesPerRow}}
-        // Get index from re made from original index
-        function getIdx(rei) {return rei.row*elesPerRow + rei.ele}
-        // Get new re by swapping row and element
-        function swapCoords(rei) {return {row: rei.ele, ele: rei.row}}
-        // Get re from flipped index
-        function flipRe(idx) {return {row: Math.floor(idx/numRows), ele: idx%numRows}}
-        // Get index from flipped re
-        function flipGetIdx(rei) {return rei.row*numRows + rei.ele}
+    function selectElemsDownRows(ia, ib) {
         // Flip indexes
-        var iaFlipIdx = flipGetIdx(swapCoords(re(ia)));
-        var ibFlipIdx = flipGetIdx(swapCoords(re(ib)));
+        var iaFlipIdx = flipIdx(ia);
+        var ibFlipIdx = flipIdx(ib);
         // Find first and last index being selected
         var bot = Math.min(iaFlipIdx, ibFlipIdx);
         var top = Math.max(iaFlipIdx, ibFlipIdx);
         // Go through and mark selected elements - note we flip back to original coordinates to select element
         for (var i = bot; i <= top; i++) {
-            var j = getIdx(swapCoords(flipRe(i)));
+            var j = flipFlipIdx(i);
             tds[j].className = 'selected';
         }
     }
+
     // Set all elements to not be selected
     function clearAll() {
         for (var i = 0; i < tds.length; i++) {
