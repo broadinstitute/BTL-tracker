@@ -63,7 +63,7 @@ function tableSelect(tableName) {
                     selectedEles.push(ii);
                 }
             }
-            doSelections(event, eleIdx, selectedEles, colHeader);
+            doSelections(event, selectedEles, colHeader);
         });
     });
     // Setup event handler for details
@@ -71,26 +71,25 @@ function tableSelect(tableName) {
         // Now declare event handler for click
         $(val).mousedown(function (event) {
             initElem(val);
-            doSelections(event, idx, [idx], true);
+            doSelections(event, [idx], true);
         });
     });
 
     // Do selections with
     // Event that happened
-    // Index to first element selected
     // Array of indicies selected (in sorted order)
     // Columns being selected
-    function doSelections(event, eleIdx, selectedEles, cols) {
+    function doSelections(event, selectedEles, cols) {
         // Select elements in a range, either across rows or columns
         function selectRange() {
             var frstSelect = selectedEles[0];
             var lstSelect = selectedEles[selectedEles.length - 1];
             if (cols) {
-                var start = flipFlipIdx(Math.min(flipIdx(selectionMinPivot), flipIdx(selectionMaxPivot),
+                var flipStart = flipFlipIdx(Math.min(flipIdx(selectionMinPivot), flipIdx(selectionMaxPivot),
                     flipIdx(frstSelect), flipIdx(lstSelect)));
-                var end = flipFlipIdx(Math.max(flipIdx(selectionMinPivot), flipIdx(selectionMaxPivot),
+                var flipEnd = flipFlipIdx(Math.max(flipIdx(selectionMinPivot), flipIdx(selectionMaxPivot),
                     flipIdx(frstSelect), flipIdx(lstSelect)));
-                selectElemsDownRows(Math.min(start, end), Math.max(start, end));
+                selectElemsDownRows(Math.min(flipStart, flipEnd), Math.max(flipStart, flipEnd));
             } else {
                 var start = Math.min(selectionMinPivot, frstSelect);
                 var end = Math.max(selectionMaxPivot, lstSelect);
@@ -232,7 +231,7 @@ function findSelect(tableName) {
  * @param cherriesKey keyword to use for form array to be set with picked wells.
  */
 function submitSelect(formName, tableName, cherriesKey) {
-    $('#' + formName).submit( function(eventObj){
+    $('#' + formName).submit( function(){
         var sel = findSelect(tableName);
         for (var i = 0; i < sel.length; i++) {
             var idName = cherriesKey + '[' + i + ']';

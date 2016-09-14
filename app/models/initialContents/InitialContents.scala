@@ -1,7 +1,7 @@
 package models.initialContents
 
 import formats.CustomFormats._
-import models.ContainerDivisions
+import models.{initialContents, ContainerDivisions}
 import ContainerDivisions.Division._
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 import play.api.libs.json.Format
@@ -28,6 +28,10 @@ object InitialContents {
 		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
 		val SQM96SetA = Value("SQM Set A")
 		val SQM96SetAFlipped = Value("SQM Set A Flipped")
+		val TCRSetA = Value("T-cell 384-well Set 1")
+		val TCRSetB = Value("T-cell 384-well Set 2")
+		val HKSetA = Value("Housekeeping 384-well Set 1")
+		val HKSetB = Value("Housekeeping 384-well Set 2")
 		// Plate of samples
 		val SamplePlate = Value("Sample Plate")
 		// Antibodies (only for placement in single sample containers (e.g., tube))
@@ -52,7 +56,8 @@ object InitialContents {
 		 */
 		val molBarcodes = List(
 			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
-			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped
+			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
+			TCRSetA, TCRSetB, HKSetA, HKSetB
 		)
 
 		/**
@@ -124,6 +129,10 @@ object InitialContents {
 		TruGrade96Set4 -> List(DIM8x12),
 		SQM96SetA -> List(DIM8x12),
 		SQM96SetAFlipped -> List(DIM8x12),
+		TCRSetA -> List(DIM16x24),
+		TCRSetB -> List(DIM16x24),
+		HKSetA -> List(DIM16x24),
+		HKSetB -> List(DIM16x24),
 		SamplePlate -> List(DIM8x12, DIM16x24)
 	)
 
@@ -149,7 +158,11 @@ object InitialContents {
 		TruGrade96Set3 -> MolecularBarcodes.mbTG96S3,
 		TruGrade96Set4 -> MolecularBarcodes.mbTG96S4,
 		SQM96SetA -> MolecularBarcodes.mbSQM96S1,
-		SQM96SetAFlipped -> MolecularBarcodes.mbSQM96S1flipped
+		SQM96SetAFlipped -> MolecularBarcodes.mbSQM96S1flipped,
+		TCRSetA -> MolecularBarcodes.mbSet384TCellA,
+		TCRSetB -> MolecularBarcodes.mbSet384TCellB,
+		HKSetA -> MolecularBarcodes.mbSet384HKA,
+		HKSetB -> MolecularBarcodes.mbSet384HKB
 	)
 
 	// Sorted list of display values for putting in drop down lists, etc
