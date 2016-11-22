@@ -102,4 +102,25 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 	 * Formatter for going to/from and validating Json
 	 */
 	override implicit val formatter: Format[Plate] = formatWithComponent(Json.format[Plate])
+
+	/**
+	 * Get well name in format "A01" - "H12"
+	 * @param col # of columns per row (12 for 96-well plate, 24 for 384-well plate)
+	 * @param well well number (0 based from upper left corner to lower right corner)
+	 * @return well name
+	 */
+	def getWellName(col: Int, well: Int) = f"${(well / col) + 'A'}%c${(well % col) + 1}%02d"
+
+	/**
+	 * Get list of well names
+	 * @param wpr wells per row
+	 * @param rpp rows per plate
+	 * @return
+	 */
+	def getWellList(wpr: Int, rpp: Int) = List.tabulate(wpr * rpp)((x) => getWellName(wpr, x))
+
+	/**
+	 * Map of plate type to list of wells for plate type
+	 */
+	lazy val plateWellList = Map(Division.DIM8x12 -> getWellList(12, 8), Division.DIM16x24 -> getWellList(24, 16))
 }

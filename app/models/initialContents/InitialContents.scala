@@ -32,8 +32,10 @@ object InitialContents {
 		val TCRSetB = Value("T-cell 384-well Set 2")
 		val HKSetA = Value("Housekeeping 384-well Set 1")
 		val HKSetB = Value("Housekeeping 384-well Set 2")
-		// Plate of samples
+		// Plate of samples with sample Map
 		val SamplePlate = Value("Sample Plate")
+		// Plate of samples with no map
+		val AnonymousSamplePlate = Value("Anonymous Sample Plate")
 		// Antibodies (only for placement in single sample containers (e.g., tube))
 		val ABRnaPolII = Value("RNAPolII")
 		val ABH3K4me1 = Value("H3K4me1")
@@ -63,7 +65,7 @@ object InitialContents {
 		/**
 		 * List of valid plate contents
 		 */
-		val plateContents = SamplePlate :: molBarcodes
+		val plateContents = SamplePlate :: AnonymousSamplePlate :: molBarcodes
 
 		/**
 		 * List of all antibodies
@@ -133,7 +135,8 @@ object InitialContents {
 		TCRSetB -> List(DIM16x24),
 		HKSetA -> List(DIM16x24),
 		HKSetB -> List(DIM16x24),
-		SamplePlate -> List(DIM8x12, DIM16x24)
+		SamplePlate -> List(DIM8x12, DIM16x24),
+		AnonymousSamplePlate -> List(DIM8x12, DIM16x24)
 	)
 
 	/**
@@ -168,7 +171,7 @@ object InitialContents {
 	// Sorted list of display values for putting in drop down lists, etc
 	def getContentDisplayValues(validContents: List[ContentType.ContentType]) = {
 		// Contents to always display first
-		val displayFirst = List(SamplePlate, BSPtubes, ABtubes)
+		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes)
 		// Get group of contents in displayFirst list vs. rest of list
 		val contentsByDisplayFirst = validContents.groupBy((ct) => displayFirst.contains(ct))
 		// Sort contents we want sorted

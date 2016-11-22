@@ -357,7 +357,8 @@ case class Transfer(from: String, to: String,
 					Future.successful(0, Some(s"Transfer into BSP rack not allowed (rack $to)"))
 				// Transfers into sample plate not allowed
 				case (_, Some(toC: Plate))
-					if toC.initialContent.contains(ContentType.SamplePlate) =>
+					if toC.initialContent.contains(ContentType.SamplePlate) ||
+						toC.initialContent.contains(ContentType.AnonymousSamplePlate)=>
 					Future.successful(0, Some(s"Transfer into sample plate not allowed (plate $to)"))
 				// Got them both
 				case (Some(fromC), Some(toC)) =>

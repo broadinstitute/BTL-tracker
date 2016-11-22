@@ -1,6 +1,6 @@
 package models.initialContents
 
-import models.{TransferWells, Transfer}
+import models.{TransferWells, Transfer, Plate}
 import Transfer.Quad._
 import models.initialContents.InitialContents.ContentsMap
 
@@ -90,7 +90,7 @@ object MolecularBarcodes {
 	 */
 	def splitSequence(seq: String) = {
 		val seqStr = if (seq.endsWith(seqSplit)) seq.substring(0, seq.length - 1) else seq
-		seq.split(seqSplit)
+		seqStr.split(seqSplit)
 	}
 
 	/**
@@ -219,14 +219,6 @@ object MolecularBarcodes {
 	private val mbNxx34 = MolBarcodeNextera("CCAGTTAG", "Jatod", "Nxx")
 
 	/**
-	 * Get well name in format "A01" - "H12"
-	 * @param col # of columns per row (12 for 96-well plate, 24 for 384-well plate)
-	 * @param well well number (0 based from upper left corner to lower right corner)
-	 * @return well name
-	 */
-	private def getWellName(col: Int, well: Int) = f"${(well / col) + 'A'}%c${(well % col) + 1}%02d"
-
-	/**
 	 * Flip (turn 180 degrees) the contents of a barcode plate - contents of upper left corner become
 	 * contents of lower right corner
 	 * @param in barcode plate
@@ -242,7 +234,7 @@ object MolecularBarcodes {
 		val last = size - 1
 		val flippedContents =
 			(for (indx <- 0 to last) yield {
-				getWellName(cols, last - indx) -> in.contents(getWellName(cols, indx))
+				Plate.getWellName(cols, last - indx) -> in.contents(Plate.getWellName(cols, indx))
 			}).toMap
 		in.copy(contents = flippedContents)
 	}
@@ -259,7 +251,7 @@ object MolecularBarcodes {
 		def getPair(rowBC: MolBarcode, colBC: MolBarcode): MolBarcodePair
 		// List of well names (important to be lazy to get initialized at right time - in particular if makeSet
 		// is called before it is initialized that's trouble if it's not lazy)
-		lazy val wellList = List.tabulate(wPr * rPp)((x) => getWellName(wPr, x))
+		lazy val wellList = Plate.getWellList(wPr, rPp)
 
 		/**
 		 * Make a MID set

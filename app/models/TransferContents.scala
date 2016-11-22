@@ -167,6 +167,26 @@ object TransferContents {
 								}
 							case None => (emptyResult, List(s"No project set for sample plate ${plate.id}"))
 						}
+					case plate: Plate
+						if plate.initialContent.contains(ContentType.AnonymousSamplePlate) =>
+						val proj = plate.project.getOrElse("Anonymous")
+						val wellList = Plate.plateWellList(plate.layout)
+						val samples = wellList.map(
+							(well) => {
+								well ->  MergeResult(
+									sample = Some(MergeSample(
+										project = proj,
+										projectDescription = plate.description,
+										sampleTube = plate.id, gssrSample = None,
+										collabSample = None,
+										origCollabID = None,
+										individual = None, sampleID = None,
+										antibody = None, pos = well
+									)),
+									mid = Set.empty, antibody = Set.empty)
+							}
+						)
+						(samples.toMap, List.empty[String])
 					// Not a rack or sample plate - nothing to return
 					case _ => (emptyResult, List.empty[String])
 				}
