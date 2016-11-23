@@ -63,23 +63,24 @@ object Walkup {
 		}
 
 
-		// Group by unique barcodes
+		// Group by unique barcodes (p7, p5, error)
 		val uniqueMids = samples.groupBy((mergeResult) => {
+			val err = if (mergeResult.mid.size > 1) "ERROR: More than one barcode set found" else ""
 			mergeResult.mid.headOption match {
 				case Some(mid) =>
 					val mids = MolecularBarcodes.splitSequence(mid.sequence)
-					if (mids.isEmpty) ("", "")
-					else if (mids.size == 1) (mids(0), "")
-					else (mids(1), mids(0)) // p7 barcode comes first in WUS
-				case None => ("", "")
+					if (mids.isEmpty) ("", "", err)
+					else if (mids.size == 1) (mids(0), "", err)
+					else (mids(1), mids(0), err) // p7 barcode comes first in WUS
+				case None => ("", "", err)
 			}
 		})
 
 		// Make csv file
 		spreadsheets.Utils.setCSVValues(
 			headers = headerLocs, input = uniqueMids,
-			getValues = (inp: ((String, String), Set[MergeResult]), headers) => {
-				val ((mid1, mid2), mergeResults) = inp
+			getValues = (inp: ((String, String, String), Set[MergeResult]), headers) => {
+				val ((mid1, mid2, err), mergeResults) = inp
 				// Get string we'll use for sample
 				val sample =
 					if (mergeResults.isEmpty) ""
@@ -100,12 +101,18 @@ object Walkup {
 						// are the same - then simply sampleName_firstPos_lastPos
 						getId(first.sample) match {
 							case Some((sampleId, pos)) =>
+								// Get name for first sample
+								val firstId = getSampleStr(sampleId, pos, first.antibody.headOption)
 								getId(last.sample) match {
 									case Some((sampleId1, pos1)) =>
-										val start = sampleId + "_" + pos +
-											(if (sampleId == sampleId1) "" else "_" + sampleId1)
-										getSampleStr(start, pos1, sortedResults.head.antibody.headOption)
-									case None => getSampleId(first.sample, first.antibody.headOption)
+										// If initial sample names are the same then just append position and antibody
+										// of second sample to first sample name, otherwise append together complete
+										// first and second sample names
+										if (sampleId == sampleId1)
+											getSampleStr(firstId, pos1, last.antibody.headOption)
+										else
+											firstId + "_" + getSampleStr(sampleId1, pos1, last.antibody.headOption)
+									case None => firstId
 								}
 							case None => getSampleId(last.sample, last.antibody.headOption)
 						}
@@ -115,11 +122,12 @@ object Walkup {
 					None
 				else {
 					// Return array of values found, ordered by headers
-					Some(headers.map((s) =>
+					val bcs = headers.map((s) =>
 						if (s == sampleName) sample
 						else if (s == bc1) mid1
 						else if (s == bc2) mid2
-						else throw new Exception("Unknown WUS header")))
+						else throw new Exception("Unknown WUS header"))
+					Some(if (err.isEmpty) bcs else bcs :+ err)
 				}
 			},
 			noneMsg = "No samples found")
