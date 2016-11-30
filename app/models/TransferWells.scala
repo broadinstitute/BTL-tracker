@@ -50,6 +50,29 @@ object TransferWells {
 	def make384IdxFromWellStr(well: String) = wellToIdx(well, colsPer384)
 
 	import Quad._
+
+	/**
+	 * Get relative x/y coordinates within each group of 2x2 wells to quadrants
+	 * @param qtr quadrant wanted
+	 * @return (relativeX, relativeY)
+	 */
+	private def getQuadOffset(qtr: Quad) =
+		qtr match {
+			case Q1 => (0, 0)
+			case Q2 => (0, 1)
+			case Q3 => (1, 0)
+			case Q4 => (1, 1)
+		}
+
+	/**
+	 * Map of 384-well quadrants to first and last well of quadrant
+	 */
+	lazy val quadFirstAndLast =
+		Quad.values.map((q) => {
+			val offset = getQuadOffset(q)
+			q -> (well384fromQWell(row1, col1, offset), well384fromQWell(rowLast96, colLast96, offset))
+		}).toMap
+
 	/**
 	 * Make a well mapping going between a quadrant of a 384 well plate and a 96 well plate.
 	 * @param qtr which quarter to move to/from
@@ -58,12 +81,7 @@ object TransferWells {
 	 */
 	private def qToQ(qtr: Quad, toTuple: (Char, Int, (Int, Int)) => (String, String)) = {
 		// Get relative x/y coordinates within each group of 2x2 wells to quadrants
-		val q = qtr match {
-			case Q1 => (0, 0)
-			case Q2 => (0, 1)
-			case Q3 => (1, 0)
-			case Q4 => (1, 1)
-		}
+		val q = getQuadOffset(qtr)
 		// Make map
 		(for {x <- row1 to rowLast96
 			  y <- col1 to colLast96}
@@ -133,8 +151,8 @@ object TransferWells {
 	// Make 384 to 384 map of maps: (fromQ, toQ) -> (originalWells -> destinationWells)
 	lazy val q384to384map =
 		(for {
-			qFrom <- Quad.values.toIterable
-			qTo <- Quad.values.toIterable
+			qFrom <- Quad.values
+			qTo <- Quad.values
 		} yield {
 				val from = qFrom384(qFrom)
 				val to = qTo384(qTo)
@@ -267,8 +285,8 @@ object TransferWells {
 	 */
 	private def getQuadSliceMap(slicer: (Quad.Quad, Slice.Slice, Option[List[Int]]) => Map[String, String]) =
 		(for {
-			s <- Slice.values.toIterable if s != CP
-			q <- Quad.values.toIterable
+			s <- Slice.values if s != CP
+			q <- Quad.values
 		} yield {
 				(q, s) -> slicer(q, s, None)
 			}).toMap
@@ -316,9 +334,9 @@ object TransferWells {
 	// Not for cherry picking slices
 	private lazy val slice384to384map =
 		(for {
-			s <- Slice.values.toIterable if s != CP
-			qFrom <- Quad.values.toIterable
-			qTo <- Quad.values.toIterable
+			s <- Slice.values if s != CP
+			qFrom <- Quad.values
+			qTo <- Quad.values
 		} yield {
 				val from = slice384to96map(qFrom, s)
 				val to = slice96to384map(qTo, s)

@@ -3,6 +3,7 @@ package models
 import models.TransferContents.{MergeMid, MergeSample, MergeResult}
 import models.project.SquidProject
 import org.broadinstitute.spreadsheets.HeadersToValues
+import utils.SampleNames
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.{Format, Json}
@@ -106,7 +107,7 @@ object EZPass {
 		 * @param fileHeaders keys for data to set in EZPass
 		 * @return context containing spreadsheet information for setting sample information in spreadsheet
 		 */
-		def initData(component: String, fileHeaders: List[String]) = {
+		def initData(component: String, fileHeaders: List[String]): DataSource = {
 			val sheet = spreadsheets.Utils.initSheet(fileName = "/conf/data/EZPass.xlsx", fileHeaders = fileHeaders)
 			DataSource(headersToValues = sheet, component = component)
 		}
@@ -340,39 +341,66 @@ object EZPass {
 		 * Process the results of looking at transfers into wanted component.
 		 * @param setContext context kept for handling EZpass
  		 * @param index sample number
-		 * @param results results from transfers
-		 * @param samplesFound # of samples found so far
+		 * @param resultsByMid results from transfers, grouped by barcode
 		 * @return (context, total # of samples found)
 		 */
-		@tailrec
-		def processResults(setContext: T, index: Int, results: Iterator[MergeResult], samplesFound: Int): (T, Int) = {
+		def processResults(setContext: T, resultsByMid: Map[MidInfo, Set[MergeResult]]): (T, Int) = {
 			// If all done then return with context kept and # of samples found
-			if (results.isEmpty) (setContext, samplesFound)
+			if (resultsByMid.isEmpty) (setContext, 0)
 			else {
-				// Go get next row of data and process it
-				val result = results.next()
-				val ezPassResults = result.sample match {
-					case Some(sample) =>
-						// Get sample and squid optional values
-						// Put together optional string values (leave out those that are not set)
-						val strOptionFields = getSampleFields(sample).flatMap {
-							case (k, Some(str)) => List(k -> str)
-							case _ => List.empty
+				val resIter = resultsByMid.toIterator
+				@tailrec
+				def processResults1(context: T, index: Int,
+									resIter: Iterator[(MidInfo, Set[MergeResult])], samplesFound: Int) : (T, Int) = {
+					if (resIter.isEmpty) (context, samplesFound)
+					else {
+						// Go get next row of data and process it
+						val (mid, results) = resIter.next()
+						// Get single sample with name fixed as merge of sampleIDs if multiple samples for barcode
+						val sample =
+							if (results.isEmpty)
+								None
+							else if (results.size == 1)
+								results.head.sample
+							else {
+								val (sampleName, firstRes) =
+									SampleNames.getMergedSampleName(
+										mergeResults = results,
+										fetchID = SampleNames.getEZPassSampleName,
+										maxLen = SampleNames.ezPassMaxSampleNameLen
+									)
+								firstRes match {
+									case Some(result) =>
+										Some(result.sample.get.copy(sampleID = Some(sampleName)))
+									case None => None
+								}
+							}
+						// Process the sample
+						val ezPassResults = sample match {
+							case Some(sample) =>
+								// Get sample and squid optional values
+								// Put together optional string values (leave out those that are not set)
+								val strOptionFields = getSampleFields(sample).flatMap {
+									case (k, Some(str)) => List(k -> str)
+									case _ => List.empty
+								}
+								// Get string, integer and floating point values
+								val strFields = strOptionFields ++ getMidFields(mid) ++
+									getCalcStrFields(component) ++ constantFields
+								val intFields = getCalcIntFields(index = index, libSize = libSize, libVol = libVol)
+								val floatFields = getCalcFloatFields(libConcentration)
+								// Found sample
+								(setData.setFields(context = context, strData = strFields,
+									intData = intFields, floatData = floatFields, index = index), 1)
+							// Sample not found
+							case None => (context, 0)
 						}
-						// Get string, integer and floating point values
-						val strFields = strOptionFields ++ getMidFields(result.mid) ++
-							getCalcStrFields(component) ++ constantFields
-						val intFields = getCalcIntFields(index = index, libSize = libSize, libVol = libVol)
-						val floatFields = getCalcFloatFields(libConcentration)
-						// Found sample
-						(setData.setFields(context = setContext, strData = strFields,
-							intData = intFields, floatData = floatFields, index = index), 1)
-					// Sample not found
-					case None => (setContext, 0)
+						// Go get next sample
+						processResults1(context = ezPassResults._1, index = index + ezPassResults._2,
+							resIter, samplesFound = samplesFound + ezPassResults._2)
+					}
 				}
-				// Go get next sample
-				processResults(setContext = ezPassResults._1, index = index + ezPassResults._2,
-					results = results, samplesFound = samplesFound + ezPassResults._2)
+				processResults1(context = setContext, index = 1, resIter = resIter, samplesFound = 0)
 			}
 		}
 
@@ -385,11 +413,30 @@ object EZPass {
 			// Should just be one well (i.e., tube) of contents
 			case Some(contents) => contents.wells.get(TransferContents.oneWell) match {
 				case Some(resultSet) =>
-					// Go put results into the EZPASS
-					val samplesFound = processResults(setContext = context, index = 1,
-						results = resultSet.toIterator, samplesFound = 0)
-					// Finish things up
-					setData.allDone(context = samplesFound._1, samplesFound = samplesFound._2, errs = contents.errs)
+					// Group by barcode to allow repeat barcodes
+					val resultByBarcode =
+						resultSet.groupBy((result) => getMidInfo(result.mid))
+					// But only allow repeat barcodes if they are all for same GSSR ID
+					resultByBarcode.find {
+						case (_, mergeResults) => {
+							val gssrGroup = mergeResults.groupBy((res) => res.sample match {
+								case Some(s) => s.gssrSample
+								case None => None
+							})
+							gssrGroup.size > 1
+						}
+					} match {
+						case Some(multipleGssr) =>
+							// Multiple entries with same barcode but different GSSR IDs
+							val err = s"${multipleGssr._1.name} barcode has multiple entries with different GSSR IDs"
+							setData.allDone(context = context, samplesFound = 0,
+								errs = List(err) ++ contents.errs)
+						case None =>
+							// Go put results into the EZPASS
+							val resultsFound = processResults(setContext = context, resultsByMid = resultByBarcode)
+							// Finish things up
+							setData.allDone(context = resultsFound._1, samplesFound = resultsFound._2, errs = contents.errs)
+					}
 				// No results - must not be a tube
 				case None => setData.allDone(context = context, samplesFound = 0,
 					errs = List(s"$component is a multi-well component or empty") ++ contents.errs)
@@ -498,11 +545,11 @@ object EZPass {
 		)
 
 	/**
-	 * Get MID fields - go through MID map and return new map with fetched values
+	 * Get MID fields - go through MID map and return mid information
 	 * @param mids data for MIDs
-	 * @return map of headers to values
+	 * @return sequence, name and kit name for MID
 	 */
-	private def getMidFields(mids: Set[MergeMid]) = {
+	private def getMidInfo(mids: Set[MergeMid]) = {
 		// Combine all the MIDs (should normally be only one but allow for more)
 		val allMids = mids.foldLeft(("", "", ""))((soFar, mid) =>
 			(soFar._1 + mid.sequence, if (soFar._2.isEmpty) mid.name else soFar._2 + "+" + mid.name, {
@@ -510,9 +557,17 @@ object EZPass {
 				if (soFar._3.isEmpty || soFar._3 == nextKit) nextKit else "Nextera/Illumina"
 			})
 		)
-		val mi = MidInfo(seq = allMids._1, name = allMids._2, kit = allMids._3)
+		MidInfo(seq = allMids._1, name = allMids._2, kit = allMids._3)
+	}
+
+	/**
+	 * Get MID fields - go through MID map and return new map with fetched values
+	 * @param mid data for MIDs
+	 * @return map of headers to values
+	 */
+	private def getMidFields(mid: MidInfo) = {
 		midFields.map{
-			case (k, v) => k -> v(mi)
+			case (k, v) => k -> v(mid)
 		}
 	}
 

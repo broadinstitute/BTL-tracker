@@ -4,12 +4,13 @@ import formats.CustomFormats._
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division._
-import models.db.{TransferCollection, TrackerCollection}
+import models.db.{TrackerCollection, TransferCollection}
 import models.initialContents.InitialContents.ContentType
-import play.api.data.Form
+import play.api.data.{Form, Mapping}
 import play.api.data.Forms._
 import play.api.libs.json._
-import utils.{Yes, No}
+import utils.{No, Yes}
+
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
@@ -43,7 +44,7 @@ case class Transfer(from: String, to: String,
 	 * Make a description of the transfer, including quadrant descriptions.
 	 * @return description of transfer, including quadrant information
 	 */
-	def quadDesc = {
+	def quadDesc: String = {
 		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) = {
 			val sliceStr = slice.map((s) => {
 				val head = if (s != CP) s"slice $s" else "cherry picked wells"
@@ -63,7 +64,7 @@ case class Transfer(from: String, to: String,
 	 * does not check any subcomponents such as tubes in a rack.
 	 * @return future true if graph would become cyclic with addition of the transfer
 	 */
-	def isAdditionCyclic = {
+	def isAdditionCyclic: Future[Boolean] = {
 		TransferHistory.makeSourceGraph(from).map {
 			(graph) => TransferHistory.isGraphAdditionCyclic(addition = to, graph = graph)
 		}
@@ -112,7 +113,7 @@ case class Transfer(from: String, to: String,
 	 * @param execInsert callback to do insert of individual transfer
 	 * @return (number of inserts done, error)
 	 */
-	def insert(execInsert: DoInsert = doInsert) = {
+	def insert(execInsert: DoInsert = doInsert): Future[(Int, Option[String])] = {
 		/*
 		 * Get method to get fetch subcomponents
 		 * @param c component to get subcomponents for
@@ -336,8 +337,8 @@ case class Transfer(from: String, to: String,
 		def completeInserts(inserts: List[Future[Option[String]]]) = {
 			// Convert list of futures for inserts into a one future list of inserts
 			Future.sequence(inserts).map((done) => {
-				// Get all errors found (flatMap only gets back Options defined)
-				val errs = done.flatMap((err) => err)
+				// Get all errors found (flatten only gets back Options defined)
+				val errs = done.flatten
 				// Return what we've done
 				(done.size - errs.size, if (errs.isEmpty) None else Some(errs.mkString("; ")))
 			})
@@ -429,7 +430,7 @@ case class Transfer(from: String, to: String,
 	 * @return result of makeOut callback or original input (soFar) if complete component move and getSameMapping false
 	 */
 	def getWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component, getSameMapping: Boolean)
-						 (makeOut: (T, Division.Division, Map[String, List[String]]) => T) = {
+						 (makeOut: (T, Division.Division, Map[String, List[String]]) => T): T = {
 		// Get destination component to look at divisions, unless we're coming from a tube to a divided compoment
 		val divComponent = if (isTubeToMany) toComponent else fromComponent
 		val trans =
@@ -437,7 +438,9 @@ case class Transfer(from: String, to: String,
 				// From a quadrant to an entire component - should be 384-well component to non-quadrant component
 				case (Some(fromQ), None, None, _) => Some(DIM16x24, TransferWells.qFrom384(fromQ))
 				// To a quadrant from an entire component - should be non-quadrant component to 384-well component
-				case (None, Some(toQ), None, _) => Some(DIM8x12, TransferWells.qTo384(toQ))
+				// Make sure we set component division to dimensions of destination if coming from tube
+				case (None, Some(toQ), None, _) =>
+					getLayout(divComponent).map((_, TransferWells.qTo384(toQ)))
 				// Slice of quadrant to an entire component - should be 384-well component to 96-well component
 				case (Some(fromQ), None, Some(qSlice), cher) =>
 					Some(DIM16x24, TransferWells.slice384to96wells(quad = fromQ, slice = qSlice, cherries = cher))
@@ -529,10 +532,22 @@ object Transfer {
 		val Q2 = Value("2nd quadrant")
 		val Q3 = Value("3rd quadrant")
 		val Q4 = Value("4th quadrant")
+		/**
+		 * Get a short string description for a quadrant
+		 * @param q quadrant
+		 * @return short description of quadrant
+		 */
+		def shortStr(q: Quad): String =
+			q match {
+				case Q1 => "Q1"
+				case Q2 => "Q2"
+				case Q3 => "Q3"
+				case Q4 => "Q4"
+			}
 	}
 
 	// String values for dropdown lists etc.
-	val quadVals = enumSortedList(Quad)
+	val quadVals: List[String] = enumSortedList(Quad)
 
 	// Slice enumeration
 	object Slice extends Enumeration {
@@ -547,7 +562,7 @@ object Transfer {
 	}
 
 	// String values for dropdown lists etc.
-	val sliceVals = enumSortedList(Slice)
+	val sliceVals: List[String] = enumSortedList(Slice)
 
 	// Keys for form
 	val fromKey = "from"
@@ -562,7 +577,7 @@ object Transfer {
 			projectKey -> optional(text)
 		)(TransferStart.apply)(TransferStart.unapply))
 	// Formatter for going to/from and validating Json
-	implicit val transferStartFormat = Json.format[TransferStart]
+	implicit val transferStartFormat: Format[TransferStart] = Json.format[TransferStart]
 
 	// Keys for form
 	val fromQuadKey = "fromQuad"
@@ -573,7 +588,7 @@ object Transfer {
 	val isSampleOnlyKey = "isSampleOnly"
 
 	// Mapping to create/read Transfer objects
-	val transferMapping = mapping(
+	val transferMapping: Mapping[Transfer] = mapping(
 		fromKey -> nonEmptyText,
 		toKey -> nonEmptyText,
 		fromQuadKey -> optional(enum(Quad)),
@@ -594,7 +609,7 @@ object Transfer {
 	val canBeSampleOnlyKey = "canBeSampleOnly"
 
 	// Mapping to create/read Transfer form
-	val transferFormMapping = mapping(
+	val transferFormMapping: Mapping[TransferForm] = mapping(
 		transferKey -> transferMapping,
 		mandatoryKey -> boolean,
 		isQuadToQuadKey -> boolean,
@@ -629,8 +644,8 @@ object Transfer {
 	// Supply our custom enum Reader and Writer for content type enum
 	implicit val quadFormat: Format[Quad.Quad] = enumFormat(Quad)
 	implicit val sliceFormat: Format[Slice.Slice] = enumFormat(Slice)
-	implicit val transferFormat = Json.format[Transfer]
-	implicit val transferFormFormat = Json.format[TransferForm]
+	implicit val transferFormat: Format[Transfer] = Json.format[Transfer]
+	implicit val transferFormFormat: Format[TransferForm] = Json.format[TransferForm]
 
 	/**
 	 * Get a set of wells as indicies for cherry picking

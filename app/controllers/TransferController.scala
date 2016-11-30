@@ -665,7 +665,7 @@ object TransferController extends Controller {
 							toComponent = toComponent.get, fromQuad = next.fromQuad, toQuad = next.toQuad,
 							quadSlice = next.slice, cherries = next.cherries,
 							isTubeToMany = isFromTube, isSampleOnly = next.isSampleOnly, getSameMapping = true) {
-							case (wellsSoFar, div, newWells) =>
+							case (wellsSoFar, _, newWells) =>
 								val keys = wellsSoFar.keySet ++ newWells.keySet
 								keys.map((k) => {
 									k -> ((wellsSoFar.get(k), newWells.get(k)) match {

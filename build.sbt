@@ -1,10 +1,10 @@
 name := "tracker"
 
-version := "2.6.0"
+version := "2.6.1"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
-scalaVersion := "2.11.7" // Up to 2.11.8
+scalaVersion := "2.11.8"
 
 libraryDependencies ++= Seq(
 	"org.reactivemongo" %% "play2-reactivemongo" % "0.10.5.0.akka23",  // Play 2.3
