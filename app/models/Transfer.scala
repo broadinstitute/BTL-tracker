@@ -29,7 +29,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * @param toQuad optional quadrant transfer is going to
  * @param project optional project transfer is associated with
  * @param slice optional slice to transfer
- * @param cherries wells cherry picked (indicies to wells going across first)
+ * @param cherries wells cherry picked (indicies to wells going across first) - valid if and only if slice is set to CP
  * @param isTubeToMany true if transferring tube to a multi-welled container
  * @param isSampleOnly true if transferring from a plate to a tube and only want to transfer wells with samples
  */

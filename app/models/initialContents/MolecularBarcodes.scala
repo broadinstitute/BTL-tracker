@@ -23,7 +23,7 @@ object MolecularBarcodes {
 		 * Create reverse compliment of original sequence
 		 * @return original sequence complimented and reversed
 		 */
-		def getRevCompliment = {
+		def getRevCompliment: String = {
 			val complement = seq.map(comp)
 			complement.reverse
 		}
@@ -67,9 +67,9 @@ object MolecularBarcodes {
 	 * @param i7 i7 barcode
 	 */
 	case class MolBarcodeNexteraPair(i5: MolBarcode, i7: MolBarcode) extends MolBarcodePair {
-		def getName = "Illumina_P5-" + i5.name + "_P7-" + i7.name
-		def getSeq = i5.seq + seqSplit + i7.seq + seqSplit
-		def isNextera = true
+		def getName: String = "Illumina_P5-" + i5.name + "_P7-" + i7.name
+		def getSeq: String = i5.seq + seqSplit + i7.seq + seqSplit
+		def isNextera: Boolean = true
 	}
 
 	/**
@@ -78,9 +78,9 @@ object MolecularBarcodes {
 	 * @param i7 i7 barcode
 	 */
 	case class MolBarcodeSQMPair(i5: MolBarcode, i7: MolBarcode) extends MolBarcodePair {
-		def getName = "SQM_P5-" + i5.name + "_P7-" + i7.name
-		def getSeq = i5.seq + seqSplit + i7.seq + seqSplit
-		def isNextera = false
+		def getName: String = "SQM_P5-" + i5.name + "_P7-" + i7.name
+		def getSeq: String = i5.seq + seqSplit + i7.seq + seqSplit
+		def isNextera: Boolean = false
 	}
 
 	/**
@@ -88,7 +88,7 @@ object MolecularBarcodes {
 	 * @param seq barcode sequence (individual or pair)
 	 * @return array of individual barcode sequences
 	 */
-	def splitSequence(seq: String) = {
+	def splitSequence(seq: String): Array[String] = {
 		val seqStr = if (seq.endsWith(seqSplit)) seq.substring(0, seq.length - 1) else seq
 		seqStr.split(seqSplit)
 	}
@@ -98,9 +98,9 @@ object MolecularBarcodes {
  	 * @param m molecular barcode
 	 */
 	case class MolBarcodeSingle(m: MolBarcode) extends MolBarcodeWell {
-		def getName = m.name
-		def getSeq = m.seq
-		def isNextera = false
+		def getName: String = m.name
+		def getSeq: String = m.seq
+		def isNextera: Boolean = false
 	}
 
 	/**
@@ -251,7 +251,7 @@ object MolecularBarcodes {
 		def getPair(rowBC: MolBarcode, colBC: MolBarcode): MolBarcodePair
 		// List of well names (important to be lazy to get initialized at right time - in particular if makeSet
 		// is called before it is initialized that's trouble if it's not lazy)
-		lazy val wellList = Plate.getWellList(wPr, rPp)
+		lazy val wellList: List[String] = Plate.getWellList(wPr, rPp)
 
 		/**
 		 * Make a MID set
@@ -259,7 +259,7 @@ object MolecularBarcodes {
 		 * @param cols list of MIDs to go across cols
 		 * @return map of wells to MID pairs
 		 */
-		def makeSet(rows: List[MolBarcode], cols: List[MolBarcode]) = {
+		def makeSet(rows: List[MolBarcode], cols: List[MolBarcode]): Map[String, MolBarcodePair] = {
 			(for {row <- 0 until rPp
 				  col <- 0 until wPr
 			} yield {
@@ -975,5 +975,5 @@ object MolecularBarcodes {
 
 
 	// SQM Set1 flipped
-	val mbSQM96S1flipped = flip(mbSQM96S1)
+	val mbSQM96S1flipped: MolBarcodeContents = flip(mbSQM96S1)
 }

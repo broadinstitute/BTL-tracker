@@ -151,8 +151,8 @@ object TransferWells {
 	// Make 384 to 384 map of maps: (fromQ, toQ) -> (originalWells -> destinationWells)
 	lazy val q384to384map =
 		(for {
-			qFrom <- Quad.values
-			qTo <- Quad.values
+			qFrom <- Quad.values.toIterable
+			qTo <- Quad.values.toIterable
 		} yield {
 				val from = qFrom384(qFrom)
 				val to = qTo384(qTo)
@@ -161,6 +161,16 @@ object TransferWells {
 					case (k, v) => k -> to(v)
 				}
 			}).toMap
+
+	// Make map of quadrant to set of wells in quadrant
+	lazy val quadWells =
+		Quad.values.map((q) => q -> q384to384map((q, q)).keySet).toMap
+
+	// Make map of wells to quadrant well is in
+	lazy val wellsQuad =
+		quadWells.flatMap {
+			case (quad, wells) => wells.map(_ -> quad)
+		}
 
 	/**
 	  * Make map of entire plate pointing to itself

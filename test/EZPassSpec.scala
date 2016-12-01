@@ -13,10 +13,8 @@ import org.scalatest.junit.JUnitRunner
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import EZPassSpec._
 import ScanFileOpers._
-import reactivemongo.core.commands.LastError
-import models.{Transfer, Component}
-import models.db.{TransferCollection, TrackerCollection}
-import play.api.libs.json.Format
+import DBOpers._
+import models.Transfer
 import org.scalatest.MustMatchers._
 
 import scala.concurrent.{Await, Future}
@@ -135,26 +133,7 @@ class EZPassSpec extends TestSpec with TestConfig {
 	}
 }
 
-object EZPassSpec extends TestSpec {
-	/**
-	  * Insert a component into the DB
-	  * @param data component to insert
-	  * @tparam C type of component
-	  * @return future with error message returned on failure
-	  */
-	private def insertComponent[C <: Component : Format](data: C) = {
-		TrackerCollection.insertComponent(data, onSuccess = (s) => None,
-			onFailure = (t) => Some(t.getLocalizedMessage))
-	}
-
-
-	/**
-	  * Go insert a transfer
-	  * @param transfer transfer to insert
-	  * @return future to complete insert
-	  */
-	private def insertTransfer(transfer: Transfer) = TransferCollection.insert(transfer)
-
+object EZPassSpec {
 	// Type of Data returned for EZPass creation
 	private type EZPassData = (Map[String, String], Map[String, Int], Map[String, Float])
 	private case class EZPassSaved(data: List[EZPassData], midSet: Set[String])
@@ -192,7 +171,7 @@ object EZPassSpec extends TestSpec {
 		 * @return context to continue operations
 		 */
 		def setFields(context: EZPassSaved, strData: Map[String, String], intData: Map[String, Int],
-					  floatData: Map[String, Float], index: Int) = {
+					  floatData: Map[String, Float], index: Int): EZPassSaved = {
 			// Get barcode sequence from EZPass data
 			val mid = strData("Molecular Barcode Sequence")
 			// Get well for that barcode sequence from MIDs
@@ -222,7 +201,7 @@ object EZPassSpec extends TestSpec {
 		 * @param errs list of errors found
 		 * @return (Unit, list of errors)
 		 */
-		def allDone(context: EZPassSaved, samples: Int, errs: List[String]) = {
+		def allDone(context: EZPassSaved, samples: Int, errs: List[String]): Future[(Unit, List[String])] = {
 			samples mustBe numSamples
 			context.midSet.size mustBe numSamples
 			context.data.size mustBe numSamples

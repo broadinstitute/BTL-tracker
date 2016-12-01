@@ -1,7 +1,7 @@
 package models.initialContents
 
 import formats.CustomFormats._
-import models.{initialContents, ContainerDivisions}
+import models.ContainerDivisions
 import ContainerDivisions.Division._
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 import play.api.libs.json.Format
@@ -65,7 +65,7 @@ object InitialContents {
 		/**
 		 * List of valid plate contents
 		 */
-		val plateContents = SamplePlate :: AnonymousSamplePlate :: molBarcodes
+		val plateContents: List[ContentType] = SamplePlate :: AnonymousSamplePlate :: molBarcodes
 
 		/**
 		 * List of all antibodies
@@ -85,14 +85,14 @@ object InitialContents {
 		 * @param ct content type to check
 		 * @return true if content type is a molecular barcode set
 		 */
-		def isMolBarcode(ct: ContentType.ContentType) = molBarcodes.contains(ct)
+		def isMolBarcode(ct: ContentType): Boolean = molBarcodes.contains(ct)
 
 		/**
 		 * Is content type a antibody?
 		 * @param ct content type to check
 		 * @return true if content type is a antibody
 		 */
-		def isAntibody(ct: ContentType.ContentType) = antiBodies.contains(ct)
+		def isAntibody(ct: ContentType): Boolean = antiBodies.contains(ct)
 
 		// Create Format for ComponentType enum using our custom enum Reader and Writer
 		implicit val contentTypeFormat: Format[ContentType] =
@@ -103,12 +103,12 @@ object InitialContents {
 		 * @param content content type as string
 		 * @return optional content type found
 		 */
-		def getContentFromStr(content: Option[String]) =
+		def getContentFromStr(content: Option[String]): Option[ContentType] =
 			content match {
 				case Some(key) => try {
 					Some(ContentType.withName(key))
 				} catch {
-					case e: Throwable => None
+					case _: Throwable => None
 				}
 				case _ => None
 			}
@@ -117,27 +117,28 @@ object InitialContents {
 	import ContentType._
 
 	// Map of valid container sizes for different contents
-	val validDivisions = Map[ContentType, List[Division]] (
-		NexteraSetA -> List(DIM8x12),
-		NexteraSetB -> List(DIM8x12),
-		NexteraSetC -> List(DIM8x12),
-		NexteraSetD -> List(DIM8x12),
-		NexteraSetE -> List(DIM8x12),
-		Nextera384SetA -> List(DIM16x24),
-		TruGrade384Set1 -> List(DIM16x24),
-		TruGrade96Set1 -> List(DIM8x12),
-		TruGrade96Set2 -> List(DIM8x12),
-		TruGrade96Set3 -> List(DIM8x12),
-		TruGrade96Set4 -> List(DIM8x12),
-		SQM96SetA -> List(DIM8x12),
-		SQM96SetAFlipped -> List(DIM8x12),
-		TCRSetA -> List(DIM16x24),
-		TCRSetB -> List(DIM16x24),
-		HKSetA -> List(DIM16x24),
-		HKSetB -> List(DIM16x24),
-		SamplePlate -> List(DIM8x12, DIM16x24),
-		AnonymousSamplePlate -> List(DIM8x12, DIM16x24)
-	)
+	val validDivisions: Map[ContentType, List[Division]] =
+		Map[ContentType, List[Division]] (
+			NexteraSetA -> List(DIM8x12),
+			NexteraSetB -> List(DIM8x12),
+			NexteraSetC -> List(DIM8x12),
+			NexteraSetD -> List(DIM8x12),
+			NexteraSetE -> List(DIM8x12),
+			Nextera384SetA -> List(DIM16x24),
+			TruGrade384Set1 -> List(DIM16x24),
+			TruGrade96Set1 -> List(DIM8x12),
+			TruGrade96Set2 -> List(DIM8x12),
+			TruGrade96Set3 -> List(DIM8x12),
+			TruGrade96Set4 -> List(DIM8x12),
+			SQM96SetA -> List(DIM8x12),
+			SQM96SetAFlipped -> List(DIM8x12),
+			TCRSetA -> List(DIM16x24),
+			TCRSetB -> List(DIM16x24),
+			HKSetA -> List(DIM16x24),
+			HKSetB -> List(DIM16x24),
+			SamplePlate -> List(DIM8x12, DIM16x24),
+			AnonymousSamplePlate -> List(DIM8x12, DIM16x24)
+		)
 
 	/**
 	 * Is the content valid for the division?
@@ -145,31 +146,32 @@ object InitialContents {
 	 * @param div division type of container
 	 * @return true if container with division can hold content
 	 */
-	def isContentValidForDivision(content: ContentType, div: Division) = validDivisions(content).contains(div)
+	def isContentValidForDivision(content: ContentType, div: Division): Boolean = validDivisions(content).contains(div)
 
 	// Get contents for each type
-	val contents = Map[ContentType, ContentsMap[MolBarcodeWell]] (
-		NexteraSetA -> MolecularBarcodes.mbSetA,
-		NexteraSetB -> MolecularBarcodes.mbSetB,
-		NexteraSetC -> MolecularBarcodes.mbSetC,
-		NexteraSetD -> MolecularBarcodes.mbSetD,
-		NexteraSetE -> MolecularBarcodes.mbSetE,
-		Nextera384SetA -> MolecularBarcodes.mbSet384A,
-		TruGrade384Set1 -> MolecularBarcodes.mbTG384S1,
-		TruGrade96Set1 -> MolecularBarcodes.mbTG96S1,
-		TruGrade96Set2 -> MolecularBarcodes.mbTG96S2,
-		TruGrade96Set3 -> MolecularBarcodes.mbTG96S3,
-		TruGrade96Set4 -> MolecularBarcodes.mbTG96S4,
-		SQM96SetA -> MolecularBarcodes.mbSQM96S1,
-		SQM96SetAFlipped -> MolecularBarcodes.mbSQM96S1flipped,
-		TCRSetA -> MolecularBarcodes.mbSet384TCellA,
-		TCRSetB -> MolecularBarcodes.mbSet384TCellB,
-		HKSetA -> MolecularBarcodes.mbSet384HKA,
-		HKSetB -> MolecularBarcodes.mbSet384HKB
-	)
+	val contents: Map[ContentType, ContentsMap[MolBarcodeWell]] =
+		Map[ContentType, ContentsMap[MolBarcodeWell]] (
+			NexteraSetA -> MolecularBarcodes.mbSetA,
+			NexteraSetB -> MolecularBarcodes.mbSetB,
+			NexteraSetC -> MolecularBarcodes.mbSetC,
+			NexteraSetD -> MolecularBarcodes.mbSetD,
+			NexteraSetE -> MolecularBarcodes.mbSetE,
+			Nextera384SetA -> MolecularBarcodes.mbSet384A,
+			TruGrade384Set1 -> MolecularBarcodes.mbTG384S1,
+			TruGrade96Set1 -> MolecularBarcodes.mbTG96S1,
+			TruGrade96Set2 -> MolecularBarcodes.mbTG96S2,
+			TruGrade96Set3 -> MolecularBarcodes.mbTG96S3,
+			TruGrade96Set4 -> MolecularBarcodes.mbTG96S4,
+			SQM96SetA -> MolecularBarcodes.mbSQM96S1,
+			SQM96SetAFlipped -> MolecularBarcodes.mbSQM96S1flipped,
+			TCRSetA -> MolecularBarcodes.mbSet384TCellA,
+			TCRSetB -> MolecularBarcodes.mbSet384TCellB,
+			HKSetA -> MolecularBarcodes.mbSet384HKA,
+			HKSetB -> MolecularBarcodes.mbSet384HKB
+		)
 
 	// Sorted list of display values for putting in drop down lists, etc
-	def getContentDisplayValues(validContents: List[ContentType.ContentType]) = {
+	def getContentDisplayValues(validContents: List[ContentType.ContentType]): List[String] = {
 		// Contents to always display first
 		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes)
 		// Get group of contents in displayFirst list vs. rest of list
@@ -183,7 +185,7 @@ object InitialContents {
 	}
 
 	// Get list of display value for all types
-	def getAllContentDisplayValues = getContentDisplayValues(ContentType.values.toList)
+	def getAllContentDisplayValues: List[String] = getContentDisplayValues(ContentType.values.toList)
 
 	/**
 	 * Initial contents
@@ -207,17 +209,17 @@ object InitialContents {
 	 * Map to get fixed information for each antibody
 	 */
 	lazy val antibodyMap = Map(
-		ABRnaPolII -> AntiBodyData(1, "Mouse", true, false),
-		ABH3K4me1 -> AntiBodyData(1, "Rabbit", true, false),
-		ABH3K4me3 -> AntiBodyData(1, "Rabbit", true, false),
-		ABH3K9me3 -> AntiBodyData(1, "Rabbit", true, false),
-		ABH3K27ac -> AntiBodyData(1, "Rabbit", true, false),
-		ABH3K27me3 -> AntiBodyData(1, "Rabbit", true, false),
-		ABH3K36me3 -> AntiBodyData(1, "Rabbit", true, false),
-		ABV5 -> AntiBodyData(5, "Mouse", true, false),
-		ABBrd4 -> AntiBodyData(5, "Rabbit", false, false),
-		ABMyb -> AntiBodyData(1, "Rabbit", true, false),
-		ABH3Cntrl -> AntiBodyData(1, "Rabbit", true, true),
-		ABSirt6 -> AntiBodyData(1, "Rabbit", true, false)
+		ABRnaPolII -> AntiBodyData(volume = 1, species = "Mouse", isMono = true, isControl = false),
+		ABH3K4me1 -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false),
+		ABH3K4me3 -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false),
+		ABH3K9me3 -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false),
+		ABH3K27ac -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false),
+		ABH3K27me3 -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false),
+		ABH3K36me3 -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false),
+		ABV5 -> AntiBodyData(volume = 5, species = "Mouse", isMono = true, isControl = false),
+		ABBrd4 -> AntiBodyData(volume = 5, species = "Rabbit", isMono = false, isControl = false),
+		ABMyb -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false),
+		ABH3Cntrl -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = true),
+		ABSirt6 -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false)
 	)
 }

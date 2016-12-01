@@ -3,16 +3,14 @@
   */
 
 import models.Robot.RobotType
-import models.db.{TransferCollection, TrackerCollection}
 import models.initialContents.InitialContents
 import models.project.JiraProject
 import models._
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import ScanFileOpers._
-import play.api.libs.json.Format
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import RobotSpec._
+import DBOpers._
 import scala.concurrent.Future
 
 import scala.concurrent.Await
@@ -132,27 +130,4 @@ class RobotSpec extends TestSpec with TestConfig {
 			transDone.foreach(_ mustBe None)
 		}
 	}
-}
-
-object RobotSpec {
-	/**
-	  * Insert a component into the DB
-	  *
-	  * @param data component to insert
-	  * @tparam C type of component
-	  * @return future with error message returned on failure
-	  */
-	private def insertComponent[C <: Component : Format](data: C) = {
-		TrackerCollection.insertComponent(data, onSuccess = (s) => None,
-			onFailure = (t) => Some(t.getLocalizedMessage))
-	}
-
-
-	/**
-	  * Go insert a transfer
-	  *
-	  * @param transfer transfer to insert
-	  * @return future to complete insert
-	  */
-	private def insertTransfer(transfer: Transfer) = TransferCollection.insert(transfer)
 }
