@@ -451,9 +451,10 @@ case class Transfer(from: String, to: String,
 				case (Some(fromQ), Some(toQ), Some(qSlice), cher) =>
 					Some(DIM16x24, TransferWells.slice384to384wells(fromQ = fromQ, toQ = toQ,
 						slice = qSlice, cherries = cher))
-				// Slice of non-quadrant component to quadrant - Must be 96-well component to 384-well component
+				// Slice of non-quadrant component to quadrant - Must be 96-well component or tube to 384-well component
 				case (None, Some(toQ), Some(qSlice), cher) =>
-					Some(DIM8x12, TransferWells.slice96to384wells(quad = toQ, slice = qSlice, cherries = cher))
+					getLayout(divComponent)
+						.map((_, TransferWells.slice96to384wells(quad = toQ, slice = qSlice, cherries = cher)))
 				// Either a 96-well component (non-quadrant transfer)
 				// or a straight cherry picked 384-well component (no quadrants involved)
 				// or a tube to a divided component

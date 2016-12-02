@@ -1,6 +1,6 @@
 name := "tracker"
 
-version := "2.6.1"
+version := "2.6.2"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
