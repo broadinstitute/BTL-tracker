@@ -3,13 +3,13 @@ import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import DBOpers._
 import ScanFileOpers.d3secs
-import models.Transfer.Quad
+import models.Transfer.{Quad, Slice}
 import models.TransferContents.{MergeMid, MergeResult, MergeTotalContents}
 import models._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import scala.concurrent.Await
-import TransferSpec._
 
+import scala.concurrent.{Await, Future}
+import TransferSpec._
 
 /**
  * Tests for transfers between plates and tubes
@@ -52,7 +52,28 @@ class TransferSpec  extends TestSpec with TestConfig {
 		}
 		"Make quads of MIDs" in {
 			makeMidTubes() mustEqual (None, None, None, None, None, None, None, None, None)
-			make384Mid() mustEqual (None, None, None, None, None)
+			make384Mid() mustEqual (None, List(None, None, None, None))
+			val trans = for {
+				t0 <- TransferContents.getContents(p384)
+			} yield t0
+			val p384Tran = Await.result(trans, d3secs)
+			p384Tran mustEqual Some(_: MergeTotalContents)
+			val mtc = p384Tran.get
+			mtc.wells.size mustEqual 384
+			mtc.wells.foreach{
+				case (well, mergeRes) =>
+					val q = TransferWells.wellsQuad(well)
+					q match {
+						case Quad.Q1 => mergeRes mustEqual q1mid
+						case Quad.Q2 => mergeRes mustEqual q2mid
+						case Quad.Q3 => mergeRes mustEqual q3mid
+						case Quad.Q4 => mergeRes mustEqual q4mid
+					}
+			}
+		}
+		"Make sections of MIDs" in {
+			makeMidTubes() mustEqual (None, None, None, None, None, None, None, None, None)
+			make384MidBySec() mustEqual (None, List(None, None, None, None, None, None, None, None))
 			val trans = for {
 				t0 <- TransferContents.getContents(p384)
 			} yield t0
@@ -187,37 +208,45 @@ object TransferSpec {
 	 */
 	private def make384Mid() = {
 		val p384I = insertComponent(Plate(p384, None, None, List.empty, None, None, ContainerDivisions.Division.DIM16x24))
-		val pToT0 = insertTransfer(Transfer(
-			from = midTubeID0, to = p384,
-			fromQuad = None, toQuad = Some(Quad.Q1),
-			project = None, slice = None, cherries = None,
-			isTubeToMany = true, isSampleOnly = false
-		))
-		val pToT1 = insertTransfer(Transfer(
-			from = midTubeID1, to = p384,
-			fromQuad = None, toQuad = Some(Quad.Q2),
-			project = None, slice = None, cherries = None,
-			isTubeToMany = true, isSampleOnly = false
-		))
-		val pToT2 = insertTransfer(Transfer(
-			from = midTubeID2, to = p384,
-			fromQuad = None, toQuad = Some(Quad.Q3),
-			project = None, slice = None, cherries = None,
-			isTubeToMany = true, isSampleOnly = false
-		))
-		val pToT3 = insertTransfer(Transfer(
-			from = midTubeID3, to = p384,
-			fromQuad = None, toQuad = Some(Quad.Q4),
-			project = None, slice = None, cherries = None,
-			isTubeToMany = true, isSampleOnly = false
-		))
+		val inputs = List(
+			(midTubeID0, Quad.Q1, None), (midTubeID1, Quad.Q2, None),
+			(midTubeID2, Quad.Q3, None), (midTubeID3, Quad.Q4, None)
+		)
+		doInserts(p384, p384I, inputs)
+	}
+
+	/**
+	 * Make a 384 well plate to contain one mid (from one of mid tubes) in all the wells of a quadrant.  Made via
+	 * transfers of 4 mid tubes into quadrants - one per quadrant.
+	 * @return results of inserts
+	 */
+	private def make384MidBySec() = {
+		val p384I = insertComponent(Plate(p384, None, None, List.empty, None, None, ContainerDivisions.Division.DIM16x24))
+		val inputs = List(
+			(midTubeID0, Quad.Q1, Some(Slice.S5)), (midTubeID0, Quad.Q1, Some(Slice.S6)),
+			(midTubeID1, Quad.Q2, Some(Slice.S5)), (midTubeID1, Quad.Q2, Some(Slice.S6)),
+			(midTubeID2, Quad.Q3, Some(Slice.S5)), (midTubeID2, Quad.Q3, Some(Slice.S6)),
+			(midTubeID3, Quad.Q4, Some(Slice.S5)), (midTubeID3, Quad.Q4, Some(Slice.S6))
+		)
+		doInserts(p384, p384I, inputs)
+	}
+
+	private def doInserts(plateID: String, plateInsert: Future[Option[String]],
+						  inputs: List[(String, Quad.Quad, Option[Slice.Slice])]) = {
+		val inserts = inputs.map {
+			case (tube, quad, slice) =>
+				insertTransfer(Transfer(
+					from = tube, to = plateID,
+					fromQuad = None, toQuad = Some(quad),
+					project = None, slice = slice, cherries = None,
+					isTubeToMany = true, isSampleOnly = false
+				))
+		}
+		val insertInOne = Future.sequence(inserts)
 		val pToTfuture = for {
-			pI <- p384I
-			pt0 <- pToT0
-			pt1 <- pToT1
-			pt2 <- pToT2
-			pt3 <- pToT3
-		} yield {(pI, pt0, pt1, pt2, pt3)}
+			pI <- plateInsert
+			pInsert <- insertInOne
+		} yield {(pI, pInsert)}
 		Await.result(pToTfuture, d3secs)
 	}
 }
