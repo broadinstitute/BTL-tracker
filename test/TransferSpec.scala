@@ -17,13 +17,14 @@ import models.initialContents.MolecularBarcodes.{MolBarcodeContents, MolBarcodeW
  * Created by nnovod on 12/1/16.
  */
 @RunWith(classOf[JUnitRunner])
-class TransferSpec  extends TestSpec with TestConfig {
+class TransferSpec extends TestSpec with TestConfig {
 	"The transfer" must {
 		"make tubes" in {
 			checkInserts(makeMidTubes())
 			val (tc0, tc1, tc2, tc3) = retrieveMidTubeContents()
 			checkTubes(List(
-				(tc0, midTubeID0, q0mid), (tc1, midTubeID1, q1mid), (tc2, midTubeID2, q2mid), (tc3, midTubeID3, q3mid)
+				(tc0, midTubeID0, q0mid), (tc1, midTubeID1, q1mid),
+				(tc2, midTubeID2, q2mid), (tc3, midTubeID3, q3mid)
 			))
 		}
 		"Make quads of MIDs (single MID in all wells of quad) from tubes" in {
@@ -55,32 +56,46 @@ class TransferSpec  extends TestSpec with TestConfig {
 		}
 		"Make 96-well plate with MIDs from all quadrants of 384-well MID plate" in {
 			checkInserts(
-				do384To96Plate(mid384,
-					List((Some(Quad.Q1), None, None), (Some(Quad.Q2), None, None),
-					(Some(Quad.Q3), None, None), (Some(Quad.Q4), None, None)))
+				do384To96Plate(
+					from = mid384,
+					transfers =
+						List(
+							(Some(Quad.Q1), None, None), (Some(Quad.Q2), None, None),
+							(Some(Quad.Q3), None, None), (Some(Quad.Q4), None, None)
+						)
+				)
 			)
 			check96MultipleMids(get96Tran(), MolecularBarcodes.mbSet384A)
 		}
 		"Make 96-well plate with MIDs from all sections of 384-well MID plate" in {
 			checkInserts(
-				do384To96Plate(mid384,
-					List((Some(Quad.Q1), Some(Slice.S5), None), (Some(Quad.Q1), Some(Slice.S6), None),
-						(Some(Quad.Q2), Some(Slice.S5), None), (Some(Quad.Q2), Some(Slice.S6), None),
-						(Some(Quad.Q3), Some(Slice.S5), None), (Some(Quad.Q3), Some(Slice.S6), None),
-						(Some(Quad.Q4), Some(Slice.S5), None), (Some(Quad.Q4), Some(Slice.S6), None)
-					)
+				do384To96Plate(
+					from = mid384,
+					transfers =
+						List(
+							(Some(Quad.Q1), Some(Slice.S5), None), (Some(Quad.Q1), Some(Slice.S6), None),
+							(Some(Quad.Q2), Some(Slice.S5), None), (Some(Quad.Q2), Some(Slice.S6), None),
+							(Some(Quad.Q3), Some(Slice.S5), None), (Some(Quad.Q3), Some(Slice.S6), None),
+							(Some(Quad.Q4), Some(Slice.S5), None), (Some(Quad.Q4), Some(Slice.S6), None)
+						)
 				)
 			)
-			check96MultipleMids(get96Tran(), MolecularBarcodes.mbSet384A)
+			check96MultipleMids(transfers = get96Tran(), mids = MolecularBarcodes.mbSet384A)
 		}
 		"Make 96-well plate with MIDs from all cherries of 384-well MID plate" in {
 			checkInserts(
-				do384To96Plate(mid384,
-					List((Some(Quad.Q1), Some(Slice.CP), cherries96), (Some(Quad.Q2), Some(Slice.CP), cherries96),
-						(Some(Quad.Q3), Some(Slice.CP), cherries96), (Some(Quad.Q4), Some(Slice.CP), cherries96))
-					)
+				do384To96Plate(
+					from = mid384,
+					transfers =
+						List(
+							(Some(Quad.Q1), Some(Slice.CP), cherries96),
+							(Some(Quad.Q2), Some(Slice.CP), cherries96),
+							(Some(Quad.Q3), Some(Slice.CP), cherries96),
+							(Some(Quad.Q4), Some(Slice.CP), cherries96)
+						)
+				)
 			)
-			check96MultipleMids(get96Tran(), MolecularBarcodes.mbSet384A)
+			check96MultipleMids(transfers = get96Tran(), mids = MolecularBarcodes.mbSet384A)
 		}
 	}
 
@@ -141,9 +156,16 @@ class TransferSpec  extends TestSpec with TestConfig {
 			case (tc, tubeID, mr) =>
 				tc mustEqual Some(
 					MergeTotalContents(
-						Tube(tubeID,None,None,List(),None,None),
-						Map(TransferContents.oneWell -> mr),
-						List()
+						component = Tube(
+							id = tubeID,
+							description = None,
+							project = None,
+							tags = List(),
+							locationID = None,
+							initialContent = None
+						),
+						wells = Map(TransferContents.oneWell -> mr),
+						errs = List()
 					)
 				)
 		}
@@ -224,20 +246,22 @@ object TransferSpec {
 	private val midTubeID3 = "MIDT3"
 
 	private val mid96ID = "MID96"
-	private val mid96 = Plate(id = mid96ID, description = None, project = None, tags = List.empty, locationID = None,
-		initialContent = Some(InitialContents.ContentType.NexteraSetA),
+	private val mid96 = Plate(id = mid96ID, description = None, project = None, tags = List.empty,
+		locationID = None, initialContent = Some(InitialContents.ContentType.NexteraSetA),
 		layout = ContainerDivisions.Division.DIM8x12)
 
 	private val mid384ID = "MID384"
-	private val mid384 = Plate(id = mid384ID, description = None, project = None, tags = List.empty, locationID = None,
-		initialContent = Some(InitialContents.ContentType.Nextera384SetA),
+	private val mid384 = Plate(id = mid384ID, description = None, project = None, tags = List.empty,
+		locationID = None, initialContent = Some(InitialContents.ContentType.Nextera384SetA),
 		layout = ContainerDivisions.Division.DIM16x24)
 
 	private val p384ID = "P384"
-	val p384 = Plate(p384ID, None, None, List.empty, None, None, ContainerDivisions.Division.DIM16x24)
+	val p384 = Plate(id = p384ID, description = None, project = None,
+		tags = List.empty, locationID = None, initialContent = None, layout = ContainerDivisions.Division.DIM16x24)
 
 	private val p96ID = "P96"
-	val p96 = Plate(p96ID, None, None, List.empty, None, None, ContainerDivisions.Division.DIM8x12)
+	val p96 = Plate(id = p96ID, description = None, project = None,
+		tags = List.empty, locationID = None, initialContent = None, layout = ContainerDivisions.Division.DIM8x12)
 
 	private val q0mid = Set(
 		MergeResult(
@@ -306,8 +330,6 @@ object TransferSpec {
 		Await.result(futs, d3secs)
 	}
 
-
-
 	/**
 	 * Get contents of four mid tubes
 	 * @return contents of each tube
@@ -318,7 +340,7 @@ object TransferSpec {
 			t1 <- TransferContents.getContents(midTubeID1)
 			t2 <- TransferContents.getContents(midTubeID2)
 			t3 <- TransferContents.getContents(midTubeID3)
-		} yield {(t0, t1, t2, t3)}
+		} yield { (t0, t1, t2, t3) }
 		Await.result(trans, d3secs)
 	}
 
@@ -423,8 +445,10 @@ object TransferSpec {
 	 * @param transfers how to do transfers (toQuad, slice, cherries)
 	 * @return results of component and transfer inserts
 	 */
-	private def do96To384Plate(from: Plate,
-							   transfers: List[(Option[Quad.Quad], Option[Slice.Slice], Option[List[Int]])]) =
+	private def do96To384Plate(
+		from: Plate,
+		transfers: List[(Option[Quad.Quad], Option[Slice.Slice], Option[List[Int]])]
+	) =
 		doPlateToPlate(
 			from = from,
 			to = p384,
@@ -439,8 +463,10 @@ object TransferSpec {
 	 * @param transfers how to do transfers (fromQuad, slice, cherries)
 	 * @return results of component and transfer inserts
 	 */
-	private def do384To96Plate(from: Plate,
-							   transfers: List[(Option[Quad.Quad], Option[Slice.Slice], Option[List[Int]])]) =
+	private def do384To96Plate(
+		from: Plate,
+		transfers: List[(Option[Quad.Quad], Option[Slice.Slice], Option[List[Int]])]
+	) =
 		doPlateToPlate(
 			from = from,
 			to = p96,
@@ -450,24 +476,22 @@ object TransferSpec {
 		)
 
 	/**
-	 * Transfer from a plate to 384 well plate.
+	 * Transfer between plates.
 	 * @param from plate to transfer from
 	 * @param transfers how to do transfers (fromQuad, toQuad, slice, cherries)
 	 * @return results of component and transfer inserts
 	 */
-	private def doPlateToPlate(from: Plate, to:Plate, transfers: List[(Option[Quad.Quad], Option[Quad.Quad],
-		Option[Slice.Slice], Option[List[Int]])]) = {
+	private def doPlateToPlate(from: Plate, to: Plate, transfers: List[(Option[Quad.Quad], Option[Quad.Quad], Option[Slice.Slice], Option[List[Int]])]) = {
 		val fromInsert = insertComponent(from)
-		val p384Insert = insertComponent(to)
+		val toInsert = insertComponent(to)
 		val trans = transfers.map((tran) =>
 			insertTransfer(Transfer(
 				from = from.id, to = to.id,
 				fromQuad = tran._1, toQuad = tran._2,
 				project = None, slice = tran._3, cherries = tran._4,
 				isTubeToMany = false, isSampleOnly = false
-			))
-		)
-		val futs = Future.sequence(fromInsert :: p384Insert :: trans)
+			)))
+		val futs = Future.sequence(fromInsert :: toInsert :: trans)
 		Await.result(futs, d3secs)
 	}
 
@@ -476,8 +500,6 @@ object TransferSpec {
 	 * @param id id of component
 	 * @return contents of component
 	 */
-	private def getTransRes(id: String) = {
-		val trans = TransferContents.getContents(id)
-		Await.result(trans, d3secs)
-	}
+	private def getTransRes(id: String) =
+		Await.result(TransferContents.getContents(id), d3secs)
 }
