@@ -285,7 +285,8 @@ object Robot {
 		// Go make csv file
 		spreadsheets.Utils.setCSVValues(headers = headers, input = trans,
 			// Get individual values via retrieveValue functions called with tubeToPlate parameter
-			getValues = (tubeToPlate: ABTubeToPlate, valsToGet) => Some(valsToGet.map(retrieveValue(_)(tubeToPlate))),
+			getValues =
+				(tubeToPlate: ABTubeToPlate, valsToGet) => List(valsToGet.map(retrieveValue(_)(tubeToPlate))),
 			noneMsg = "No antibodies found")
 	}
 }

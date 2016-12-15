@@ -157,7 +157,7 @@ object Utils {
 	 * @return (file name (if created), error messages)
 	 */
 	def setCSVValues[T](headers: Array[String], input: Iterable[T],
-		getValues: (T, Array[String]) => Option[Array[String]], noneMsg: String) = {
+		getValues: (T, Array[String]) => List[Array[String]], noneMsg: String) = {
 		/*
 		 * Set values in file for input
 		 * @param files values are being put into
@@ -171,14 +171,13 @@ object Utils {
 				done
 			else {
 				val next = inputLeft.head
-				val nextDone = getValues(v1 = next, v2 = headers) match {
-					case Some(vals) =>
-						file.write(vals.mkString(","))
-						file.newLine()
-						done + 1
-					case None =>
-						done
-				}
+				val nextDone =
+					getValues(v1 = next, v2 = headers)
+						.foldLeft(done)((soFar, vals) => {
+							file.write(vals.mkString(","))
+							file.newLine()
+							soFar + 1
+						})
 				setValue(file = file, inputLeft = inputLeft.tail, done = nextDone)
 			}
 		}

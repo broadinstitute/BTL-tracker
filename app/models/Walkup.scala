@@ -65,7 +65,7 @@ object Walkup {
 					}
 				// If no sample name then skip it, otherwise set next line in spreadsheet with sample name and MIDs
 				if (sample.isEmpty)
-					None
+					List.empty
 				else {
 					// Return array of values found, ordered by headers
 					val bcs = headers.map((s) =>
@@ -73,7 +73,7 @@ object Walkup {
 						else if (s == bc1) mid1
 						else if (s == bc2) mid2
 						else throw new Exception("Unknown WUS header"))
-					Some(if (err.isEmpty) bcs else bcs :+ err)
+					List(if (err.isEmpty) bcs else bcs :+ err)
 				}
 			},
 			noneMsg = "No samples found")
