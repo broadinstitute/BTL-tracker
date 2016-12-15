@@ -7,5 +7,6 @@
 	<h2>Contents of @component</h2>
 	@plateDisplay(tableID, grid, none, rows, cols)
 	<br>
-	@homeOption(Seq((routes.Application.findByID(component), "Go to " + component, None)))
+	@homeOption(Seq((routes.Application.findByID(component), "Go to " + component, None),
+		(routes.Application.contentsDump(component), "Download", None)))
 }

@@ -41,7 +41,8 @@ object MessageHandler {
 			case dbExc(key) => dataEntryErr + key
 			case dbNotFound() => "Database " +
 				Play.current.configuration.getString("mongodb.uri").getOrElse("unknown") + " not available"
-			case _ => msg
+			case _ if (msg != null) => msg
+			case _ => s"Sorry, unknown error: ${e.toString()}"
 		}
 	}
 

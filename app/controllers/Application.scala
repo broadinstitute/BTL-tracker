@@ -11,6 +11,8 @@ import utils.MessageHandler
 import utils.MessageHandler.FlashingKeys
 import java.io.File
 
+import models.TransferContents.MergeResult
+
 import scala.concurrent.Future
 
 object Application extends Controller {
@@ -80,77 +82,261 @@ object Application extends Controller {
 	}
 
 	/**
-	 * Display the contents for a component.  In a grid, with each entry representing a well, the contents of the
-	 * component are displayed.
+	 * Single content found in a well
+	 * @param molID molecular barcode
+	 * @param sampleID sample ID
+	 * @param ab antibody
 	 */
-	def contents(id: String) = Action.async { request =>
+	private case class Content(molID: Option[String], sampleID: Option[String], ab: Option[String])
+
+	/**
+	 * Contents found in a well
+	 * @param subTube sub-container (tube in a rack) ID
+	 * @param contents contents found in well
+	 */
+	private case class Contents(subTube: Option[String], contents: Set[Content])
+
+	/**
+	 * Output contents of a component.
+	 * @param id component id
+	 * @param getOutput callback to set output
+	 * @return response with error or what to display
+	 */
+	private def outputContents(id: String, getOutput: (Component, List[(String, Contents)]) => Result): Future[Result] = {
+
+		/*
+		 * Get a contents for one sample in a well.
+		 * @param well well with contents
+		 * @param contents results of scan of graph to find well's contents
+		 * @return contents of well (without subtube set)
+		 */
+		def getContents(well: String, contents: Set[MergeResult]) = {
+			// Map well-by-well results to html to display subcomponent/library name/mid/antibody
+			val allContents = contents.map((content) => {
+				// Get sample, molecular barcodes and antibodies
+				val sample = content.sample match {
+					case Some(sample) => Some(sample.sampleID.getOrElse("unknown"))
+					case None => None
+				}
+				val mids =
+					if (content.mid.isEmpty)
+						None
+					else
+						Some(content.mid.map((m) => m.name).mkString(";"))
+				val abs =
+					if (content.antibody.isEmpty)
+						None
+					else
+						Some(content.antibody.mkString(";"))
+				Content(molID = mids, sampleID = sample, ab = abs)
+			})
+			// Tube is set later
+			Contents(subTube = None, contents = allContents)
+		}
+
+		/*
+		 * Add subtubes into contents.
+		 * @param subs well to subtube map
+		 * @param wells well to contents map
+		 * @return new map of contents that includes subtubes
+		 */
+		def putInSubs(subs: Map[String, String], wells: Map[String, Contents]) = {
+			// Get subcomponent wells not set yet (what's in subs but not wells)
+			val subWellsNotSet =
+				subs.keys.toSet
+					.diff(wells.keys.toSet)
+			// Make new contents for wells that don't have any other contents
+			val subWellComponents = subWellsNotSet.map((well) =>
+				well -> Contents(subTube = subs.get(well), contents = Set.empty))
+			// Add subtube to contents that already existed
+			val wellsWithSubs =
+				wells.map {
+					case (well, contents) =>
+						well ->
+							(subs.get(well) match {
+								case Some(subTube) =>
+									contents.copy(subTube = Some(subTube))
+								case None => contents
+							})
+				}
+			// Put two sets together
+			wellsWithSubs ++ subWellComponents
+		}
+
 		// Start off by getting map of subcomponents (i.e., tubes in a rack) - if any there we'll setup links later
 		ComponentController.getSubsIDs(id)
 			.flatMap((subWells) => {
-				// Make href for subcomponent (tube)
-				def getSubTubeURL(id: String) =
-					"""<a href="""+routes.Application.findByID(id).url+""">"""+id+"""</a>"""
-
 				// Now do the real work - get contents
-				handleContents[Option[String]](id = id,
+				handleContents[Contents](id = id,
 					// If an error go back to the update page
 					redirectOnErr = (res) => ComponentController.actions(res.component.component).updateRoute(id),
 					// Take a well's results and map it into an HTML string showing contents for well
-					setWellContents = (well, contents) =>
-						// Map well-by-well results to html to display subcomponent/library name/mid/antibody
-						Some(contents.map((content) => {
-							// If a subcomponent is there make a href to it
-							val subLink =
-								subWells.get(well) match {
-									case Some(subID) => getSubTubeURL(subID)
-									case None => ""
-								}
-							// Little function to help putting together strings
-							def addBrk(s1: String, s2: String) = {
-								if (s1.nonEmpty && s2.nonEmpty)
-									s1 + "<br>" + s2
-								else
-									s1 + s2
-							}
-							// Get sample, molecular barcodes and antibodies to display
-							val sample =
-								addBrk(subLink,
-									content.sample match {
-										case Some(sample) => sample.sampleID.getOrElse("unknown")
-										case None => ""
-									}
-								)
-							val withMids = addBrk(sample, content.mid.map((m) => m.name).mkString(","))
-							addBrk(withMids, content.antibody.mkString(","))
-						}).mkString("<br><br>")),
+					setWellContents = (well, contents) => getContents(well, contents),
 					// Put together final results
 					getResult = (res, wellMap) => {
-						// Get component division (for display)
-						val (rows, cols) =
-							res.component match {
-								case c: ContainerDivisions =>
-									val div = ContainerDivisions.divisionDimensions(c.layout)
-									(div.rows, div.columns)
-								case _ => (1, 1) // If component isn't divided then a single "well"
+						// Put together final results and sort it by well location for nice output
+						val allContents =
+							putInSubs(subWells, wellMap)
+								.toList.sortBy {
+								case (well, _) => well
 							}
-						// Get subcomponent wells not set yet (what's in subwells but not wellmap)
-						val subWellsNotSet =
-							subWells.keys.toSet
-								.diff(wellMap.keys.toSet)
-						// Setup display of them to point to tubes
-						val subWellsDisplay = subWellsNotSet.map ((well) => {
-								well -> Some(getSubTubeURL(subWells(well)))
-							}).toMap
-
-						// Go display contents
-						Ok(views.html.contentDisplay(component = res.component.id, tableID = "Contents",
-							grid = subWellsDisplay ++ wellMap, none = "", rows = rows, cols = cols))
+						getOutput(res.component, allContents)
 					})
 			})
 			.recover {
 				case err => BadRequest(
 					views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
 			}
+	}
+
+	/**
+	 * Display the contents for a component.  In a grid, with each entry representing a well, the contents of the
+	 * component are displayed.
+	 * @param id component id
+	 */
+	def contents(id: String) = Action.async { request =>
+
+		/*
+		 * Create html output to display
+		 * @param component component with contents
+		 * @param allContents all the contents, by well, found for component
+		 */
+		def getOutput(component: Component, allContents: List[(String, Contents)]) = {
+			// Make href for subcomponent (tube)
+			def getSubTubeURL(id: String) =
+				"""<a href="""+routes.Application.findByID(id).url+""">"""+id+"""</a>"""
+			// Little function to help putting together strings
+			def addBrk(s1: String, s2: String) = {
+				if (s1.nonEmpty && s2.nonEmpty)
+					s1 + "<br>" + s2
+				else
+					s1 + s2
+			}
+
+
+			// Setup by well display
+			val contentsToDisplay = allContents.map {
+				case (well, contents) =>
+					// If a subtube start with that
+					val subLink =
+						contents.subTube match {
+							case Some(subID) => getSubTubeURL(subID)
+							case None => ""
+						}
+
+					val oneContent = contents.contents.map((content) => {
+						// Get sample, molecular barcodes and antibodies to display
+						val sample = content.sampleID.getOrElse("")
+						val withMids = addBrk(sample, content.molID.getOrElse(""))
+						addBrk(withMids, content.ab.getOrElse(""))
+					}).mkString("<br><br>")
+					well -> Some(addBrk(subLink, oneContent))
+			}.toMap
+
+			// Get component division (for display)
+			val (rows, cols) =
+				component match {
+					case c: ContainerDivisions =>
+						val div = ContainerDivisions.divisionDimensions(c.layout)
+						(div.rows, div.columns)
+					case _ => (1, 1) // If component isn't divided then a single "well"
+				}
+
+			// Go display contents
+			Ok(views.html.contentDisplay(component = component.id, tableID = "Contents",
+				grid = contentsToDisplay, none = "", rows = rows, cols = cols))
+		}
+
+		// Setup output
+		outputContents(id, getOutput)
+	}
+
+	/**
+	 * Dump the contents of a component into a csv file - one line per well per sample.
+	 * @param id component id
+	 */
+	def contentsDump(id: String) = Action.async { request =>
+
+		/*
+		 * Headers for csv file to dump contents into
+		 */
+		val wellHdr = "Well"
+		val sampleIDHdr = "Sample ID"
+		val midHdr = "Sequencing Barcode"
+		val subHdr = "SubComponent"
+		val abHdr = "Antibodies"
+		val headers = Array(wellHdr, sampleIDHdr, midHdr, subHdr, abHdr)
+
+		/*
+		 * Create csv file from found contents.
+		 * @param component component with contents
+		 * @param allContents all the contents, by well, found for component
+		 */
+		def getOutput(component: Component, allContents: List[(String, Contents)]) = {
+			/*
+			 * Set output line for contents
+			 * @param well content's well
+			 * @param contents summary of well's contents
+			 * @param content individual sample's contents
+			 * @return
+			 */
+			def contentToLine(well: String, contents: Contents, content: Content) =
+				headers.map((header) =>
+					if (header == wellHdr)
+						well
+					else if (header == sampleIDHdr)
+						content.sampleID.getOrElse("")
+					else if (header == subHdr)
+						contents.subTube.getOrElse("")
+					else if (header == midHdr)
+						content.molID.getOrElse("")
+					else if (header == abHdr)
+						content.ab.getOrElse("")
+					else ""
+				)
+
+			// Create csv file
+			val file =
+				spreadsheets.Utils.setCSVValues[(String, Contents)](
+					headers = headers,
+					input = allContents,
+					getValues = (next, headers) => {
+						val (well, contents) = next
+						// Get list of different entries for well eliminating any without content
+						val finalContents = contents.contents
+							.map((content) => {
+								if (content.ab.isEmpty && content.molID.isEmpty && content.sampleID.isEmpty)
+									None
+								else
+									Some(contentToLine(well, contents, content))
+							})
+							.toList.flatten
+						if (finalContents.isEmpty && contents.subTube.isDefined)
+							List(contentToLine(well, contents,
+								Content(molID = None, sampleID = None, ab = None)))
+						else
+							finalContents
+					},
+					noneMsg = s"No sample data found for $id"
+				)
+			// Finish
+			file match {
+				case (Some(fileName), _) =>
+					val outName = s"Contents_$id"
+					// Go upload the file
+					val outFile = new File(fileName)
+					Ok.sendFile(content = outFile, inline = false,
+						fileName = (_) => s"$outName.csv", onClose = () => outFile.delete())
+				case (None, errs) =>
+					val result =
+						Redirect(ComponentController.actions(component.component).updateRoute(id))
+					// Set error to be picked up
+					FlashingKeys.setFlashingValue(r = result, k = FlashingKeys.Status, s = errs.mkString(";"))
+			}
+		}
+
+		// Go output the file
+		outputContents(id, getOutput)
 	}
 
 	/**

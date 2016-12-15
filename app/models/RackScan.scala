@@ -239,8 +239,8 @@ object RackScan extends DBOpers[RackScan] {
 			val notFound = ids.diff(rackContentsIds)
 			// Separate tubes from non-tubes
 			val isOrNotATube = rackContents.groupBy {
-				case t : Tube => true
-				case nt => false
+				case _ : Tube => true
+				case _ => false
 			}
 			(isOrNotATube.getOrElse(true, List.empty).map(_.asInstanceOf[Tube]),
 				isOrNotATube.getOrElse(false, List.empty), notFound)
@@ -297,16 +297,15 @@ object RackScan extends DBOpers[RackScan] {
 	 */
 	def getRackContents(racks: List[String]) = {
 		val racksFound = racks.map(findRack)
-		Future.sequence(racksFound).map {
-			case scans =>
-				// Get ids iterator (what futures was based on as well)
-				val idIter = racks.toIterator
-				// Get map of results (id -> (Option(RackScan), Option(error))
-				scans.map((rs) => {
-					val id = idIter.next()
-					id -> checkRackScan(id, rs)
-				}).toMap
-		}
+		Future.sequence(racksFound).map((scans) => {
+			// Get ids iterator (what futures was based on as well)
+			val idIter = racks.toIterator
+			// Get map of results (id -> (Option(RackScan), Option(error))
+			scans.map((rs) => {
+				val id = idIter.next()
+				id -> checkRackScan(id, rs)
+			}).toMap
+		})
 	}
 
 }

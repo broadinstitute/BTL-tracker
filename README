@@ -2,5 +2,42 @@ This is your new Play application
 =================================
 
 This file will be packaged with your application, when using `activator dist`.
-From sbt simply do:
-dist
+
+Sources for tracker:
+https://svn.broadinstitute.org/BTL/tracker
+
+To build tracker:
+- Checkout source
+- Make sure needed libraries from BTL are published locally (see build.sbt for libraries needed):
+  o Checkout sources
+  o sbt
+  o project <projectName>
+  o publish-local
+- sbt dist
+
+To run tracker (on btllims):
+- Copy zip file created in target/universal via "sbt dist" over to /btl/prod/tracker
+- unzip the file
+- modify /btl/prod/tracker/tracker to point to the new distribution
+- kill the old tracker running
+- run /btl/prod/tracker/tracker
+
+To run beta tracker (on btllims):
+- Copy zip file created in target/universal via "sbt dist" over to /btl/prod/tracker
+- unzip the file
+- modify the name of the top level unzipped directory to tracker-beta
+- kill the old beta tracker running
+- run /btl/prod/tracker/trackerBeta
+
+Note that if you are installing a new production tracker and beta tracker at the same time you must first
+install the beta tracker and then the production tracker to prevent renaming the distribution directory (e.g., you
+want to unzip, rename the unzipped directory to be trackerBeta and then unzip again to create the non-beta tracker)
+
+Finally, it's best to do the installing via a sudo as btladm so that others can do a reinstall (only user starting
+jobs can kill them)
+
+If you need to restart mongo (tracker uses 2.6.11):
+/btl/prod/apps/mongodb-linux-x86_64-2.6.11/bin/mongoStart
+For MD which uses 3.2.10 do:
+/btl/prod/apps/mongodb-linux-x86_64-3.2.10/bin/mongoStart
+

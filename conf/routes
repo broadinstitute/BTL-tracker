@@ -121,6 +121,9 @@ GET         /javascriptRoutes                           controllers.Application.
 # Display contents
 GET         /contents/:id                               controllers.Application.contents(id: String)
 
+# Dump contents to a file
+GET         /contentsDump/:id                           controllers.Application.contentsDump(id: String)
+
 # Get antibody plate creation input data
 GET         /robot/:abRack                              controllers.RobotController.antibodyPlate(abRack: String)
 POST        /robot/:abRack                              controllers.RobotController.createABPlate(abRack: String)

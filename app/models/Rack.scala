@@ -139,8 +139,8 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 		val m = whatNotFound + " not found for " + id
 		val dbErr =
 			err match {
-				case Some(errMsg) => ": " + errMsg
-				case None => ""
+				case Some(errMsg) if (errMsg != null) => ": " + errMsg
+				case _ => ""
 			}
 		m + dbErr
 	}

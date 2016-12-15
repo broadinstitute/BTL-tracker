@@ -1,6 +1,6 @@
 name := "tracker"
 
-version := "2.6.2"
+version := "2.7.0"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
@@ -14,7 +14,7 @@ libraryDependencies ++= Seq(
 	"com.assembla.scala-incubator" %% "graph-dot" % "1.11.0",
 	"org.apache.poi" % "poi" % "3.15",
 	"org.apache.poi" % "poi-ooxml" % "3.15",
-	"org.broadinstitute" %% "spreadsheets" % "1.0.6",
-	"org.broadinstitute" %% "sampleracks" % "1.12.3",
-	"org.broadinstitute" %% "mongo" % "1.16.0"
+	"org.broadinstitute" %% "spreadsheets" % "1.0.6", // From https://svn.broadinstitute.org/BTL/barcodeProjects
+	"org.broadinstitute" %% "sampleracks" % "1.12.3", // From https://svn.broadinstitute.org/BTL/LIMStales
+	"org.broadinstitute" %% "mongo" % "1.16.0" // From https://svn.broadinstitute.org/BTL/LIMStales
 )
