@@ -42,12 +42,12 @@ object SampleNames {
 		}
 
 	/**
-	 * Get sample name for walkup sequencing sheet
+	 * Get sample name with appended position and antibody, maximun length and fixup of ugly characters.
 	 * @param id initial sample id
 	 * @param pos sample position
 	 * @param ab optional antibody
 	 * @param maxLen maximum length for sample string
-	 * @return sample id to use in walkup sequencing sheet
+	 * @return sample id to use
 	 */
 	def getSampleStr(id: String, pos: String, ab: Option[String], maxLen: Int): String = {
 		SampleMapEntry.fixStr(
@@ -58,12 +58,12 @@ object SampleNames {
 	}
 
 	/**
-	 * Get sample name for walkup sequencing sheet
+	 * Get sample name using callback for sample ID
 	 * @param mergeSample optional sample from merge results
 	 * @param ab optional antibody
-	 * @param fetchID given a MergeSample return (sampleID, samplePosition)
+	 * @param fetchID callback, given a MergeSample, returns (sampleID, samplePosition)
 	 * @param maxLen maximum length for sample string
-	 * @return sample id to use in walkup sequencing sheet (blank if no merge sample)
+	 * @return sample id to use (blank if no merge sample)
 	 */
 	def getSampleId(mergeSample: Option[MergeSample], ab: Option[String],
 					fetchID: (MergeSample) => (String, String), maxLen: Int): String = {

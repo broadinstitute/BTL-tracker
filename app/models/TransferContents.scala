@@ -311,7 +311,7 @@ object TransferContents {
 			def takeQuadrant(in: MergeTotalContents, out: MergeTotalContents, transfer: TransferEdge) =
 				getNextWellMapping(soFar = in, fromComponent = in.component, toComponent = out.component,
 					fromQuad = transfer.fromQuad, toQuad = transfer.toQuad, quadSlice = transfer.slice,
-					cherries = transfer.cherries, isTubeToMany = transfer.isTubeToMany,
+					cherries = transfer.cherries, free = transfer.free, isTubeToMany = transfer.isTubeToMany,
 					isSampleOnly = transfer.isSampleOnly, getSameMapping = false) {
 					/*
 				     * Do the mapping of a quadrant between original input wells to wells it will go to in destination.
@@ -329,10 +329,27 @@ object TransferContents {
 									case Some(foundLayout) if foundLayout == layout =>
 										// See which wells we want and make new mapping for them
 										val newWells =
-											in.wells.flatMap {
-												case (well, contents) if wellMap.get(well).isDefined =>
-													wellMap(well).map(_ -> contents)
-												case _ => List.empty
+											in.wells.foldLeft(Map.empty[String, Set[MergeResult]]) {
+												case (soFar, (well, contents)) if wellMap.get(well).isDefined =>
+													// Map destination wellS (yes, there can be more than one)
+													// to source well contents
+													val outToIn = wellMap(well).map(_ -> contents).toMap
+													// Combine destinations set so far with new destinations found
+													// Needed since multiple input wells can go to one output well
+													// Note, "++" takes second map's contents if they are in both maps
+													soFar ++ outToIn.map {
+														case (well, newContents) =>
+															well ->
+																(soFar.get(well) match {
+																	case Some(resSoFar) =>
+																		// Merge contents from multiple input wells
+																		resSoFar ++ newContents
+																	case _ =>
+																		// Get contents from single input well
+																		newContents
+																})
+													}
+												case (soFar, _) => soFar
 											}
 										// Create the new input contents
 										MergeTotalContents(component = in.component, wells = newWells, errs = in.errs)
@@ -484,7 +501,8 @@ object TransferContents {
 	 * @param fromQuad quadrant transfer is coming from
 	 * @param toQuad quadrant transfer is going to
 	 * @param quadSlice slice of quadrant being transferred
-	 * @param cherries cherry picked wells being transferred
+	 * @param cherries cherry picked wells being transferred (valid iff slice is CP)
+	 * @param free free-for-all transfer list (valid iff slice is FREE)
 	 * @param makeOut callback to return result - called with (soFar, component, input->output wells picked)
 	 * @param isTubeToMany input is a tube being transferred to one or more wells in a multi-well component
 	 * @param isSampleOnly only transfer wells containing samples
@@ -494,12 +512,12 @@ object TransferContents {
 	 */
 	def getNextWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component,
 							  fromQuad: Option[Quad], toQuad: Option[Quad],
-							  quadSlice: Option[Slice], cherries: Option[List[Int]],
+							  quadSlice: Option[Slice], cherries: Option[List[Int]], free: Option[Transfer.FreeList],
 							  isTubeToMany: Boolean, isSampleOnly: Boolean, getSameMapping: Boolean)
 							 (makeOut: (T, Division.Division, Map[String, List[String]]) => T) =
 		Transfer(from = fromComponent.id, to = toComponent.id, fromQuad = fromQuad, toQuad = toQuad,
 			project = None, slice = quadSlice, cherries = cherries,
-			isTubeToMany = isTubeToMany, isSampleOnly = isSampleOnly)
+			isTubeToMany = isTubeToMany, isSampleOnly = isSampleOnly, free = free)
 			.getWellMapping(soFar = soFar, fromComponent = fromComponent, toComponent = toComponent,
 				getSameMapping = getSameMapping)(makeOut = makeOut)
 

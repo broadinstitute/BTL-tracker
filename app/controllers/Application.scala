@@ -71,7 +71,7 @@ object Application extends Controller {
 						// Go upload the file
 						val outFile = new File(file)
 						Ok.sendFile(content = outFile, inline = false,
-							fileName = (_) => s"$fileName.csv", onClose = () => outFile.delete())
+							fileName = (_) => s"Walkup_$fileName.csv", onClose = () => outFile.delete())
 					// If nothing returns then report error(s)
 					case (None, errs) =>
 						val result = Redirect(ComponentController.actions(res.component.component).updateRoute(id))

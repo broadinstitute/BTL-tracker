@@ -29,4 +29,14 @@ object DBOpers {
 	 * @return future to complete insert
 	 */
 	def insertTransfer(transfer: Transfer): Future[Option[String]] = TransferCollection.insert(transfer)
+
+	/**
+	 * Go find a transfer
+	 *
+	 * @param src source of transfer
+	 * @param dest destination of transfer
+	 * @return future to complete find
+	 */
+	def findTransfer(src: String, dest: String): Future[List[Transfer]] =
+		TransferCollection.findTransfer(from = src, to = dest)
 }

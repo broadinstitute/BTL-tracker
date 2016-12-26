@@ -183,7 +183,7 @@ object RackScan extends DBOpers[RackScan] {
 	 */
 	def getABTubes(ids: List[String]) = {
 		// Get tubes and check for lots of errors when setting contents
-		getTubes(ids = ids,
+		getTubes[(Tube, Set[String])](ids = ids,
 			setContents = (tube, contents) => {
 				checkTube(tube, contents) match {
 					case None =>
@@ -209,7 +209,7 @@ object RackScan extends DBOpers[RackScan] {
 	 */
 	def getTubeContents(ids: List[String]) = {
 		// Get tubes and check for lots of errors when setting contents
-		getTubes(ids = ids,
+		getTubes[(Tube, Set[MergeResult])](ids = ids,
 			setContents = (tube, contents) => {
 				checkTube(tube, contents) match {
 					case None =>
@@ -230,9 +230,7 @@ object RackScan extends DBOpers[RackScan] {
 	 * @return (list of tubes found, list of non-tube components found, list of ids not found)
 	 */
 	def findTubes(ids: List[String]) =
-		TrackerCollection.findIds(ids).map((tubes) => {
-			// Get objects from bson
-			val rackContents = ComponentFromJson.bsonToComponents(tubes)
+		TrackerCollection.findIds(ids).map((rackContents) => {
 			// Get list of ids found
 			val rackContentsIds = rackContents.map(_.id)
 			// See if there were any ids not found

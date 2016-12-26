@@ -1,7 +1,7 @@
 package models.db
 
 import models.Transfer
-import play.api.{Play, Logger}
+import play.api.{Logger, Play}
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.collection.JSONCollection
@@ -140,7 +140,8 @@ object TransferCollection extends Controller with MongoController {
 	 * @return result to return with completion status
 	 */
 	def insert(data: Transfer) = {
-		transferCollection.insert(data).map(
+		import Transfer._
+		transferCollectionBSON.insert(data).map(
 			(lastError) => {
 				Logger.debug(s"Completed insert of ${data.quadDesc} with status: $lastError")
 				if (lastError.ok) None
@@ -158,10 +159,24 @@ object TransferCollection extends Controller with MongoController {
 	 * Future to get list of transfers between two specified component IDs
 	 * @param from component transfer is coming from
 	 * @param to component transfer is going to
-	 * @return list of transfers between specified components
+	 * @return list of transfers (as BSON documents) between specified components
 	 */
-	def find(from: String, to: String) = {
+	def findBSON(from: String, to: String) = {
 		val cursor = transferCollectionBSON.find(transferBetweenBson(from, to)).cursor
 		cursor.collect[List]()
 	}
+
+	/**
+	 * Future to get list of transfers between two specified component IDs
+	 * @param from component transfer is coming from
+	 * @param to component transfer is going to
+	 * @return list of transfers (as Transfers) between specified components
+	 */
+	def findTransfer(from: String, to: String) = {
+		import Transfer._
+		val cursor = transferCollectionBSON.find(transferBetweenBson(from, to)).cursor[Transfer]
+		cursor.collect[List]()
+	}
+
+
 }

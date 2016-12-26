@@ -38,7 +38,6 @@ class RackScanSpec extends TestSpec with TestConfig {
 			val resSorted = res.head.contents.sortWith(_.pos < _.pos)
 			val racksSorted = racks.list.head.contents.sortWith(_.pos < _.pos)
 			resSorted.indices.foreach((i) => resSorted(i) === racksSorted(i))
-			TestDB.cleanupTestRackCollection
 		}
 	}
 }

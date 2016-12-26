@@ -10,10 +10,15 @@ import formats.CustomFormats._
 import mappings.CustomMappings._
 import Component.ComponentType
 import initialContents.InitialContents.ContentType
+import models.Component.ComponentType.ComponentType
+import models.ContainerDivisions.Division
+import models.ContainerDivisions.Division.Division
+import models.initialContents.InitialContents.ContentType.ContentType
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
 import play.api.mvc.{AnyContent, Request}
+import reactivemongo.bson.{BSON, BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONDouble, BSONHandler, BSONString, Macros}
 
 import scala.concurrent.Future
 
@@ -411,4 +416,57 @@ object Component {
 				idKey -> nonEmptyText,
 				typeKey -> enum(ComponentType)
 			)(ComponentIDandTypeClass.apply)(ComponentIDandTypeClass.unapply))
+
+	/**
+	 * BSON handlers - will signal if errors - handlers should handle that
+	 */
+	implicit object BSONComponentTypeHandler extends BSONHandler[BSONString, ComponentType] {
+		def read(doc: BSONString) = ComponentType.withName(doc.value)
+		def write(cType: ComponentType) = BSON.write(cType.toString)
+	}
+	implicit object BSONDivisionHandler extends BSONHandler[BSONString, Division] {
+		def read(doc: BSONString) = Division.withName(doc.value)
+		def write(div: Division) = BSON.write(div.toString)
+	}
+	implicit object BSONContentTypeHandler extends BSONHandler[BSONString, ContentType] {
+		def read(doc: BSONString) = ContentType.withName(doc.value)
+		def write(cType: ContentType) = BSON.write(cType.toString)
+	}
+	implicit object BSONFloatHandler extends BSONHandler[BSONDouble, Float] {
+		def read(doc: BSONDouble) = doc.value.toFloat
+		def write(fl: Float) = BSON.write(BSONDouble(fl))
+	}
+	// Tags BSON handler
+	implicit val BSONComponentTagHandler = Macros.handler[ComponentTag]
+
+	// BSON readers and writers for component types
+	private val plateBSON = Macros.handler[Plate]
+	private val tubeBSON = Macros.handler[Tube]
+	private val rackBSON = Macros.handler[Rack]
+	private val freezerBSON = Macros.handler[Freezer]
+
+	/**
+	 * BSON reader and writer for a component.  Note that writer must add component type to conversion
+	 * since it's not explicitly in component (known via component type).
+	 */
+	implicit object BSONComponentHandler extends BSONHandler[BSONDocument, Component]
+		with BSONDocumentReader[Component] with BSONDocumentWriter[Component] {
+		def read(doc: BSONDocument) = {
+			doc.getAs[ComponentType](Component.typeKey).get match {
+				case ComponentType.Plate => plateBSON.read(doc)
+				case ComponentType.Tube => tubeBSON.read(doc)
+				case ComponentType.Rack => rackBSON.read(doc)
+				case ComponentType.Freezer => freezerBSON.read(doc)
+			}
+		}
+		def write(component: Component) =
+			BSONDocument(Component.typeKey -> component.component.toString) ++
+				(component match {
+					case p: Plate => plateBSON.write(p)
+					case r: Rack => rackBSON.write(r)
+					case t: Tube => tubeBSON.write(t)
+					case f: Freezer => freezerBSON.write(f)
+				})
+	}
+
 }

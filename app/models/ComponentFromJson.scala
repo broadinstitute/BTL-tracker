@@ -2,8 +2,6 @@ package models
 
 import models.Component.ComponentType
 import play.api.libs.json.JsObject
-import play.modules.reactivemongo.json.BSONFormats
-import reactivemongo.bson.BSONDocument
 
 /**
  * Little fellow to be able to convert from json to a model object
@@ -81,17 +79,4 @@ object ComponentFromJson {
 		val componentType = (json \ Component.typeKey).as[ComponentType]
 		fromJson(componentType)(json)
 	}
-
-	/**
-	  * Get component objects from bson.
-	  * @param ids list of bson documents for components
-	  * @return list of component objects
-	  */
-	def bsonToComponents(ids: List[BSONDocument]): List[Component] =
-		ids.map((bson) => {
-			// Get json since model conversions are setup to do json reads/writes
-			val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
-			// Do conversion to model component object
-			getComponent(json)
-		})
 }

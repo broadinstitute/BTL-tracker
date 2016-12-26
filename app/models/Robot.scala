@@ -2,11 +2,13 @@ package models
 
 import Robot._
 import models.TransferContents.MergeTotalContents
-import models.db.{ TransferCollection, TrackerCollection }
+import models.db.{TrackerCollection, TransferCollection}
 import models.initialContents.InitialContents
 import models.initialContents.InitialContents.ContentType
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import reactivemongo.bson.BSON
 import utils.{No, Yes}
+
 import scala.concurrent.Future
 
 /**
@@ -42,12 +44,13 @@ case class Robot(robotType: RobotType.RobotType) {
 				// Check if anything already transferred into plate
 				val transIntoABPlate = TransferCollection.getSourceIDs(abPlate)
 				// Get components for racks and plate
-				val components = TrackerCollection.findIds(List(abRack, abPlate, sampleContainer))
+				val components = TrackerCollection.findIDDocs(List(abRack, abPlate, sampleContainer))
 				Future.sequence(List(transIntoABPlate, components)).flatMap(f = (docs) => {
 					if (docs.head.nonEmpty) throw new Exception(s"Transfers already done into antibody plate $abPlate")
+					// Get components
 					val ids = docs.tail.head
-					// Map bson to components (someday direct mapping should be possible but too painful for now)
-					val components = ComponentFromJson.bsonToComponents(ids)
+					// Map bson to components
+					val components = ids.map(BSON.readDocument[Component])
 					// Find components
 					val abRackComponent = components.find(_.id == abRack)
 					val sampleComponent = components.find(_.id == sampleContainer)

@@ -4,6 +4,7 @@ import formats.CustomFormats._
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division._
+import models.Transfer.Slice
 import models.db.{TrackerCollection, TransferCollection}
 import models.initialContents.InitialContents.ContentType
 import play.api.data.{Form, Mapping}
@@ -13,6 +14,7 @@ import utils.{No, Yes}
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import reactivemongo.bson.{BSON, BSONArray, BSONDocument, BSONHandler, BSONInteger, BSONString, Macros}
 
 /**
  * Transfers are between components
@@ -30,13 +32,14 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * @param project optional project transfer is associated with
  * @param slice optional slice to transfer
  * @param cherries wells cherry picked (indicies to wells going across first) - valid if and only if slice is set to CP
+ * @param free anything goes transfer (well -> target well(s)).  Wells by index - valid iff slice set to FREE
  * @param isTubeToMany true if transferring tube to a multi-welled container
  * @param isSampleOnly true if transferring from a plate to a tube and only want to transfer wells with samples
  */
 case class Transfer(from: String, to: String,
 					fromQuad: Option[Transfer.Quad.Quad], toQuad: Option[Transfer.Quad.Quad], project: Option[String],
-					slice: Option[Transfer.Slice.Slice], cherries: Option[List[Int]], isTubeToMany: Boolean,
-					isSampleOnly: Boolean) {
+					slice: Option[Transfer.Slice.Slice], cherries: Option[List[Int]],
+					free: Option[Transfer.FreeList], isTubeToMany: Boolean, isSampleOnly: Boolean) {
 
 	import models.Transfer.Quad._
 	import models.Transfer.Slice._
@@ -47,7 +50,11 @@ case class Transfer(from: String, to: String,
 	def quadDesc: String = {
 		def qDesc(id: String, quad: Option[Quad], slice: Option[Slice]) = {
 			val sliceStr = slice.map((s) => {
-				val head = if (s != CP) s"slice $s" else "cherry picked wells"
+				val head = s match {
+					case Slice.CP => "cherry picked wells"
+					case Slice.FREE => "many to many wells"
+					case s => s"slice $s"
+				}
 				s"$head of "
 			}).getOrElse("")
 			sliceStr + quad.map((q) => s"$q of $id").getOrElse(id)
@@ -87,6 +94,7 @@ case class Transfer(from: String, to: String,
 	 * @return error string for each transfer found to be cyclical
 	 */
 	private def checkForCyclicTransfers(trans: List[Transfer]) = {
+		//@TODO Make sure input list itself isn't cyclic
 		// Start up checks to see if anything cyclical
 		val isCyclicChecks = trans.map(_.isAdditionCyclic)
 		// Make them into a single future
@@ -168,7 +176,7 @@ case class Transfer(from: String, to: String,
 														Transfer(from = fromSub, to = toSub,
 															fromQuad = None, toQuad = None,
 															project = this.project, slice = None,
-															cherries = None, isTubeToMany = false,
+															cherries = None, free = None, isTubeToMany = false,
 															isSampleOnly = false)))
 												// Didn't find destination well subcomponent
 												case None => None
@@ -226,7 +234,7 @@ case class Transfer(from: String, to: String,
 									case Some(fromSub) =>
 										Some(Yes(Transfer(from = fromSub, to = to,
 											fromQuad = None, toQuad = None, project = project,
-											slice = None, cherries = None,
+											slice = None, cherries = None, free = None,
 											isTubeToMany = false, isSampleOnly = false)))
 									case None => None
 								}
@@ -281,7 +289,7 @@ case class Transfer(from: String, to: String,
 												case Some(toSub) =>
 													Some(Yes(Transfer(from = from, to = toSub,
 														fromQuad = None, toQuad = None, project = project,
-														slice = None, cherries = None,
+														slice = None, cherries = None, free = None,
 														isTubeToMany = false, isSampleOnly = false)))
 												case None => None
 											}
@@ -345,9 +353,7 @@ case class Transfer(from: String, to: String,
 		}
 
 		// First get transfer source and target components
-		TrackerCollection.findIds(List(from, to)).flatMap((components) => {
-			// Get objects from bson
-			val contents = ComponentFromJson.bsonToComponents(components)
+		TrackerCollection.findIds(List(from, to)).flatMap((contents) => {
 			val findFromC = contents.find(_.id == from)
 			val findToC = contents.find(_.id == to)
 			// Check out that we were able to retrieve both items
@@ -411,7 +417,7 @@ case class Transfer(from: String, to: String,
 	/**
 	 * If a quadrant and/or slice transfer then map input wells to output wells.  Only 384-well components have
 	 * quadrants so any transfers to/from a quadrant must be to/from a 384-well component.  A slice, other than
-	 * cherry picking, is a subset of a quadrant (for components that have quadrants) or an entire component
+	 * cherry picking or free, is a subset of a quadrant (for components that have quadrants) or an entire component
 	 * (for non-quadrant components, such as 96-well components, in which case the entire component can be
 	 * thought of as a single quadrant).
 	 * This method, taking in account the quadrants/slices wanted determines where the selected input wells
@@ -431,46 +437,99 @@ case class Transfer(from: String, to: String,
 	 */
 	def getWellMapping[T](soFar: T, fromComponent: Component, toComponent: Component, getSameMapping: Boolean)
 						 (makeOut: (T, Division.Division, Map[String, List[String]]) => T): T = {
+		// Make a one-to-one map into generic one-to-many
+		def makeOneToMany(in: Map[String, String]) =
+			in.map{
+				case (key, value) => key -> List(value)
+			}
 		// Get destination component to look at divisions, unless we're coming from a tube to a divided compoment
 		val divComponent = if (isTubeToMany) toComponent else fromComponent
 		val trans =
-			(fromQuad, toQuad, slice, cherries) match {
+			(fromQuad, toQuad, slice, cherries, free) match {
 				// From a quadrant to an entire component - should be 384-well component to non-quadrant component
-				case (Some(fromQ), None, None, _) => Some(DIM16x24, TransferWells.qFrom384(fromQ))
+				case (Some(fromQ), None, None, _, _) =>
+					Some(DIM16x24, makeOneToMany(TransferWells.qFrom384(fromQ)))
 				// To a quadrant from an entire component - should be non-quadrant component to 384-well component
 				// Make sure we set component division to dimensions of destination if coming from tube
-				case (None, Some(toQ), None, _) =>
-					getLayout(divComponent).map((_, TransferWells.qTo384(toQ)))
+				case (None, Some(toQ), None, _, _) =>
+					getLayout(divComponent).map((_, makeOneToMany(TransferWells.qTo384(toQ))))
 				// Slice of quadrant to an entire component - should be 384-well component to 96-well component
-				case (Some(fromQ), None, Some(qSlice), cher) =>
-					Some(DIM16x24, TransferWells.slice384to96wells(quad = fromQ, slice = qSlice, cherries = cher))
+				case (Some(fromQ), None, Some(qSlice), cher, _) =>
+					Some(DIM16x24,
+						makeOneToMany(TransferWells.slice384to96wells(quad = fromQ, slice = qSlice, cherries = cher)))
 				// Quadrant to quadrant - must be 384-well component to 384-well component
-				case (Some(fromQ), Some(toQ), None, _) =>
-					Some(DIM16x24, TransferWells.q384to384map(fromQ, toQ))
+				case (Some(fromQ), Some(toQ), None, _, _) =>
+					Some(DIM16x24, makeOneToMany(TransferWells.q384to384map(fromQ, toQ)))
 				// Quadrant to quadrant with slice - must be 384-well component to 384-well component
-				case (Some(fromQ), Some(toQ), Some(qSlice), cher) =>
-					Some(DIM16x24, TransferWells.slice384to384wells(fromQ = fromQ, toQ = toQ,
-						slice = qSlice, cherries = cher))
+				case (Some(fromQ), Some(toQ), Some(qSlice), cher, _) =>
+					Some(DIM16x24,
+						makeOneToMany(TransferWells.slice384to384wells(
+							fromQ = fromQ, toQ = toQ, slice = qSlice, cherries = cher)
+						))
 				// Slice of non-quadrant component to quadrant - Must be 96-well component or tube to 384-well component
-				case (None, Some(toQ), Some(qSlice), cher) =>
-					getLayout(divComponent)
-						.map((_, TransferWells.slice96to384wells(quad = toQ, slice = qSlice, cherries = cher)))
-				// Either a 96-well component (non-quadrant transfer)
-				// or a straight cherry picked 384-well component (no quadrants involved)
-				// or a tube to a divided component
-				case (None, None, Some(qSlice), cher) =>
-					getLayout(divComponent) match {
-						case Some(DIM8x12) =>
-							Some(DIM8x12, TransferWells.slice96to96wells(slice = qSlice, cherries = cher))
-						case Some(DIM16x24) =>
-							Some(DIM16x24, TransferWells.slice384to384wells(slice = qSlice, cherries = cher))
-						case _ => None
+				case (None, Some(toQ), Some(qSlice), cher, _) =>
+					getLayout(divComponent).map((_,
+						makeOneToMany(TransferWells.slice96to384wells(quad = toQ, slice = qSlice, cherries = cher))
+					))
+				// Slice without quadrant - see if free for all
+				case (None, None, Some(qSlice), cher, fr) =>
+					fr match {
+						// Free for all
+						case Some(freeList) =>
+							// Make a map of named wells from a free list of indexed wells
+							def makeEntry(in: Transfer.FreeList,
+										  inToWell: (Int) => String, outToWell: (Int) => String) = {
+								in.map {
+									case (in, outList) =>
+										inToWell(in) -> outList.map(outToWell)
+								}.toMap
+							}
+							(getLayout(fromComponent), getLayout(toComponent)) match {
+								case (Some(DIM8x12), Some(DIM8x12)) =>
+									Some(DIM8x12, makeEntry(freeList,
+										TransferWells.make96WellStrFromIndex,
+										TransferWells.make96WellStrFromIndex
+									))
+								case (Some(DIM8x12), Some(DIM16x24)) =>
+									Some(DIM8x12, makeEntry(freeList,
+										TransferWells.make96WellStrFromIndex,
+										TransferWells.make384WellStrFromIndex
+									))
+								case (Some(DIM16x24), Some(DIM8x12)) =>
+									Some(DIM16x24, makeEntry(freeList,
+										TransferWells.make384WellStrFromIndex,
+										TransferWells.make96WellStrFromIndex
+									))
+								case (Some(DIM16x24), Some(DIM16x24)) =>
+									Some(DIM16x24, makeEntry(freeList,
+										TransferWells.make384WellStrFromIndex,
+										TransferWells.make384WellStrFromIndex
+									))
+								case _ =>
+									None
+							}
+						// Either a 96-well component (non-quadrant transfer)
+						// or a straight cherry picked 384-well component (no quadrants involved)
+						// or a tube to a divided component
+						case None =>
+							getLayout(divComponent) match {
+								case Some(DIM8x12) =>
+									Some(DIM8x12,
+										makeOneToMany(TransferWells.slice96to96wells(slice = qSlice, cherries = cher)))
+								case Some(DIM16x24) =>
+									Some(DIM16x24,
+										makeOneToMany(
+											TransferWells.slice384to384wells(slice = qSlice, cherries = cher)
+										)
+									)
+								case _ => None
+							}
 					}
 				// Transfer to entire divided component either from/to a tube or between same size components
-				case (None, None, None, _) if isTubeToMany || getSameMapping =>
+				case (None, None, None, _, _) if isTubeToMany || getSameMapping =>
 					getLayout(divComponent) match {
-						case Some(DIM8x12) => Some(DIM8x12, TransferWells.entire96to96wells)
-						case Some(DIM16x24) => Some(DIM16x24, TransferWells.entire384to384wells)
+						case Some(DIM8x12) => Some(DIM8x12, makeOneToMany(TransferWells.entire96to96wells))
+						case Some(DIM16x24) => Some(DIM16x24, makeOneToMany(TransferWells.entire384to384wells))
 						case _ => None
 					}
 				case _ =>
@@ -479,12 +538,12 @@ case class Transfer(from: String, to: String,
 		// Callback if anything found to get new results
 		trans match {
 			case Some(tr) =>
-				// Make into list of wells transferred to - only single destination wells unless from tube
+				// Make into list of wells transferred to
 				val wells =
 					if (isTubeToMany)
-						Map(TransferContents.oneWell -> tr._2.values.toList)
+						Map(TransferContents.oneWell -> tr._2.values.flatten.toList)
 					else
-						tr._2.map { case (k, v) => k -> List(v) }
+						tr._2
 				makeOut(soFar, tr._1, wells)
 			case None => soFar
 		}
@@ -501,7 +560,7 @@ case class Transfer(from: String, to: String,
 case class TransferStart(from: String, to: String, project: Option[String]) {
 	def toTransferForm = TransferForm(toTransfer, dataMandatory = false,
 		isQuadToQuad = false, isQuadToTube = false, isTubeToQuad = false, canBeSampleOnly = false)
-	def toTransfer = Transfer(from, to, None, None, project, None, None, isTubeToMany = false, isSampleOnly = false)
+	def toTransfer = Transfer(from, to, None, None, project, None, None, None, isTubeToMany = false, isSampleOnly = false)
 }
 
 /**
@@ -560,10 +619,12 @@ object Transfer {
 		val S5 = Value("1-6 x A-H")
 		val S6 = Value("7-12 x A-H")
 		val CP = Value("Cherry Pick Wells")
+		val FREE = Value("File Input")
 	}
 
 	// String values for dropdown lists etc.
-	val sliceVals: List[String] = enumSortedList(Slice)
+	//@TODO Make UI that requests file if FREE specified
+	val sliceVals: List[String] = enumSortedList(Slice).filterNot(_ == Slice.FREE.toString)
 
 	// Keys for form
 	val fromKey = "from"
@@ -580,11 +641,76 @@ object Transfer {
 	// Formatter for going to/from and validating Json
 	implicit val transferStartFormat: Format[TransferStart] = Json.format[TransferStart]
 
+	// Element in free-for-all list (source well -> destination well(s))
+	type FreeElement = (Int, List[Int])
+	// Free-for-all list
+	type FreeList = List[FreeElement]
+
+	// JSON formatting of free list
+	implicit object FreeFormat extends Format[FreeList] {
+		/**
+		 * Convert JSON to free list
+		 * @param json json containing free list
+		 * @return free list of sourceWell->destinationWells
+		 */
+		def reads(json: JsValue) : JsResult[FreeList] = {
+			val noSource = -1 // Index to flag there's no source
+			// Get free list of (sourceWell -> listDestinationWells)
+			val out =
+				json match {
+					case JsArray(eles) =>
+						// Go through entries in list
+						eles.map {
+							case o: JsObject =>
+								// Should only be item in object - sourceWell -> arrayOfDestinationWells
+								o.fields.headOption match {
+									case Some((key: String, jVal)) =>
+										jVal match {
+											case JsArray(toEles) =>
+												// Convert destinatino wells to a list of integers
+												val eleList = toEles.flatMap {
+													case i: JsNumber => Some(i.value.toInt)
+													case _ => None
+												}.toList
+												// Point source well to destination wells
+												key.toInt -> eleList
+											case _ => key.toInt -> List.empty[Int]
+										}
+									case _ => noSource -> List.empty[Int]
+								}
+							case _ => noSource -> List.empty[Int]
+						}
+					case _ => List.empty[FreeElement]
+				}
+			// Return list filtering out those with no source or destination wells
+			JsSuccess(
+				out.filter {
+					case (key, entries) => key != noSource && entries.nonEmpty
+				}.toList)
+		}
+
+		/**
+		 * Convert a free list to JSON
+		 * @param freeList free list
+		 * @return
+		 */
+		def writes(freeList: FreeList) = {
+			// Get array of source->destination(s)
+			val jsAry =
+				freeList.map {
+					case (key, toVals) =>
+						JsObject(Seq(key.toString -> JsArray(toVals.map((i) => JsNumber(i)))))
+				}
+			JsArray(jsAry)
+		}
+	}
+
 	// Keys for form
 	val fromQuadKey = "fromQuad"
 	val toQuadKey = "toQuad"
 	val sliceKey = "slice"
 	val cherriesKey = "cherries"
+	val freeKey = "free"
 	val isTubeToManyKey = "isTubeToMany"
 	val isSampleOnlyKey = "isSampleOnly"
 
@@ -597,6 +723,7 @@ object Transfer {
 		projectKey -> optional(text),
 		sliceKey -> optional(enum(Slice)),
 		cherriesKey -> optional(list(number)),
+		freeKey -> ignored(None: Option[FreeList]),
 		isTubeToManyKey -> boolean,
 		isSampleOnlyKey -> boolean
 	)(Transfer.apply)(Transfer.unapply)
@@ -679,7 +806,8 @@ object Transfer {
 		val wellIdxs = getCherryIndicies(div, wells)
 		// Create transfer from tube to wells in plate
 		Transfer(from = tube, to = plate, fromQuad = None, toQuad = None, project = proj,
-			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = true, isSampleOnly = false)
+			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), free = None,
+			isTubeToMany = true, isSampleOnly = false)
 	}
 
 	/**
@@ -697,8 +825,67 @@ object Transfer {
 		val wellIdxs = getCherryIndicies(div, wells)
 		// Create transfer to tube from wells in plate
 		Transfer(from = plate, to = tube, fromQuad = None, toQuad = None, project = proj,
-			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), isTubeToMany = false, isSampleOnly = false)
+			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), free = None,
+			isTubeToMany = false, isSampleOnly = false)
 	}
+
+	/**
+	 * BSON reader/writers for Enums - will signal if errors - handlers should handle that
+	 */
+	implicit object BSONQuadHandler extends BSONHandler[BSONString, Quad.Quad] {
+		def read(doc: BSONString) = Quad.withName(doc.value)
+		def write(quad: Quad.Quad) = BSON.write(quad.toString)
+	}
+	implicit object BSONSliceHandler extends BSONHandler[BSONString, Slice.Slice] {
+		def read(doc: BSONString) = Slice.withName(doc.value)
+		def write(slice: Slice.Slice) = BSON.write(slice.toString)
+	}
+
+	/**
+	 * BSON handler for transfer free list used to map well to one or more wells: List[(Int, List[Int])]
+	 */
+	implicit object BSONFreeHandler extends BSONHandler[BSONArray, Transfer.FreeList] {
+		/**
+		 * Convert BSON to free list
+		 * @param doc bson containing free list
+		 * @return free list of sourceWell->destinationWells
+		 */
+		def read(doc: BSONArray) =
+			doc.values.map {
+				case d: BSONDocument =>
+					// Get one item in document (src -> destination(s)
+					val (key, value) = d.elements.head
+					value match {
+						case arr : BSONArray =>
+							// Convert to srcWellInt -> list of destinationWells
+							val intArray =
+								arr.values.map {
+									case n: BSONInteger =>
+										n.value
+								}.toList
+							key.toInt -> intArray
+					}
+			}.toList
+
+		/**
+		 * Convert a free list to BSON
+		 * @param slice free list
+		 * @return BSON array with elements containing srcWell->destinationWells
+		 */
+		def write(slice: Transfer.FreeList) =
+			BSONArray(
+				slice.map {
+					case (key, value) =>
+						BSONDocument(key.toString -> BSONArray(value.map(BSONInteger)))
+				}
+			)
+	}
+
+	/**
+	 * Handler to convert between Transfer and BSON
+	 */
+	implicit val transferBSON =	Macros.handler[Transfer]
+
 }
 
 /**
@@ -714,10 +901,10 @@ class TransferWithTime(override val from: String, override val to: String,
 					   override val fromQuad: Option[Transfer.Quad.Quad],
 					   override val toQuad: Option[Transfer.Quad.Quad],
 					   override val project: Option[String], override val slice: Option[Transfer.Slice.Slice],
-					   override val cherries: Option[List[Int]],
+					   override val cherries: Option[List[Int]], override val free: Option[List[(Int, List[Int])]],
 					   override val isTubeToMany: Boolean, override val isSampleOnly: Boolean,
 					   val time: Long)
-	extends Transfer(from, to, fromQuad, toQuad, project, slice, cherries, isTubeToMany, isSampleOnly)
+	extends Transfer(from, to, fromQuad, toQuad, project, slice, cherries, free, isTubeToMany, isSampleOnly)
 
 /**
  * Companion object
@@ -731,5 +918,6 @@ object TransferWithTime {
 	 */
 	def apply(transfer: Transfer, time: Long) : TransferWithTime =
 		new TransferWithTime(transfer.from, transfer.to, transfer.fromQuad, transfer.toQuad,
-			transfer.project, transfer.slice, transfer.cherries, transfer.isTubeToMany, transfer.isSampleOnly, time)
+			transfer.project, transfer.slice, transfer.cherries, transfer.free, transfer.isTubeToMany,
+			transfer.isSampleOnly, time)
 }

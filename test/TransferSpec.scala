@@ -323,7 +323,7 @@ object TransferSpec {
 				from = plate.id, to = t._1,
 				fromQuad = None, toQuad = None,
 				project = None, slice = Some(Slice.CP), cherries = Some(t._2),
-				isTubeToMany = false, isSampleOnly = false
+				free = None, isTubeToMany = false, isSampleOnly = false
 			))
 		)
 		val futs = Future.sequence(pInsert :: (tInserts ++ trans))
@@ -397,7 +397,7 @@ object TransferSpec {
 					from = tube, to = p384.id,
 					fromQuad = None, toQuad = Some(quad),
 					project = None, slice = slice, cherries = cherries,
-					isTubeToMany = true, isSampleOnly = false
+					free = None, isTubeToMany = true, isSampleOnly = false
 				))
 		}
 		val futs = Future.sequence(pInsert :: trans)
@@ -489,7 +489,7 @@ object TransferSpec {
 				from = from.id, to = to.id,
 				fromQuad = tran._1, toQuad = tran._2,
 				project = None, slice = tran._3, cherries = tran._4,
-				isTubeToMany = false, isSampleOnly = false
+				free = None, isTubeToMany = false, isSampleOnly = false
 			)))
 		val futs = Future.sequence(fromInsert :: toInsert :: trans)
 		Await.result(futs, d3secs)

@@ -1,8 +1,8 @@
 package models.db
 
 import utils.MessageHandler
-import models.{ComponentFromJson, Component}
-import play.api.{Play, Logger}
+import models._
+import play.api.{Logger, Play}
 import play.api.libs.json._
 import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
@@ -19,6 +19,24 @@ import scala.concurrent.Future
  * Created by nnovod on 4/23/15.
  */
 object TrackerCollection extends Controller with MongoController {
+	import Component._
+	// Prefixes used for good and bad messages
+	private val okPrefix = "OK:"
+	private val notOkPrefix = "NOK:"
+
+	/**
+	 * Fold together the inserts done - make success and failure messages
+	 * @param inserts inserts to be completed
+	 * @return (success messages, failure messages)
+	 */
+	private def foldInserts(inserts: List[Future[String]]) =
+		Future.fold(inserts)((List.empty[String], List.empty[String])){
+			case ((ok: List[String], bad: List[String]), next: String) =>
+				if (next.startsWith(okPrefix)) (ok :+ next.substring(okPrefix.length), bad)
+				else if (next.startsWith(notOkPrefix)) (ok, bad :+ next.substring(notOkPrefix.length))
+				else (ok, bad)
+		}
+
 	/**
 	 * Get tracker collection name.  We use a def instead of a val to avoid hot-reloading problems.
 	 * @return collection name
@@ -77,6 +95,16 @@ object TrackerCollection extends Controller with MongoController {
 	 */
 	def findIds(ids: List[String]) = {
 		val query = BSONDocument(Component.idKey -> BSONDocument("$in" -> ids))
+		trackerCollectionBSON.find(query).cursor[Component].collect[List]()
+	}
+
+	/**
+	 * Find component documents from a list of IDs
+	 * @param ids component IDs
+	 * @return cursor where all found entries are collected
+	 */
+	def findIDDocs(ids: List[String]) = {
+		val query = BSONDocument(Component.idKey -> BSONDocument("$in" -> ids))
 		findWithQuery(query).collect[List]()
 	}
 
@@ -104,10 +132,8 @@ object TrackerCollection extends Controller with MongoController {
 	 * @return component object if found
 	 */
 	def findComponent(id: String) = {
-		findID[JsObject](id).map {
-			case Some(json) => Some(ComponentFromJson.getComponent(json))
-			case None => None
-		}
+		val query = BSONDocument(Component.idKey -> id)
+		trackerCollectionBSON.find(query).one[Component]
 	}
 
 	/**
@@ -119,8 +145,16 @@ object TrackerCollection extends Controller with MongoController {
 	 * @tparam R return type of callbacks
 	 * @return future with return type
 	 */
-	def insertComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) =
-		doComponentDBOperation(trackerCollection.insert(_: C), "registration", data, onSuccess, onFailure)
+	def insertJSONComponent[C <: Component : Format, R](data: C,
+														onSuccess: (String) => R,
+														onFailure: (Throwable) => R) =
+		doComponentDBOperation(
+			oper = trackerCollection.insert(_: C),
+			operLabel = "registration",
+			data = data,
+			onSuccess = onSuccess,
+			onFailure = onFailure
+		)
 
 	/**
 	 * Insert components, via reactive mongo, into the tracker DB
@@ -128,22 +162,50 @@ object TrackerCollection extends Controller with MongoController {
 	 * @tparam C component type
 	 * @return future with two lists, one of success messages, one of failure messages
 	 */
-	def insertComponents[C <: Component : Format](data: List[C]) = {
-		val okPrefix = "OK:"
-		val notOkPrefix = "NOK:"
-		val inserts = for (d <- data) yield {
-			doComponentDBOperation(
-				oper = trackerCollection.insert(_: C), operLabel = "registration", data = d,
-				onSuccess = (s: String) => s"$okPrefix$s",
-				onFailure = (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}"
-			)
-		}
-		Future.fold(inserts)((List.empty[String], List.empty[String])){
-			case ((ok: List[String], bad: List[String]), next: String) =>
-				if (next.startsWith(okPrefix)) (ok :+ next.substring(okPrefix.length), bad)
-				else if (next.startsWith(notOkPrefix)) (ok, bad :+ next.substring(notOkPrefix.length))
-				else (ok, bad)
-		}
+	def insertJSONComponents[C <: Component : Format](data: List[C]) = {
+		val inserts =
+			for (d <- data) yield {
+				insertJSONComponent(
+					data = d,
+					onSuccess = (s: String) => s"$okPrefix$s",
+					onFailure = (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}"
+				)
+			}
+		foldInserts(inserts)
+	}
+
+	/**
+	 * Insert a component, via reactive mongo, into the tracker DB
+	 * @param data component to insert
+	 * @param onSuccess callback upon success (paramater is success message)
+	 * @param onFailure callback upon failure (parameter is exception)
+	 * @tparam R return type of callbacks
+	 * @return future with return type
+	 */
+	def insertComponent[R](data: Component, onSuccess: (String) => R, onFailure: (Throwable) => R) =
+		doComponentDBOperation(
+			oper = trackerCollectionBSON.insert(_: Component),
+			operLabel = "registration",
+			data = data,
+			onSuccess = onSuccess,
+			onFailure = onFailure
+		)
+
+	/**
+	 * Insert components, via reactive mongo, into the tracker DB
+	 * @param data components to insert
+	 * @return future with two lists, one of success messages, one of failure messages
+	 */
+	def insertComponents(data: List[Component]) = {
+		val inserts =
+			for (d <- data) yield {
+				insertComponent(
+					data = d,
+					onSuccess = (s: String) => s"$okPrefix$s",
+					onFailure = (t: Throwable) => s"$notOkPrefix${MessageHandler.exceptionMessage(t)}"
+				)
+			}
+		foldInserts(inserts)
 	}
 
 	/**
@@ -155,10 +217,26 @@ object TrackerCollection extends Controller with MongoController {
 	 * @tparam R return type of callbacks
 	 * @return future with return type
 	 */
-	def updateComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) = {
+	def updateJSONComponent[C <: Component : Format, R](data: C, onSuccess: (String) => R, onFailure: (Throwable) => R) = {
 		val selector = Json.obj(Component.idKey -> data.id, Component.typeKey -> data.component.toString)
 		doComponentDBOperation(
 			oper = trackerCollection.update(selector, _: C), operLabel = "update", data = data,
+			onSuccess = onSuccess, onFailure = onFailure
+		)
+	}
+
+	/**
+	 * Update a component, via reactive mongo, into the tracker DB
+	 * @param data component to update
+	 * @param onSuccess callback upon success (paramater is success message)
+	 * @param onFailure callback upon failure (parameter is exception)
+	 * @tparam R return type of callbacks
+	 * @return future with return type
+	 */
+	def updateComponent[R](data: Component, onSuccess: (String) => R, onFailure: (Throwable) => R) = {
+		val selector = BSONDocument(Component.idKey -> data.id, Component.typeKey -> data.component.toString)
+		doComponentDBOperation(
+			oper = trackerCollectionBSON.update(selector, _: Component), operLabel = "update", data = data,
 			onSuccess = onSuccess, onFailure = onFailure
 		)
 	}
@@ -202,15 +280,16 @@ object TrackerCollection extends Controller with MongoController {
 		val command = RawCommand(BSONDocument("distinct" -> trackerCollectionName, "key" -> "tags.tag"))
 		// Execute command and map the results into a list (it's actually a set but list is more efficient and
 		// uniqueness is already guaranteed by distinct command)
-		db.command(command).map((doc) => {
+		db.command(command).map[(Option[String],List[String])]((doc) => {
 			// "values" is the key used in the document when it is returning a set of values
 			doc.getAs[List[String]]("values") match {
 				case Some(nextVal) => (None, nextVal)
 				case None => (None, List.empty[String])
 			}
 		}).recover{
-			case e: Exception => (Some(s"Exception during tag retrieval: ${MessageHandler.exceptionMessage(e)}"),
-				List.empty[String])
+			case e: Exception =>
+				(Some(s"Exception during tag retrieval: ${MessageHandler.exceptionMessage(e)}"),
+					List.empty[String])
 		}
 	}
 }

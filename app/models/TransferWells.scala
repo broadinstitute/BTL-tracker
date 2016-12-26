@@ -20,7 +20,7 @@ object TransferWells {
 	private val colsPer384 = colLast384 - col1 + 1
 	private val wellsPer96 = rowsPer96 * colsPer96
 	private val wellsPer384 = rowsPer384 * colsPer384
-	private val wellRegexp = """^([A-Z])(\d+)$""".r
+	val wellRegexp = """^\s*([A-Pa-p])(\d+)\s*$""".r
 
 	/**
 	  * Make an index from a well string
@@ -121,14 +121,14 @@ object TransferWells {
 	 * @param i index to wanted well
 	 * @return well label (e.g., "A01")
 	 */
-	private def make96WellStrFromIndex(i: Int) = makeWellStrFromIndex(i, colsPer96)
+	def make96WellStrFromIndex(i: Int) = makeWellStrFromIndex(i, colsPer96)
 
 	/**
 	 * Make a well string (e.g., "A01") from an index (e.g., 0) for a 384-well plate
 	 * @param i index to wanted well
 	 * @return well label (e.g., "A01")
 	 */
-	private def make384WellStrFromIndex(i: Int) = makeWellStrFromIndex(i, colsPer384)
+	def make384WellStrFromIndex(i: Int) = makeWellStrFromIndex(i, colsPer384)
 
 	/**
 	 * Make map of 96-well plate to quadrant of 384-well plate
@@ -165,6 +165,12 @@ object TransferWells {
 	// Make map of quadrant to set of wells in quadrant
 	lazy val quadWells =
 		Quad.values.map((q) => q -> q384to384map((q, q)).keySet).toMap
+	// Make map of quadrant to sorted list of wells (by index) in quadrant
+	lazy val quadIdxWells =
+		quadWells.map {
+			case (q, wells) => q ->
+				wells.map(make384IdxFromWellStr).toList.sorted
+		}
 
 	// Make map of wells to quadrant well is in
 	lazy val wellsQuad =
@@ -195,6 +201,9 @@ object TransferWells {
 	lazy val entire384to384wells = makeEntireMap(wellsPer384, make384WellStrFromIndex)
 
 	import Slice._
+
+	//@TODO Make slice methods handle FREE
+	def isSlice(s: Slice): Boolean = s != CP && s != FREE
 
 	/**
 	 * Map of fixed slices to wells.
@@ -236,6 +245,7 @@ object TransferWells {
 				case _ =>
 					throw new Exception("Cherry picking slice without cherries")
 			}
+			case FREE => List.empty[String]
 			case _ => slices(slice)
 		}
 	}
@@ -295,7 +305,7 @@ object TransferWells {
 	 */
 	private def getQuadSliceMap(slicer: (Quad.Quad, Slice.Slice, Option[List[Int]]) => Map[String, String]) =
 		(for {
-			s <- Slice.values if s != CP
+			s <- Slice.values if isSlice(s)
 			q <- Quad.values
 		} yield {
 				(q, s) -> slicer(q, s, None)
@@ -314,7 +324,7 @@ object TransferWells {
 	 * @return map of well to well including only wells selected
 	 */
 	def slice96to384wells(quad: Quad, slice: Slice, cherries: Option[List[Int]]) =
-		if (slice != CP) slice96to384map(quad, slice) else {
+		if (isSlice(slice)) slice96to384map(quad, slice) else {
 			val cherryWells = slice96(slice,cherries)
 			val quadWells = qTo384(quad)
 			quadWells.filter {
@@ -331,7 +341,7 @@ object TransferWells {
 	 * @return map of well to well including only wells selected
 	 */
 	def slice384to96wells(quad: Quad, slice: Slice, cherries: Option[List[Int]]) =
-		if (slice != CP) slice384to96map(quad, slice) else {
+		if (isSlice(slice)) slice384to96map(quad, slice) else {
 			val cherryWells = slice96(slice,cherries)
 			val quadWells = qFrom384(quad)
 			quadWells.filter {
@@ -344,7 +354,7 @@ object TransferWells {
 	// Not for cherry picking slices
 	private lazy val slice384to384map =
 		(for {
-			s <- Slice.values if s != CP
+			s <- Slice.values if isSlice(s)
 			qFrom <- Quad.values
 			qTo <- Quad.values
 		} yield {
@@ -366,7 +376,7 @@ object TransferWells {
 	 */
 	def slice384to384wells(fromQ: Quad, toQ: Quad, slice: Slice, cherries: Option[List[Int]]) =
 	// If not cherry picking then get fixed map of quadrant to quadrant transfer
-		if (slice != CP) slice384to384map(fromQ, toQ, slice) else {
+		if (isSlice(slice)) slice384to384map(fromQ, toQ, slice) else {
 			// Cherry picking - get wells that are in quadrant being transferred and then only take wells cherry picked
 			// First get cherry picked wells labels - picked wells are within quadrant (i.e., 96-well plate coordinates)
 			val cherryWells = slice96(slice, cherries)
@@ -384,12 +394,16 @@ object TransferWells {
 		}
 
 	/**
-	 * Get a map of wells for cherry picked 384-well component
+	 * Get a map of wells for cherry picked 384-well component.  Only way a 384-well component should have a slice
+	 * without a quadrant is if there are cherries (or free, but that shouldn't call here)
 	 * @param cherries list of indicies (A01 is 0, A02 is 1, ...) to individual wells picked if cherry picking
 	 * @return map of wells to well including only wells from slice
 	 */
 	def slice384to384wells(slice: Slice, cherries: Option[List[Int]]) =
-		if (slice != CP || cherries.isEmpty) Map.empty[String, String] else makeSelfWellMap(index384toWell(cherries.get))
+		if (isSlice(slice) || cherries.isEmpty)
+			Map.empty[String, String]
+		else
+			makeSelfWellMap(index384toWell(cherries.get))
 
 	/**
 	 * Convert list of indicies into 384-well plate into well names (e.g., "A01")
@@ -401,7 +415,7 @@ object TransferWells {
 	// Make 96 to 96 map of maps: slice -> (originalWells -> destinationWells) - no quadrants are needed for 96-wells
 	// Not for cherry picking slices
 	private lazy val slice96to96map =
-		Slice.values.toIterable.filterNot(_ == CP).map((value) => value -> slice96to96(value, None)).toMap
+		Slice.values.filter(isSlice).map((value) => value -> slice96to96(value, None)).toMap
 
 	/**
 	 * Get a map of wells for a slice of a 96-well plate going into a 96-well plate
@@ -410,5 +424,5 @@ object TransferWells {
 	 * @return map of wells to well including only wells from slice
 	 */
 	def slice96to96wells(slice: Slice, cherries: Option[List[Int]]) =
-		if (slice != CP) slice96to96map(slice) else slice96to96(slice, cherries)
+		if (isSlice(slice)) slice96to96map(slice) else slice96to96(slice, cherries)
 }

@@ -10,6 +10,7 @@ trait TestSpec extends PlaySpec with BeforeAndAfter {
 		TestDB.cleanupTestJiraDB
 		TestDB.cleanupTestTrackerCollection
 		TestDB.cleanupTestTransferCollection
+		TestDB.cleanupTestRackCollection
 	}
 
 	after {

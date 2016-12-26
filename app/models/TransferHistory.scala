@@ -14,7 +14,7 @@ import play.api.mvc.Controller
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json.BSONFormats
 import play.mvc.Call
-import reactivemongo.bson.{BSONObjectID, BSONDocument}
+import reactivemongo.bson.{BSON, BSONDocument, BSONObjectID}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.concurrent.Future
@@ -97,16 +97,15 @@ object TransferHistory extends Controller with MongoController {
 	  * @return transfer object
 	  */
 	def getTransferObject(bson: BSONDocument) = {
+
 		// Get the time of the transfer
 		val time = bson.getAs[BSONObjectID]("_id") match {
 			case Some(id) => id.time
 			case _ => 0
 		}
-		// Get json since Transfer conversions are setup to do json reads/writes
-		val json = BSONFormats.BSONDocumentFormat.writes(bson).as[JsObject]
-		import Transfer.transferFormat
-		val transfer = json.as[Transfer]
-		// Add time to transfer info
+		import Transfer._
+		val transfer = BSON.readDocument[Transfer](bson)
+		// Add time to transfer
 		TransferWithTime(transfer = transfer, time = time)
 	}
 
@@ -132,7 +131,7 @@ object TransferHistory extends Controller with MongoController {
 		// Now convert BSON returned to component objects (first map for future, next to convert bson list)
 		previousComponents.map {
 			case ((components, transfers)) =>
-				History(components = components.map(getComponentObject), transfers = transfers.map(getTransferObject))
+				History(components = components, transfers = transfers.map(getTransferObject))
 		}
 	}
 
@@ -170,12 +169,14 @@ object TransferHistory extends Controller with MongoController {
 	 * @param fromQuad optional source quad of component transfer is coming from
 	 * @param toQuad optional destination quad of component transfer is going to
 	 * @param cherries optional list of indicies to cherry picked wells
+	 * @param free optional list of wells to wells transfer
 	 * @param isTubeToMany transfer is from one well to many (e.g., tube to plate)
 	 * @param isSampleOnly only transfer wells that contain samples
 	 * @param time when transfer was done
 	 */
 	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad], slice: Option[Slice],
-							cherries: Option[List[Int]], isTubeToMany: Boolean, isSampleOnly: Boolean, time: Long)
+							cherries: Option[List[Int]], free: Option[Transfer.FreeList],
+							isTubeToMany: Boolean, isSampleOnly: Boolean, time: Long)
 
 	/**
 	  * Will adding this node to the graph make it cyclic?
@@ -220,7 +221,7 @@ object TransferHistory extends Controller with MongoController {
 				history.transfers.map((t) =>
 					(findComponent(t.from) ~+#>
 						findComponent(t.to))(TransferEdge(fromQuad = t.fromQuad, toQuad = t.toQuad,
-						slice = t.slice, cherries = t.cherries,
+						slice = t.slice, cherries = t.cherries, free = t.free,
 						isTubeToMany = t.isTubeToMany, isSampleOnly = t.isSampleOnly, time = t.time)))
 			}
 		)
@@ -228,9 +229,11 @@ object TransferHistory extends Controller with MongoController {
 		edges.flatMap((e) => {
 			// If empty then make graph with just node of component (or nothing if ID can't be found)
 			if (e.isEmpty) {
-				TrackerCollection.findID[JsObject](componentID).map{
-					case Some(json) => Graph[Component, LkDiEdge](ComponentFromJson.getComponent(json))
-					case None => Graph[Component, LkDiEdge]()
+				TrackerCollection.findComponent(componentID).map {
+					case Some(c) =>
+						Graph[Component, LkDiEdge](c)
+					case _ =>
+						Graph[Component, LkDiEdge]()
 				}
 			} else {
 				Future.successful(Graph(e: _*))
@@ -387,14 +390,14 @@ object TransferHistory extends Controller with MongoController {
 						// Make edge label: If a quad/slice transfer then quad/slice we're going to or from
 						val samplesOnly = if (edgeLabel.asInstanceOf[TransferEdge].isSampleOnly) "samples " else ""
 						edgeLabel match {
-							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _, _, _, _) if fromQ != toQ =>
+							case TransferEdge(Some(fromQ), Some(toQ), qSlice, _, _, _, _, _) if fromQ != toQ =>
 								Some(root,
 									makeEdgeStmt(s"${samplesOnly}from ${fromQ.toString} to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(Some(fromQ), _, qSlice, _, _, _, _) =>
+							case TransferEdge(Some(fromQ), _, qSlice, _, _, _, _, _) =>
 								Some(root, makeEdgeStmt(s"${samplesOnly}from ${fromQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(_, Some(toQ), qSlice, _, _, _, _) =>
+							case TransferEdge(_, Some(toQ), qSlice, _, _, _, _, _) =>
 								Some(root, makeEdgeStmt(s"${samplesOnly}to ${toQ.toString}${makeQuadSliceStmt(qSlice)}"))
-							case TransferEdge(_, _, Some(slice), _, _, _, _) =>
+							case TransferEdge(_, _, Some(slice), _, _, _, _, _) =>
 								Some(root, makeEdgeStmt(s"${samplesOnly}${slice.toString}"))
 							case _ =>
 								val attrs =

@@ -117,15 +117,9 @@ object TransferController extends Controller {
 				}
 			}
 
-			val ids = idsToForm.keys
+			val ids = idsToForm.keys.toList
 			// Go retrieve both objects via futures
-			val queries = ids.map(TrackerCollection.findID[JsObject]).toList
-			Future.sequence(queries).flatMap((found) => {
-				// Get all components found
-				val components = found.flatMap {
-					case Some(c) => Some(ComponentFromJson.getComponent(c))
-					case None => None
-				}
+			TrackerCollection.findIds(ids).flatMap((components) => {
 				// If none found report both missing
 				if (components.isEmpty)
 					Future.successful(None, Some(missingIDs(idsToForm.values.toList)))
@@ -646,11 +640,9 @@ object TransferController extends Controller {
 	 */
 	def transferDisplay(from: String, to: String) = Action.async {
 		// Get transfers between components (flatmap to avoid future of future)
-		TransferCollection.find(from = from, to = to).flatMap((trans) => {
+		TransferCollection.findBSON(from = from, to = to).flatMap((trans) => {
 			// Get components
-			TrackerCollection.findIds(List(from, to)).map((ids) => {
-				// Map bson to components (someday direct mapping should be possible but too painful for now)
-				val components = ComponentFromJson.bsonToComponents(ids)
+			TrackerCollection.findIds(List(from, to)).map((components) => {
 				// Find from and to components
 				val fromComponent = components.find(_.id == from)
 				val toComponent = components.find(_.id == to)
@@ -663,7 +655,7 @@ object TransferController extends Controller {
 					case (outSoFar, next) if fromComponent.isDefined && toComponent.isDefined =>
 						TransferContents.getNextWellMapping(soFar = outSoFar, fromComponent = fromComponent.get,
 							toComponent = toComponent.get, fromQuad = next.fromQuad, toQuad = next.toQuad,
-							quadSlice = next.slice, cherries = next.cherries,
+							quadSlice = next.slice, cherries = next.cherries, free = next.free,
 							isTubeToMany = isFromTube, isSampleOnly = next.isSampleOnly, getSameMapping = true) {
 							case (wellsSoFar, _, newWells) =>
 								val keys = wellsSoFar.keySet ++ newWells.keySet
