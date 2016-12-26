@@ -1,0 +1,14 @@
+@(transferFileForm: Form[TransferFile])
+@import helper._
+
+@main("Transfer file") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Transfer file", transferFileForm)
+	@form(routes.TransferFileController.transferFile(), 'style -> "display:inline;", 'enctype -> "multipart/form-data") {
+		@inputText(transferFileForm(TransferFile.projectKey), '_label -> "Project")
+		@inputFile(transferFileForm(TransferFile.transferFileKey), '_label -> "Transfer File")
+		<input type="submit" value="Upload Transfer File" style="display:inline;">
+	}
+	@homeOption(Seq.empty)
+}

@@ -20,7 +20,7 @@ import TransferFileSpec._
 class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 	"The transfer file" must {
 		"Error when source not specified" in {
-			val tp = await(TransferFile.insertTransfers(List(Map(dpH->"dp1",swH->"A01",dwH->"A01"))))
+			val tp = await(TransferFile.insertTransfers(None, List(Map(dpH->"dp1",swH->"A01",dwH->"A01"))))
 			printMsg(tp)
 			tp mustBe a [No]
 			// When it was an exception
@@ -30,17 +30,17 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			//			}
 		}
 		"Error when destination not specified" in {
-			val tp = await(TransferFile.insertTransfers(List(Map(spH ->"sp1",swH->"A01",dwH->"A01"))))
+			val tp = await(TransferFile.insertTransfers(None, List(Map(spH ->"sp1",swH->"A01",dwH->"A01"))))
 			printMsg(tp)
 			tp mustBe a [No]
 		}
 		"Error when type not specified" in {
-			val tp = await(TransferFile.insertTransfers(List(Map(spH->"sp1",dpH->"dp1",swH->"A01",dwH->"A01"))))
+			val tp = await(TransferFile.insertTransfers(None, List(Map(spH->"sp1",dpH->"dp1",swH->"A01",dwH->"A01"))))
 			printMsg(tp)
 			tp mustBe a [No]
 		}
 		"Error when two different types specified" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02",stH->p384T,dtH->p384T)
 			)))
@@ -48,7 +48,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp mustBe a [No]
 		}
 		"Error when no well specified" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02")
 			)))
@@ -56,7 +56,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp mustBe a [No]
 		}
 		"Error when bad well specified" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"Z01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A99")
 			)))
@@ -73,7 +73,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 					onFailure = println
 				)
 			await(i)
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02")
 			)))
@@ -81,20 +81,24 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp mustBe a [No]
 		}
 		"Type specified once for cherry picking" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02")
 			)))
 			printMsg(tp)
+			val tWanted =
+				List(Transfer("sp1","dp1",None,None,None,Some(Slice.CP),Some(List(0, 1)),None,false,false))
 			tp mustBe a [Yes[_]]
-			println(tp.getYes)
+			tp.getYes mustEqual (2, tWanted)
 		}
 		"Type specified in input for cherry picking" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T))))
 			printMsg(tp)
+			val tWanted =
+				List(Transfer("sp1","dp1",None,None,None,Some(Slice.CP),Some(List(0)),None,false,false))
 			tp mustBe a [Yes[_]]
-			println(tp.getYes)
+			tp.getYes mustEqual (2, tWanted)
 		}
 		"Type specified only in DB for cherry picking" in {
 			val i =
@@ -106,44 +110,50 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 					onFailure = println
 				)
 			await(i)
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02")
 			)))
 			printMsg(tp)
+			val tWanted =
+				List(Transfer("sp1","dp1",None,None,None,Some(Slice.CP),Some(List(0, 1)),None,false,false))
 			tp mustBe a [Yes[_]]
-			println(tp.getYes)
+			tp.getYes mustEqual (1, tWanted)
 		}
 		"Cherry picking into tube" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->tT),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02")
 			)))
 			printMsg(tp)
+			val tWanted =
+				List(Transfer("sp1","dp1",None,None,None,Some(Slice.CP),Some(List(0, 1)),None,false,false))
 			tp mustBe a [Yes[_]]
-			println(tp.getYes)
+			tp.getYes mustEqual (2, tWanted)
 		}
 		"Cherry picking from tube" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->tT,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",dwH->"A02")
 			)))
 			printMsg(tp)
+			val tWanted =
+				List(Transfer("sp1","dp1",None,None,None,Some(Slice.CP),Some(List(0, 1)),None,true,false))
 			tp mustBe a [Yes[_]]
-			println(tp.getYes)
+			tp.getYes mustEqual (2, tWanted)
 		}
 		"Quad transfer" in {
-			val tp = await(TransferFile.insertTransfers(quadList))
+			val tp = await(TransferFile.insertTransfers(None, quadList))
 			printMsg(tp)
 			tp mustBe a [Yes[_]]
 			val tWanted = List(Transfer("sp1","dp1",None,Some(Quad.Q1),None,None,None,None,false,false))
-			tp.getYes mustEqual tWanted
+			tp.getYes mustEqual (2, tWanted)
 			// Check that retrieve of free picker works
 			val t = await(findTransfer(src = "sp1", dest = "dp1"))
 			t mustEqual tWanted
 		}
 		"Free picking from 384->96" in {
-			val tp = await(TransferFile.insertTransfers(List(
+			val tp = await(TransferFile.insertTransfers(None, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p384T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02"),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"F02"),
@@ -153,7 +163,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp mustBe a [Yes[_]]
 			val tWanted = List(Transfer("sp1","dp1",None,None,None,Some(Slice.FREE),None,
 				Some(List((0,List(0)), (1,List(1, 61)), (361,List(1)))),false,false))
-			tp.getYes mustEqual tWanted
+			tp.getYes mustEqual (2, tWanted)
 			// Check that retrieve of free picker works
 			val t = await(findTransfer(src = "sp1", dest = "dp1"))
 			t mustEqual tWanted

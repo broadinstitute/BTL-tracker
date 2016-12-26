@@ -131,4 +131,10 @@ POST        /robot/:abRack                              controllers.RobotControl
 # Create Walkup Sequencing file
 GET        /WUS/:id                                     controllers.Application.walkup(id: String)
 
+# Get request to do transfers from file
+GET        /transferFile                                controllers.TransferFileController.findTransferFile()
+# Post with transfer file
+POST       /transferFile                                controllers.TransferFileController.transferFile()
+
+
 

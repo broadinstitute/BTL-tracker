@@ -19,6 +19,9 @@
 	@form(controllers.routes.Application.addStack(), 'style -> "display:inline;") {
 		<input type="submit" value="Register Stack" style="display:inline;">
 	}
+	@form(controllers.routes.TransferFileController.findTransferFile(), 'style -> "display:inline;") {
+		<input type="submit" value="Transfer file" style="display:inline;">
+	}
 	<br><br>
 	<div id="footer">
 		<label for="qRegister" style="font-size:13px;">&nbspRegister ID:</label>

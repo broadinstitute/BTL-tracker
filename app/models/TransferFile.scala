@@ -5,6 +5,8 @@ import models.db.{TrackerCollection, TransferCollection}
 import models.Transfer.Slice._
 import org.broadinstitute.spreadsheets.{CellSheet, HeaderSheet}
 import org.broadinstitute.spreadsheets.Utils._
+import play.api.data.Form
+import play.api.data.Forms.{optional, text, mapping}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import utils.{No, Yes, YesOrNo}
 
@@ -15,10 +17,28 @@ import scala.concurrent.Future
  * Do transfers via a csv file containing multiple anywhere-to-anywhere transfers.
  * Created by nnovod on 12/14/16.
  */
+
+/**
+ * Class to gather input from UI
+ * @param project optional project
+ */
+case class TransferFile(project: Option[String])
+
+/**
+ * Object for form mappings and lots of code to process transfer files
+ */
 object TransferFile {
-	//@TODO Make project a global to transfer - to be applied to all transfers and inserted components
 	//@TODO Ever want to handle racks?
 	//@TODO Check for cyclical graphs
+	// Form keys
+	val projectKey = "project"
+	val transferFileKey = "fileName"
+	// Form with mapping to object and validation
+	val form =
+		Form(mapping(
+			projectKey -> optional(text)
+		)(TransferFile.apply)(TransferFile.unapply))
+
 	// File headers
 	private val sourcePlateHdr = "Source Plate Barcode"
 	private val destPlateHdr = "Destination Plate Barcode"
@@ -56,14 +76,15 @@ object TransferFile {
 	 * @param well well of component
 	 */
 	private case class ComponentInfo(id: String, cType: Option[ComponentType.ComponentType],
-									 div: Option[Division.Division], well: String)
+									 div: Option[Division.Division], well: Option[String])
 
 	/**
 	 * Go parse contents of file containing transfers and insert the transfers found
+	 * @param project transfer project
 	 * @param file file name
 	 * @return transfers inserted or error message
 	 */
-	def insertTransferFile(file: String): Future[YesOrNo[List[Transfer]]] = {
+	def insertTransferFile(project: Option[String], file: String): Future[YesOrNo[(Int, List[Transfer])]] = {
 		/*
 		 * Open file that has transfers - can be either a csv file or excel spreadsheet
 		 * @param file file name
@@ -78,7 +99,7 @@ object TransferFile {
 		val sheet = getFile
 		// Get iterator to go through entries
 		val transferList = (new sheet.RowValueIter).toList
-		insertTransfers(transferList)
+		insertTransfers(project, transferList)
 	}
 
 	// Transfers parsed, map of component(s) found in DB, map of components to be inserted into DB
@@ -116,6 +137,8 @@ object TransferFile {
 				val dest = checkIfEmpty(dst)
 				val sTypeDef = checkIfEmpty(sType)
 				val dTypeDef = checkIfEmpty(dType)
+				val sWellDef = checkIfEmptyUC(sWell)
+				val dWellDef = checkIfEmptyUC(dWell)
 				// Error if plate headers missing or component type is invalid
 				if (source.isEmpty || dest.isEmpty)
 					(platesSoFar, errsSoFar + s"$sourcePlateHdr and $destPlateHdr must be specified")
@@ -129,13 +152,13 @@ object TransferFile {
 						ComponentInfo(
 							id = source.get, cType = sTypeDef.map(componentTypesMap(_)),
 							div = sTypeDef.flatMap(componentDivisions(_)),
-							well = checkIfEmptyUC(sWell).getOrElse("")
+							well = sWellDef
 						)
 					val destComponent =
 						ComponentInfo(
 							id = dest.get, cType = dTypeDef.map(componentTypesMap(_)),
 							div = dTypeDef.flatMap(componentDivisions(_)),
-							well = checkIfEmptyUC(dWell).getOrElse("")
+							well = dWellDef
 						)
 					val trans =
 						TransferInfo(source = srcComponent, dest = destComponent, vol = vol)
@@ -239,7 +262,7 @@ object TransferFile {
 		 * @param cWell well specification
 		 * @return optional error message
 		 */
-		def chkWell(cID: String, cWell: String) = {
+		def chkWell(cID: String, cWell: Option[String]) = {
 			// Get component - should always be there due to earlier checks
 			val c = allComponents(cID)
 			getDiv(c) match {
@@ -247,27 +270,29 @@ object TransferFile {
 				case Some(div) =>
 					cWell match {
 						// Parse well - if invalid format it will fail regular expression parse
-						case TransferWells.wellRegexp(row, col) =>
-							div match {
-								// Check if ok for 96-well component
-								case Division.DIM8x12 =>
-									if (row.charAt(0) > 'H' || col.toInt > 12)
-										Some(s"Invalid well specified for 96-well $cID: $cWell")
-									else
-										None
-								// Check if ok for 384-well component
-								case Division.DIM16x24 =>
-									if (row.charAt(0) > 'P' || col.toInt > 24)
-										Some(s"Invalid well specified for 384-well $cID: $cWell")
-									else
-										None
-								case _ => Some(s"Unknown division for $cID")
+						case Some(wellFound) =>
+							wellFound match {
+								case TransferWells.wellRegexp(row, col) =>
+									div match {
+										// Check if ok for 96-well component
+										case Division.DIM8x12 =>
+											if (row.charAt(0) > 'H' || col.toInt > 12)
+												Some(s"Invalid well specified for 96-well $cID: $wellFound")
+											else
+												None
+										// Check if ok for 384-well component
+										case Division.DIM16x24 =>
+											if (row.charAt(0) > 'P' || col.toInt > 24)
+												Some(s"Invalid well specified for 384-well $cID: $wellFound")
+											else
+												None
+										case _ => Some(s"Unknown division for $cID")
+									}
+								case _ =>
+									Some(s"Invalid well specified for $cID: $wellFound")
 							}
 						case _ =>
-							if (cWell.nonEmpty)
-								Some(s"Invalid well specified for $cID: $cWell")
-							else
-								Some(s"No well specified for $cID")
+							Some(s"No well specified for $cID")
 					}
 				// If undivided we ignore well
 				case _ => None
@@ -280,7 +305,11 @@ object TransferFile {
 			(tInfo) => {
 				val (sID, dID) = (tInfo.source.id, tInfo.dest.id)
 				val (sWell, dWell) = (tInfo.source.well, tInfo.dest.well)
-				List(chkWell(sID, sWell), chkWell(dID, dWell))
+				// If entire component transfer then nothing to check
+				if (tInfo.source.div == tInfo.dest.div && sWell.isEmpty && dWell.isEmpty)
+					List.empty
+				else
+					List(chkWell(sID, sWell), chkWell(dID, dWell))
 			}
 		).flatten
 	}
@@ -587,10 +616,11 @@ object TransferFile {
 
 	/**
 	 * Check and insert transfers.
+	 * @param project transfer project
 	 * @param transfers transfers found in input (list of maps with header->value)
 	 * @return Error message or list of transfers done
 	 */
-	def insertTransfers(transfers: InputData) : Future[YesOrNo[List[Transfer]]] = {
+	def insertTransfers(project: Option[String], transfers: InputData) : Future[YesOrNo[(Int, List[Transfer])]] = {
 		// Check if transfers look legit
 		checkTransfers(transfers).flatMap {
 			case no: No => Future.successful(no)
@@ -608,7 +638,7 @@ object TransferFile {
 								val srcToDst = transList.groupBy((tranInfo) => {
 									(tranInfo.source.id, tranInfo.dest.id)
 								})
-								// Make one map of all the compoments (both originally in DB and not)
+								// Make one map of all the components (both originally in DB and not)
 								val allComponents = componentFoundMap ++ componentNotFoundMap
 								// Make free-for-all transfer lists
 								val wellTrans =
@@ -620,18 +650,22 @@ object TransferFile {
 											 * @param well well name
 											 * @return index for well
 											 */
-											def getWellIdx(cID: String, well: String) = {
-												// Get component and get well index based on component division
-												val c = allComponents(cID)
-												getDiv(c) match {
-													// 384-well component
-													case Some(Division.DIM16x24) =>
-														TransferWells.make384IdxFromWellStr(well)
-													// 96-well component
-													case Some(Division.DIM8x12) =>
-														TransferWells.make96IdxFromWellStr(well)
-													// Undivided component
-													case _ => 0
+											def getWellIdx(cID: String, well: Option[String]) = {
+												well match {
+													case Some(wellStr) =>
+														// Get component and get well index based on component division
+														val c = allComponents(cID)
+														getDiv(c) match {
+															// 384-well component
+															case Some(Division.DIM16x24) =>
+																Some(TransferWells.make384IdxFromWellStr(wellStr))
+															// 96-well component
+															case Some(Division.DIM8x12) =>
+																Some(TransferWells.make96IdxFromWellStr(wellStr))
+															// Undivided component
+															case _ => Some(0)
+														}
+													case _ => None
 												}
 											}
 											// Make well list for transfers between the source and destination
@@ -643,11 +677,19 @@ object TransferFile {
 													)
 													.groupBy(_._1) // Group by source wells
 													.toList // Make them into a list
-													.map { // And set source well -> destination wells
+													.flatMap { // And set source well -> destination wells
 														case (in, out) =>
-															in -> out.map(_._2).distinct.sorted
+															val outList = out.flatMap(_._2) // Eliminate Nones
+															if (in.isEmpty && outList.isEmpty)
+																None // Must be entire component transfer
+															else if (in.isEmpty)
+																Some(0 -> outList) // Must be undivided input
+															else if (out.isEmpty)
+																Some(in.get -> List(0)) // Must be undivided output
+															else
+																Some(in.get -> outList) // Divided everywhere
 													}
-											// Make list sorted so the can be compared for matching later
+											// Make list sorted to match sorted lists later
 											(srcID, destID) -> wellList.sortBy(_._1)
 									}
 								// Make transfer objects for what we've found
@@ -655,9 +697,44 @@ object TransferFile {
 								// Go startup transfers
 								val futTransfers = transfers.map(TransferCollection.insert)
 								// Make list of futures into one future with a list of results
-								Future.sequence(futTransfers).map(_ => Yes(transfers))
+								Future.sequence(futTransfers).map(_ => Yes((componentNotFoundMap.size, transfers)))
 							}
 					}
+		}
+	}
+
+	/**
+	 * Get counts for a list of transfers. Returns counts:
+	 * # whole components transferred, # quadrants,
+	 * # cherry picks, # cherry picked wells, # frees, # free input wells, # free output wells
+	 * @param transfers transfer list
+	 * @return tuple of counts
+	 */
+	def getTransferCounts(transfers: List[Transfer]): (Int, Int, Int, Int, Int, Int, Int, Int, Int) = {
+		transfers.foldLeft((0, 0, 0, 0, 0, 0, 0, 0 ,0)) {
+			case ((whole, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells), next) =>
+				next.slice match {
+					case Some(FREE) if next.free.isDefined =>
+						val freeList = next.free.get
+						(whole, quads, slices, sliceWells, chers, cherWells, frees + 1, inWells + freeList.size,
+							outWells + freeList.foldLeft(0) {
+								case (soFar, (_, outs)) =>
+									soFar + outs.size
+							}
+						)
+					case Some(CP) if next.cherries.isDefined =>
+						val cherries = next.cherries.get
+						(whole, quads, slices, sliceWells, chers + 1, cherWells + cherries.size, frees, inWells, outWells)
+					case Some(S1) | Some(S2) | Some(S3) | Some(S4) =>
+						(whole, quads, slices + 1, sliceWells + 48, chers, cherWells, frees, inWells, outWells)
+					case Some(S5) | Some(S6) =>
+						(whole, quads, slices + 1, sliceWells + 24, chers, cherWells, frees, inWells, outWells)
+					case _ =>
+						if (next.fromQuad.isDefined || next.toQuad.isDefined)
+							(whole, quads + 1, slices, sliceWells, chers, cherWells, frees, inWells, outWells)
+						else
+						(whole + 1, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells)
+				}
 		}
 	}
 }
