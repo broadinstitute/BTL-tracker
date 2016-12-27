@@ -396,6 +396,7 @@ object TransferFile {
 									}
 								// Get map for all components
 								val allComponents = componentFoundMap ++ componentNotFoundMap
+								// Check that wells are legit
 								val wellErrs = chkWells(allComponents, transList)
 								// Exit with errors or what's been found
 								if (wellErrs.nonEmpty)
@@ -694,17 +695,24 @@ object TransferFile {
 									}
 								// Make transfer objects for what we've found
 								val transfers = makeTransfer(wellTrans, allComponents, project).toList
-								// Check if anything cyclic before proceeding
-								Transfer.checkForCyclicTransfers(transfers).flatMap((errors) => {
-									if (errors.nonEmpty)
-										Future.successful(No(errors.mkString("; ")))
-									else {
-										// Go startup transfers
-										val futTransfers = transfers.map(TransferCollection.insert)
-										// Make list of futures into one future with a list of results
-										Future.sequence(futTransfers).map(
-											_ => Yes((componentNotFoundMap.size, transfers))
+								// Do inserts
+								val inserts =
+									transfers
+										.map((t) =>
+											t.transferComponents(allComponents(t.from), allComponents(t.to))
 										)
+								// Make list of futures into one future with a list of results
+								Future.sequence(inserts).map((results) => {
+									val insertErrs = results.flatMap(_._2)
+									if (insertErrs.isEmpty)
+										Yes((componentNotFoundMap.size, transfers))
+									else {
+										val intro =
+											if (results.size != insertErrs.size)
+												s"${insertErrs.size} of ${results.size} transfers failed: "
+											else
+												""
+										No(s"$intro${insertErrs.mkString("; ")}")
 									}
 								})
 							}

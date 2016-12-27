@@ -320,56 +320,52 @@ object TransferController extends Controller {
 			case (Some((fromData, toData)), None) if fromData.id == toData.id =>
 				now(transferStartErrorResult(data = data,
 					errs = Map(None -> "Can not transfer component to itself")))
-			// OK so far - now we need to check if it's ok to add this transfer to the graph leading in
-			case (Some((fromData, toData)), None) => checkGraph(data, fromData, toData).flatMap {
-				// Problem found
-				case Some(err) => now(transferStartErrorResult(data = data, errs = Map(None -> err)))
+			// OK so far
+			case (Some((fromData, toData)), None) =>
 				// All is well - now just check if transfer should be done now or we need additional
 				// information about what quadrants/slices to transfer from/to
-				case None =>
-					import ContainerDivisions.Division._
-					(fromData, toData) match {
-						// Transferring between divided containers
-						case (f: ContainerDivisions, t: ContainerDivisions) =>
-							(f.layout,t.layout) match {
-								// Check if slicing wanted
-								case (DIM8x12, DIM8x12) =>
-									now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = false))
-								// if doing slices between 384-well plates then need to pick quadrant
-								case (DIM16x24, DIM16x24) =>
-									now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = true))
-								// Go ask for quadrant/slice to set in larger destination plate
-								case (DIM8x12, DIM16x24) =>
-									now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = true))
-								// Go ask for quadrant/slice to get in larger source plate
-								case (DIM16x24, DIM8x12) =>
-									now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = false))
-							}
-						// Transferring from a divided container to an undivided component
-						case (f: ContainerDivisions, _) =>
-							f.layout match {
-								// See if slicing wanted
-								case DIM8x12 =>
-									now(toTubeTransferIncomplete(data = data, fromQuad = false))
-								// See if slicing or quadrant wanted
-								case DIM16x24 =>
-									now(toTubeTransferIncomplete(data = data, fromQuad = true))
-							}
-						// Transferring from an undivided container to a divided container
-						case (_, t: ContainerDivisions) =>
-							t.layout match {
-								case DIM8x12 =>
-									now(fromTubeTransferIncomplete(data = data, toQuad = false))
-								case DIM16x24 =>
-									now(fromTubeTransferIncomplete(data = data, toQuad = true))
-							}
+				import ContainerDivisions.Division._
+				(fromData, toData) match {
+					// Transferring between divided containers
+					case (f: ContainerDivisions, t: ContainerDivisions) =>
+						(f.layout,t.layout) match {
+							// Check if slicing wanted
+							case (DIM8x12, DIM8x12) =>
+								now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = false))
+							// if doing slices between 384-well plates then need to pick quadrant
+							case (DIM16x24, DIM16x24) =>
+								now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = true))
+							// Go ask for quadrant/slice to set in larger destination plate
+							case (DIM8x12, DIM16x24) =>
+								now(containerTransferIncomplete(data = data, fromQuad = false, toQuad = true))
+							// Go ask for quadrant/slice to get in larger source plate
+							case (DIM16x24, DIM8x12) =>
+								now(containerTransferIncomplete(data = data, fromQuad = true, toQuad = false))
+						}
+					// Transferring from a divided container to an undivided component
+					case (f: ContainerDivisions, _) =>
+						f.layout match {
+							// See if slicing wanted
+							case DIM8x12 =>
+								now(toTubeTransferIncomplete(data = data, fromQuad = false))
+							// See if slicing or quadrant wanted
+							case DIM16x24 =>
+								now(toTubeTransferIncomplete(data = data, fromQuad = true))
+						}
+					// Transferring from an undivided container to a divided container
+					case (_, t: ContainerDivisions) =>
+						t.layout match {
+							case DIM8x12 =>
+								now(fromTubeTransferIncomplete(data = data, toQuad = false))
+							case DIM16x24 =>
+								now(fromTubeTransferIncomplete(data = data, toQuad = true))
+						}
 
-						// Source and destination aren't divided - go complete transfer of its contents
-						case _ =>
-							val tForm = data.toTransferForm
-							insertTransferWithoutCherries(tForm)
-					}
-			}
+					// Source and destination aren't divided - go complete transfer of its contents
+					case _ =>
+						val tForm = data.toTransferForm
+						insertTransferWithoutCherries(tForm)
+				}
 			// Couldn't find one or both data - form returned contains errors - return it now
 			case (None, Some(form)) => now(transferStartFormErrorResult(form = form,
 				fromID = Some(data.from), toID = Some(data.to), project = data.project))
@@ -381,42 +377,6 @@ object TransferController extends Controller {
 		case err => transferStartErrorResult(data = data, errs = Map(None -> MessageHandler.exceptionMessage(err)))
 	}
 
-	/**
-	 * Check if what will lead into this transfer is legit.  First we create a graph of what leads into the from
-	 * component of this transfer.  Then we insure that any project specified with the transfer exists in the graph.
-	 * @param data transfer data
-	 * @param from where transfer is taking place from
-	 * @param to where transfer is taking place to
-	 * @return Future with error message if check fails, otherwise None
-	 */
-	private def checkGraph(data: TransferStart, from: Component, to: Component) = {
-		// Make graph of what leads into source of this transfer
-		TransferHistory.makeSourceGraph(data.from).map((graph) => {
-			// If project specified make sure it is part of graph
-			data.project match {
-				case Some(projectWanted) if from.project.isDefined && from.project.get == projectWanted => None
-				case Some(projectWanted) =>
-					// Get projects in graph
-					val projects = TransferHistory.getGraphProjects(graph)
-					// If specified project there then return with no error, otherwise complete with error
-					if (projects.contains(projectWanted)) None else {
-						// Project not in graph's project list
-						val projectsFound = from.project match {
-							case Some(project) => projects + project
-							case None => projects
-						}
-						val plural = if (projectsFound.size != 1) "s" else ""
-						val projectsFoundStr = if (projectsFound.isEmpty) "" else
-							s"Project$plural found: ${projectsFound.mkString(",")}"
-						Some(s"Project $projectWanted not in ${from.id} or its derivatives. $projectsFoundStr")
-					}
-				// No project on transfer so nothing to check there
-				case _ => None
-			}
-		}).recover {
-			case err => Some(MessageHandler.exceptionMessage(err))
-		}
-	}
 
 	/**
 	 * Result when transfer form had errors.

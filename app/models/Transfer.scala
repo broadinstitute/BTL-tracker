@@ -10,11 +10,12 @@ import models.initialContents.InitialContents.ContentType
 import play.api.data.{Form, Mapping}
 import play.api.data.Forms._
 import play.api.libs.json._
-import utils.{No, Yes}
+import utils.{No, Yes, YesOrNo}
+import Transfer._
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import reactivemongo.bson.{BSON, BSONArray, BSONDocument, BSONHandler, BSONInteger, BSONString, Macros}
+import reactivemongo.bson.{BSON, BSONArray, BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONHandler, BSONInteger, BSONString, Macros}
 
 /**
  * Transfers are between components
@@ -65,15 +66,25 @@ case class Transfer(from: String, to: String,
 	}
 
 	/**
-	 * Would the addition of this transfer lead to a cyclic graph?  Get what leads into the "from" part of the transfer
-	 * and see if it contains the "to" part of the transfer.  Note this checks the top component in the transfer, it
-	 * does not check any subcomponents such as tubes in a rack.
-	 * @return future true if graph would become cyclic with addition of the transfer
+	 * Get source and target components of transfer
+	 * @return components found or error message
 	 */
-	def isAdditionCyclic: Future[Boolean] = {
-		TransferHistory.makeSourceGraph(from).map {
-			(graph) => TransferHistory.isGraphAdditionCyclic(addition = to, graph = graph)
-		}
+	def getComponents() : Future[YesOrNo[(Component, Component)]] = {
+		// Get transfer source and target components
+		TrackerCollection.findIds(List(from, to)).map((contents) => {
+			val findFromC = contents.find(_.id == from)
+			val findToC = contents.find(_.id == to)
+			// Check out that we were able to retrieve both items
+			(findFromC, findToC) match {
+				// Got them both
+				case (Some(fromC), Some(toC)) => Yes((fromC, toC))
+				// Cases where one or more of the components can't be found
+				case (Some(_), None) => No(s"Component $to not found")
+				case (None, Some(_)) => No(s"Component $from not found")
+				case _ => No(s"Components $from and $to not found")
+			}
+		})
+
 	}
 
 	/**
@@ -97,6 +108,25 @@ case class Transfer(from: String, to: String,
 	 * @return (number of inserts done, error)
 	 */
 	def insert(execInsert: DoInsert = doInsert): Future[(Int, Option[String])] = {
+		// First get transfer components
+		getComponents().flatMap {
+			case No(err) => Future.successful(0, Some(err))
+			// Go do transfer
+			case Yes((fromC, toC)) => transferComponents(fromC, toC, execInsert)
+		}
+	}
+
+	/**
+	 * Insert the transfer into the DB if components have already been found.
+	 * This is often not a simple single insert into the DB because of "subcomponents".  Some components
+	 * (in reality just non-BSP racks) are really just holders for subcomponents (e.g., tubes in racks).
+	 * Transfers involving subcomponents must be broken down into multiple transfers to/from the subcomponents.
+	 * @param fromC transfer source component
+	 * @param toC transfer destination component
+	 * @param execInsert callback to do insert of individual transfer
+	 * @return (number of inserts done, error)
+	 */
+	def transferComponents(fromC: Component, toC: Component, execInsert: DoInsert = doInsert) = {
 		/*
 		 * Get method to get fetch subcomponents
 		 * @param c component to get subcomponents for
@@ -299,15 +329,15 @@ case class Transfer(from: String, to: String,
 			(getSubFetcher(fromC), getSubFetcher(toC)) match {
 				// From and to components with subcomponents
 				case (Some(fromSC), Some(toSC)) =>
-					subToSub(wellMapping, fromSC, toSC) _
+					(subToSub(wellMapping, fromSC, toSC) _, isAdditionLegit _)
 				// From a component with subcomponents to one without subcomponents
 				case (Some(fromSC), None) =>
-					fromSub(wellMapping, fromSC, toC) _
+					(fromSub(wellMapping, fromSC, toC) _, isAdditionLegit _)
 				// To a component with subcomponents from one without subcomponents
 				case (None, Some(toSC)) =>
-					toSub(wellMapping, toSC, fromC) _
+					(toSub(wellMapping, toSC, fromC) _, isAdditionLegit _)
 				// Neither component has subcomponents - do simple transfer
-				case _ => noSubs _
+				case _ => (noSubs _, isComponentAdditionLegit(_: Transfer, fromC, toC))
 			}
 		}
 
@@ -327,55 +357,33 @@ case class Transfer(from: String, to: String,
 			})
 		}
 
-		// First get transfer source and target components
-		TrackerCollection.findIds(List(from, to)).flatMap((contents) => {
-			val findFromC = contents.find(_.id == from)
-			val findToC = contents.find(_.id == to)
-			// Check out that we were able to retrieve both items
-			(findFromC, findToC) match {
-				// Transfers into BSP rack not allowed
-				case (_, Some(toC: Rack))
-					if toC.initialContent.contains(ContentType.BSPtubes) =>
-					Future.successful(0, Some(s"Transfer into BSP rack not allowed (rack $to)"))
-				// Transfers into sample plate not allowed
-				case (_, Some(toC: Plate))
-					if toC.initialContent.contains(ContentType.SamplePlate) ||
-						toC.initialContent.contains(ContentType.AnonymousSamplePlate)=>
-					Future.successful(0, Some(s"Transfer into sample plate not allowed (plate $to)"))
-				// Got them both
-				case (Some(fromC), Some(toC)) =>
-					// Get proper method to create transfers
-					val getTrans = getTransfers(fromC, toC)
-					// Go get transfers we need to do and process results
-					getTrans().flatMap((trans) => {
-						// Get errors
-						val errs = trans.flatMap(_.getNoOption)
-						// If errors collecting transfers then exit now with errors
-						if (errs.nonEmpty) Future.successful(0, Some(errs.mkString("; ")))
-						// Otherwise go complete the inserts
+		// Get proper method to create transfers and method to do verification that transfer legit
+		val (getTrans, verify) = getTransfers(fromC, toC)
+		// Go get transfers we need to do and process results
+		getTrans().flatMap((trans) => {
+			// Get errors
+			val errs = trans.flatMap(_.getNoOption)
+			// If errors collecting transfers then exit now with errors
+			if (errs.nonEmpty)
+				Future.successful(0, Some(errs.mkString("; ")))
+			else {
+				// Retrieve transfers
+				val transfers = trans.flatMap(_.getYesOption)
+				// Check if anything illegal
+				val legit = transfers.map(verify)
+				// Gather legality results and if all ok complete inserts
+				Future.sequence(legit)
+					.flatMap((isLegit) => {
+						val legitErrs = isLegit.flatten
+						if (legitErrs.nonEmpty)
+							Future.successful(0, Some(legitErrs.mkString("; ")))
 						else {
-							// Retrieve transfers
-							val transfers = trans.flatMap(_.getYesOption)
-							// Check if any cyclical
-							Transfer.checkForCyclicTransfers(transfers)
-								.flatMap((errs) => {
-									// If none cyclical then go startup inserts and wait for them to complete
-									if (errs.isEmpty) {
-										val inserts = transfers.map(doInsert)
-										completeInserts(inserts)
-									}
-									else
-										Future.successful(0, Some(errs.mkString("; ")))
-								})
+							val inserts = transfers.map(execInsert)
+							completeInserts(inserts)
 						}
 					})
-				// Cases where one or more of the components can't be found
-				case (Some(_), None) => Future.successful(0, Some(s"Component $to not found"))
-				case (None, Some(_)) => Future.successful(0, Some(s"Component $from not found"))
-				case _ => Future.successful(0, Some(s"Components $from and $to not found"))
 			}
 		})
-
 	}
 
 	/**
@@ -805,27 +813,55 @@ object Transfer {
 	}
 
 	/**
-	 * See if any of a list of transfers will make things cyclical
-	 * @return error string for each transfer found to be cyclical
+	 * Is addition of this transfer legitimate
+	 * @return nothing if all ok otherwise error message
 	 */
-	def checkForCyclicTransfers(trans: List[Transfer]): Future[List[String]] = {
-		//@TODO Make sure input list itself isn't cyclic?
-		// Start up checks to see if anything cyclical
-		val isCyclicChecks = trans.map(_.isAdditionCyclic)
-		// Make them into a single future
-		Future.sequence(isCyclicChecks)
-			.map((isCyclic) => {
-				// Setup iterator so we know which transfer each result is for
-				val tranIter = trans.toIterator
-				// Go through to make list of any non-cyclical graphs found
-				isCyclic.flatMap((is) => {
-					val tran = tranIter.next()
-					if (is)
-						Some(s"Adding transfer will create a cyclic graph (${tran.to} is already a source for ${tran.from})")
-					else
-						None
-				})
-			})
+	private def isAdditionLegit(transfer: Transfer): Future[Option[String]] = {
+		transfer.getComponents.flatMap {
+			case Yes((from, to)) => isComponentAdditionLegit(transfer, from, to)
+			case No(err) => Future.successful(Some(err))
+		}
+	}
+
+	/**
+	 * Is adding a tranfer legit.  It must not create a cyclic graph and if a project is specified it must be
+	 * in one or more of the component(s) leading into (and including) the graph's component.  Note, this checks
+	 * only the top components of the transfer, not the subcomponents.
+	 * @param transfer transfer to check out
+	 * @param fromC source component of transfer
+	 * @param toC destination component of transfer
+	 * @return nothing if all fine or error message
+	 */
+	private def isComponentAdditionLegit(transfer: Transfer,
+										 fromC: Component, toC: Component): Future[Option[String]] = {
+		(fromC, toC) match {
+			// Transfers into BSP rack not allowed
+			case (_, toC: Rack)
+				if toC.initialContent.contains(ContentType.BSPtubes) =>
+				Future.successful(Some(s"Transfer into BSP rack not allowed (rack ${transfer.to})"))
+			// Transfers into sample plate not allowed
+			case (_, toC: Plate)
+				if toC.initialContent.contains(ContentType.SamplePlate) ||
+					toC.initialContent.contains(ContentType.AnonymousSamplePlate) =>
+				Future.successful(Some(s"Transfer into sample plate not allowed (plate ${transfer.to})"))
+			case _ =>
+				if (transfer.from == transfer.to)
+					Future.successful(Some(s"Transfer to self (${transfer.from}) not allowed"))
+				else
+					TransferHistory.makeSourceGraph(transfer.from).map {
+						(graph) =>
+							(
+								TransferHistory.isGraphAdditionCyclicErr(tran = transfer, graph = graph),
+								TransferHistory.isGraphAdditionProjectErr(tran = transfer, from = fromC, graph = graph)
+							) match {
+								case (None, None) => None
+								case (Some(err0), Some(err1)) => Some(err0 + "; " + err1)
+								case (s: Some[String], _) => s
+								case (_, s: Some[String]) => s
+								case _ => Some(s"Transfer from ${transfer.from} to ${transfer.to} not legit")
+							}
+					}
+		}
 	}
 
 	/**
@@ -918,7 +954,9 @@ object Transfer {
 	/**
 	 * Handler to convert between Transfer and BSON
 	 */
-	implicit val transferBSON =	Macros.handler[Transfer]
+	implicit val transferBSON:
+		BSONDocumentReader[Transfer] with BSONDocumentWriter[Transfer] with BSONHandler[BSONDocument, Transfer] =
+		Macros.handler[Transfer]
 }
 
 /**

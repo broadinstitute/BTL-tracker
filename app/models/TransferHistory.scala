@@ -189,13 +189,63 @@ object TransferHistory extends Controller with MongoController {
 		graph.nodes.exists((n) => n.id == addition)
 
 	/**
-	  * Get list of all projects referenced in a graph
-	  *
-	  * @param graph graph to be searched
-	  * @return components that have a project set
-	  */
+	 * Get list of all projects referenced in a graph
+	 *
+	 * @param graph graph to be searched
+	 * @return components that have a project set
+	 */
 	def getGraphProjects(graph: Graph[Component, LkDiEdge]) =
 		graph.nodes.filter((n) => n.project.isDefined).map(_.value.project.get)
+
+	/**
+	 * Check if addition of transfer will make cyclic
+	 * @param tran transfer to check
+	 * @param graph graph of compoments leading into transfer source compoment
+	 * @return all well or error message
+	 */
+	def isGraphAdditionCyclicErr(tran: Transfer, graph: Graph[Component, LkDiEdge]): Option[String] =
+		if (graph.nodes.exists((n) => n.id == tran.to))
+			Some(s"Adding transfer will create a cyclic graph (${tran.to} is already a source for ${tran.from})")
+		else
+			None
+
+	/**
+	 * Check if addition of transfer is legit if a project is specified.  The project must be set in one of the
+	 * members of the graph.
+	 * @param tran transfer to check
+	 * @param from source component for transfer
+	 * @param graph graph of components leading into transfer source compoment
+	 * @return all well or error message
+	 */
+	def isGraphAdditionProjectErr(tran: Transfer, from: Component,
+								  graph: Graph[Component, LkDiEdge]): Option[String] =
+		tran.project match {
+			case Some(projectWanted)
+				if from.project.isDefined && from.project.get == projectWanted =>
+				None
+			case Some(projectWanted) =>
+				// Get projects in graph
+				val projects =
+					graph.nodes.filter(
+						(n) => n.project.isDefined).map(_.value.project.get
+					)
+				// If specified project there then return with no error, otherwise complete with error
+				if (projects.contains(projectWanted))
+					None
+				else {
+					// Project not in graph's project list
+					val projectsFound = from.project match {
+						case Some(project) => projects + project
+						case None => projects
+					}
+					val plural = if (projectsFound.size != 1) "s" else ""
+					val projectsFoundStr = if (projectsFound.isEmpty) "" else
+						s"Project$plural found: ${projectsFound.mkString(",")}"
+					Some(s"Project $projectWanted not in ${from.id} or its derivatives. $projectsFoundStr")
+				}
+			// No project on transfer so nothing to check there
+			case _ => None
+		}
 
 	/**
 	  * Make a graph from the transfers (direct or indirect) to or from a component.  If there are no transfers to/from
