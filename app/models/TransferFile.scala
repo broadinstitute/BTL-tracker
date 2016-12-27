@@ -29,7 +29,6 @@ case class TransferFile(project: Option[String])
  */
 object TransferFile {
 	//@TODO Ever want to handle racks?
-	//@TODO Check for cyclical graphs
 	// Form keys
 	val projectKey = "project"
 	val transferFileKey = "fileName"
@@ -317,9 +316,10 @@ object TransferFile {
 	/**
 	 * Check that transfers are legit.
 	 * @param transfers transfers found in input (list of maps with header->value)
+	 * @param project project associated with transfers
 	 * @return if ok then list of transfers, list of components in DB, list of components not in DB
 	 */
-	private def checkTransfers(transfers: InputData) : Future[YesOrNo[TranData]] = {
+	private def checkTransfers(transfers: InputData, project: Option[String]) : Future[YesOrNo[TranData]] = {
 		/*
 		 * Make a component object from the input info
 		 * @param wantedComponent info for component to be created
@@ -327,12 +327,11 @@ object TransferFile {
 		 */
 		def makeComponent(wantedComponent: ComponentInfo) = {
 			val desc = "Automatically registered during transfer"
-			//@TODO set project?
 			wantedComponent.cType.get match {
 				case ComponentType.Plate =>
 					Plate(id = wantedComponent.id,
 						description = Some(desc),
-						project = None,
+						project = project,
 						tags = List.empty,
 						locationID = None,
 						initialContent = None,
@@ -340,7 +339,7 @@ object TransferFile {
 				case ComponentType.Tube =>
 					Tube(id = wantedComponent.id,
 						description = Some(desc),
-						project = None,
+						project = project,
 						tags = List.empty,
 						locationID = None,
 						initialContent = None
@@ -445,7 +444,8 @@ object TransferFile {
 	 * @return transfer objects to be inserted
 	 */
 	private def makeTransfer(wellTrans: Map[(String, String), List[(Int, List[Int])]],
-							 tranComponents: Map[String, Component]) : Iterable[Transfer] = {
+							 tranComponents: Map[String, Component],
+							 project: Option[String]) : Iterable[Transfer] = {
 		// Go through transfers wanted
 		wellTrans.map {
 			case ((src, dest), wellList) =>
@@ -525,23 +525,22 @@ object TransferFile {
 					chkMatch(left = wellList, isSame = true, inLeft = inMatches, outLeft = outMatches)
 				}
 				// A few simple methods to create wanted transfers
-				//@TODO set project?
 				def plainTran =
-					Transfer(from = src, to = dest, fromQuad = None, toQuad = None, project = None,
+					Transfer(from = src, to = dest, fromQuad = None, toQuad = None, project = project,
 						slice = None, cherries = None, free = None,
 						isTubeToMany = false, isSampleOnly = false)
 				def cherryTran(cher: List[Int], tToMany: Boolean) =
-					Transfer(from = src, to = dest, fromQuad = None, toQuad = None, project = None,
+					Transfer(from = src, to = dest, fromQuad = None, toQuad = None, project = project,
 						slice = Some(CP), cherries = Some(cher), free = None,
 						isTubeToMany = tToMany, isSampleOnly = false)
 				def cherryTranSource =
 					cherryTran(cher = wellList.map(_._1), tToMany = false)
 				def freeTran =
-					Transfer(from = src, to = dest, fromQuad = None, toQuad = None, project = None,
+					Transfer(from = src, to = dest, fromQuad = None, toQuad = None, project = project,
 						slice = Some(FREE), cherries = None, free = Some(wellList),
 						isTubeToMany = false, isSampleOnly = false)
 				def qTran(sQ: Option[Quad], dQ: Option[Quad]) =
-					Transfer(from = src, to = dest, fromQuad = sQ, toQuad = dQ, project = None,
+					Transfer(from = src, to = dest, fromQuad = sQ, toQuad = dQ, project = project,
 						slice = None, cherries = None, free = None,
 						isTubeToMany = false, isSampleOnly = false)
 
@@ -622,7 +621,7 @@ object TransferFile {
 	 */
 	def insertTransfers(project: Option[String], transfers: InputData) : Future[YesOrNo[(Int, List[Transfer])]] = {
 		// Check if transfers look legit
-		checkTransfers(transfers).flatMap {
+		checkTransfers(transfers, project).flatMap {
 			case no: No => Future.successful(no)
 			// Onward to insert transfers
 			case Yes((transList, componentFoundMap, componentNotFoundMap)) =>
@@ -679,7 +678,8 @@ object TransferFile {
 													.toList // Make them into a list
 													.flatMap { // And set source well -> destination wells
 														case (in, out) =>
-															val outList = out.flatMap(_._2) // Eliminate Nones
+															// Eliminate Nones and sort for matches later
+															val outList = out.flatMap(_._2).sorted
 															if (in.isEmpty && outList.isEmpty)
 																None // Must be entire component transfer
 															else if (in.isEmpty)
@@ -693,48 +693,22 @@ object TransferFile {
 											(srcID, destID) -> wellList.sortBy(_._1)
 									}
 								// Make transfer objects for what we've found
-								val transfers = makeTransfer(wellTrans, allComponents).toList
-								// Go startup transfers
-								val futTransfers = transfers.map(TransferCollection.insert)
-								// Make list of futures into one future with a list of results
-								Future.sequence(futTransfers).map(_ => Yes((componentNotFoundMap.size, transfers)))
+								val transfers = makeTransfer(wellTrans, allComponents, project).toList
+								// Check if anything cyclic before proceeding
+								Transfer.checkForCyclicTransfers(transfers).flatMap((errors) => {
+									if (errors.nonEmpty)
+										Future.successful(No(errors.mkString("; ")))
+									else {
+										// Go startup transfers
+										val futTransfers = transfers.map(TransferCollection.insert)
+										// Make list of futures into one future with a list of results
+										Future.sequence(futTransfers).map(
+											_ => Yes((componentNotFoundMap.size, transfers))
+										)
+									}
+								})
 							}
 					}
-		}
-	}
-
-	/**
-	 * Get counts for a list of transfers. Returns counts:
-	 * # whole components transferred, # quadrants,
-	 * # cherry picks, # cherry picked wells, # frees, # free input wells, # free output wells
-	 * @param transfers transfer list
-	 * @return tuple of counts
-	 */
-	def getTransferCounts(transfers: List[Transfer]): (Int, Int, Int, Int, Int, Int, Int, Int, Int) = {
-		transfers.foldLeft((0, 0, 0, 0, 0, 0, 0, 0 ,0)) {
-			case ((whole, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells), next) =>
-				next.slice match {
-					case Some(FREE) if next.free.isDefined =>
-						val freeList = next.free.get
-						(whole, quads, slices, sliceWells, chers, cherWells, frees + 1, inWells + freeList.size,
-							outWells + freeList.foldLeft(0) {
-								case (soFar, (_, outs)) =>
-									soFar + outs.size
-							}
-						)
-					case Some(CP) if next.cherries.isDefined =>
-						val cherries = next.cherries.get
-						(whole, quads, slices, sliceWells, chers + 1, cherWells + cherries.size, frees, inWells, outWells)
-					case Some(S1) | Some(S2) | Some(S3) | Some(S4) =>
-						(whole, quads, slices + 1, sliceWells + 48, chers, cherWells, frees, inWells, outWells)
-					case Some(S5) | Some(S6) =>
-						(whole, quads, slices + 1, sliceWells + 24, chers, cherWells, frees, inWells, outWells)
-					case _ =>
-						if (next.fromQuad.isDefined || next.toQuad.isDefined)
-							(whole, quads + 1, slices, sliceWells, chers, cherWells, frees, inWells, outWells)
-						else
-						(whole + 1, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells)
-				}
 		}
 	}
 }

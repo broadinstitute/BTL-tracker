@@ -53,7 +53,7 @@ case class Transfer(from: String, to: String,
 				val head = s match {
 					case Slice.CP => "cherry picked wells"
 					case Slice.FREE => "many to many wells"
-					case s => s"slice $s"
+					case _ => s"slice $s"
 				}
 				s"$head of "
 			}).getOrElse("")
@@ -63,7 +63,6 @@ case class Transfer(from: String, to: String,
 		val samples = if (isSampleOnly) "of samples only " else ""
 		"transfer " + samples + "from " + qDesc(from, fromQuad, fromSlice) + " to " + qDesc(to, toQuad, toSlice)
 	}
-
 
 	/**
 	 * Would the addition of this transfer lead to a cyclic graph?  Get what leads into the "from" part of the transfer
@@ -88,30 +87,6 @@ case class Transfer(from: String, to: String,
 	 * @return optional error
 	 */
 	private def doInsert(t: Transfer) = TransferCollection.insert(t)
-
-	/**
-	 * See if any of a list of transfers will make things cyclical
-	 * @return error string for each transfer found to be cyclical
-	 */
-	private def checkForCyclicTransfers(trans: List[Transfer]) = {
-		//@TODO Make sure input list itself isn't cyclic
-		// Start up checks to see if anything cyclical
-		val isCyclicChecks = trans.map(_.isAdditionCyclic)
-		// Make them into a single future
-		Future.sequence(isCyclicChecks)
-			.map((isCyclic) => {
-				// Setup iterator so we know which transfer each result is for
-				val tranIter = trans.toIterator
-				// Go through to make list of any non-cyclical graphs found
-				isCyclic.flatMap((is) => {
-					val tran = tranIter.next()
-					if (is)
-						Some(s"Adding transfer will create a cyclic graph (${tran.to} is already a source for ${tran.from})")
-					else
-						None
-				})
-			})
-	}
 
 	/**
 	 * Insert the transfer into the DB.  This is often not a simple single insert into the DB because of
@@ -382,7 +357,7 @@ case class Transfer(from: String, to: String,
 							// Retrieve transfers
 							val transfers = trans.flatMap(_.getYesOption)
 							// Check if any cyclical
-							checkForCyclicTransfers(transfers)
+							Transfer.checkForCyclicTransfers(transfers)
 								.flatMap((errs) => {
 									// If none cyclical then go startup inserts and wait for them to complete
 									if (errs.isEmpty) {
@@ -480,8 +455,8 @@ case class Transfer(from: String, to: String,
 							def makeEntry(in: Transfer.FreeList,
 										  inToWell: (Int) => String, outToWell: (Int) => String) = {
 								in.map {
-									case (in, outList) =>
-										inToWell(in) -> outList.map(outToWell)
+									case (inWell, outList) =>
+										inToWell(inWell) -> outList.map(outToWell)
 								}.toMap
 							}
 							(getLayout(fromComponent), getLayout(toComponent)) match {
@@ -694,7 +669,7 @@ object Transfer {
 		 * @param freeList free list
 		 * @return
 		 */
-		def writes(freeList: FreeList) = {
+		def writes(freeList: FreeList): JsValue = {
 			// Get array of source->destination(s)
 			val jsAry =
 				freeList.map {
@@ -825,20 +800,79 @@ object Transfer {
 		val wellIdxs = getCherryIndicies(div, wells)
 		// Create transfer to tube from wells in plate
 		Transfer(from = plate, to = tube, fromQuad = None, toQuad = None, project = proj,
-			slice = Some(Transfer.Slice.CP), cherries = Some(wellIdxs), free = None,
+			slice = Some(Slice.CP), cherries = Some(wellIdxs), free = None,
 			isTubeToMany = false, isSampleOnly = false)
+	}
+
+	/**
+	 * See if any of a list of transfers will make things cyclical
+	 * @return error string for each transfer found to be cyclical
+	 */
+	def checkForCyclicTransfers(trans: List[Transfer]): Future[List[String]] = {
+		//@TODO Make sure input list itself isn't cyclic?
+		// Start up checks to see if anything cyclical
+		val isCyclicChecks = trans.map(_.isAdditionCyclic)
+		// Make them into a single future
+		Future.sequence(isCyclicChecks)
+			.map((isCyclic) => {
+				// Setup iterator so we know which transfer each result is for
+				val tranIter = trans.toIterator
+				// Go through to make list of any non-cyclical graphs found
+				isCyclic.flatMap((is) => {
+					val tran = tranIter.next()
+					if (is)
+						Some(s"Adding transfer will create a cyclic graph (${tran.to} is already a source for ${tran.from})")
+					else
+						None
+				})
+			})
+	}
+
+	/**
+	 * Get counts for a list of transfers. Returns counts:
+	 * # whole components transferred, # quadrants,
+	 * # cherry picks, # cherry picked wells, # frees, # free input wells, # free output wells
+	 * @param transfers transfer list
+	 * @return tuple of counts
+	 */
+	def getTransferCounts(transfers: List[Transfer]): (Int, Int, Int, Int, Int, Int, Int, Int, Int) = {
+		transfers.foldLeft((0, 0, 0, 0, 0, 0, 0, 0 ,0)) {
+			case ((whole, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells), next) =>
+				next.slice match {
+					case Some(Slice.FREE) if next.free.isDefined =>
+						val freeList = next.free.get
+						(whole, quads, slices, sliceWells, chers, cherWells, frees + 1, inWells + freeList.size,
+							outWells + freeList.foldLeft(0) {
+								case (soFar, (_, outs)) =>
+									soFar + outs.size
+							}
+						)
+					case Some(Slice.CP) if next.cherries.isDefined =>
+						val cherries = next.cherries.get
+						(whole, quads, slices, sliceWells, chers + 1, cherWells + cherries.size, frees, inWells, outWells)
+					case Some(Slice.S1) | Some(Slice.S2) | Some(Slice.S3) | Some(Slice.S4) =>
+						(whole, quads, slices + 1, sliceWells + 48, chers, cherWells, frees, inWells, outWells)
+					case Some(Slice.S5) | Some(Slice.S6) =>
+						(whole, quads, slices + 1, sliceWells + 24, chers, cherWells, frees, inWells, outWells)
+					case _ =>
+						if (next.fromQuad.isDefined || next.toQuad.isDefined)
+							(whole, quads + 1, slices, sliceWells, chers, cherWells, frees, inWells, outWells)
+						else
+							(whole + 1, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells)
+				}
+		}
 	}
 
 	/**
 	 * BSON reader/writers for Enums - will signal if errors - handlers should handle that
 	 */
 	implicit object BSONQuadHandler extends BSONHandler[BSONString, Quad.Quad] {
-		def read(doc: BSONString) = Quad.withName(doc.value)
-		def write(quad: Quad.Quad) = BSON.write(quad.toString)
+		def read(doc: BSONString): Quad.Quad = Quad.withName(doc.value)
+		def write(quad: Quad.Quad): BSONString = BSON.write(quad.toString)
 	}
 	implicit object BSONSliceHandler extends BSONHandler[BSONString, Slice.Slice] {
-		def read(doc: BSONString) = Slice.withName(doc.value)
-		def write(slice: Slice.Slice) = BSON.write(slice.toString)
+		def read(doc: BSONString):Slice.Slice = Slice.withName(doc.value)
+		def write(slice: Slice.Slice): BSONString = BSON.write(slice.toString)
 	}
 
 	/**
@@ -850,7 +884,7 @@ object Transfer {
 		 * @param doc bson containing free list
 		 * @return free list of sourceWell->destinationWells
 		 */
-		def read(doc: BSONArray) =
+		def read(doc: BSONArray): Transfer.FreeList =
 			doc.values.map {
 				case d: BSONDocument =>
 					// Get one item in document (src -> destination(s)
@@ -872,7 +906,7 @@ object Transfer {
 		 * @param slice free list
 		 * @return BSON array with elements containing srcWell->destinationWells
 		 */
-		def write(slice: Transfer.FreeList) =
+		def write(slice: Transfer.FreeList): BSONArray =
 			BSONArray(
 				slice.map {
 					case (key, value) =>
@@ -885,7 +919,6 @@ object Transfer {
 	 * Handler to convert between Transfer and BSON
 	 */
 	implicit val transferBSON =	Macros.handler[Transfer]
-
 }
 
 /**

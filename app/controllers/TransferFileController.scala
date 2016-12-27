@@ -1,6 +1,6 @@
 package controllers
 
-import models.TransferFile
+import models.{Transfer, TransferFile}
 import play.api.mvc._
 import utils.{MessageHandler, No, Yes}
 
@@ -51,7 +51,7 @@ object TransferFileController extends Controller {
 										.map {
 											case Yes((componentCount, trans)) =>
 												val (whole, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells) =
-													TransferFile.getTransferCounts(trans)
+													Transfer.getTransferCounts(trans)
 												def plural(count: Int, word: String) =
 													if (count == 1) word else word + "s"
 												def makeLine(count: Int, desc: String, pre: String, post: String) =
