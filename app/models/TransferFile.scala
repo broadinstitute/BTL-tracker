@@ -365,7 +365,7 @@ object TransferFile {
 							.find((next) => {
 								next.source.id == headTo && next.dest.id == headFrom
 							}) match {
-							case Some(reversed) =>
+							case Some(_) =>
 								Some(s"Cyclical transfers between $headFrom and $headTo exist")
 							case None =>
 								selfLoopCheck(trans.tail)
