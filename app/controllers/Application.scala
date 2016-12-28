@@ -79,6 +79,10 @@ object Application extends Controller {
 						FlashingKeys.setFlashingValue(r = result, k = FlashingKeys.Status, s = errs.mkString(";"))
 				}
 			})
+			.recover {
+				case err => BadRequest(
+					views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
+			}
 	}
 
 	/**
@@ -389,6 +393,10 @@ object Application extends Controller {
 				val htmlStr = "\'" + dot.replaceAll("""((\r\n)|\n|\r])""", """\\$1""") + "\'"
 				Ok(views.html.graphDisplay(htmlStr, id))
 			})
+			.recover {
+				case err => BadRequest(
+					views.html.index(Component.blankForm.withGlobalError(MessageHandler.exceptionMessage(err))))
+			}
 	}
 
 	/**

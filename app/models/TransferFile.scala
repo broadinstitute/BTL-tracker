@@ -352,7 +352,7 @@ object TransferFile {
 			case no: No => Future.successful(no)
 			// Now go on to get components in DB and check if input and components in DB agree
 			case Yes((transList, componentMap)) =>
-				// First check if there are simple cylical checks
+				// First check if there are simple loops
 				// Not check for all cycles, but a good start
 				@tailrec
 				def selfLoopCheck(trans: List[TransferInfo]): Option[String] =
@@ -361,15 +361,12 @@ object TransferFile {
 					else {
 						val tHead = trans.head
 						val (headFrom, headTo) = (tHead.source.id, tHead.dest.id)
-						trans.tail
-							.find((next) => {
+						if (trans.tail.exists((next) => {
 								next.source.id == headTo && next.dest.id == headFrom
-							}) match {
-							case Some(_) =>
-								Some(s"Cyclical transfers between $headFrom and $headTo exist")
-							case None =>
-								selfLoopCheck(trans.tail)
-						}
+							}))
+							Some(s"Cyclical transfers between $headFrom and $headTo exist")
+						else
+							selfLoopCheck(trans.tail)
 					}
 				selfLoopCheck(transList) match {
 					case Some(loopErr) =>

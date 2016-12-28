@@ -118,17 +118,17 @@ object TransferHistory extends Controller with MongoController {
 	private case class History(components: List[Component], transfers: List[TransferWithTime])
 
 	/**
-	  * Future to get two lists: one of components directly transferred to or from a component and one for the associated
-	  * transfers that took place.
-	  *
-	  * @param componentID we want to know what was transferred to or from this id
-	  * @param getIDs callback to get sources or targets of tranfers to/from specified component
-	  * @return list of component objects that are sources or targets for the specified component and list of transfers
-	  */
+	 * Future to get two lists: one of components directly transferred to or from a component and one for the
+	 * associated transfers that took place.
+	 *
+	 * @param componentID we want to know what was transferred to or from this id
+	 * @param getIDs callback to get sources or targets of tranfers to/from specified component
+	 * @return list of component objects that are sources or targets for the specified component and list of transfers
+	 */
 	private def getHistory(componentID: String, getIDs: (String) => Future[List[BSONDocument]]) = {
-		// First get list of components as BSON documents (note flatmap to avoid future of future)
+		// First get transfers as BSON documents and then get components related to transfers
 		val previousComponents = getIDs(componentID).flatMap(getComponents)
-		// Now convert BSON returned to component objects (first map for future, next to convert bson list)
+		// Now convert BSON returned to transfer objects (first map for future, next to convert bson list)
 		previousComponents.map {
 			case ((components, transfers)) =>
 				History(components = components, transfers = transfers.map(getTransferObject))
@@ -142,25 +142,44 @@ object TransferHistory extends Controller with MongoController {
 	  * @param componentID component to find all transfers to or from
 	  * @param getIDs callback to get sources or targets of tranfers to/from specified component
 	  * @param getTransferID callback to get id from transfer
-	  * @param historyToList callback, given history found, that converts that history into a list of wanted type
+	  * @param historyToOut callback, given history found, that converts that history into a list of wanted type
 	  * @tparam T type of list to be returned
 	  * @return future to calculate wanted list from transfers to or from (direct or indirect) specified component
 	  */
 	private def makeTransferList[T](componentID: String, getIDs: (String) => Future[List[BSONDocument]],
 									getTransferID: (Transfer) => String,
-									historyToList: (History) => List[T]): Future[List[T]] = {
-		getHistory(componentID, getIDs).flatMap((history) =>
-			if (history.transfers.isEmpty) Future.successful(List.empty[T])
-			else {
-				val historyList = historyToList(history)
-				val fromSet = history.transfers.map(getTransferID).toSet
-				// Go recurse to work on components leading into this one, folding the new component transfers
-				// into what we've found so far
-				Future.fold(futures = fromSet.map((from) =>
-					makeTransferList(componentID = from, getIDs = getIDs, getTransferID = getTransferID,
-						historyToList = historyToList)))(zero = historyList)(op = _ ++ _)
-			}
-		)
+									historyToOut: (History) => List[T]) = {
+		def makeTransferList1(cID: String, soFar: Set[String]): Future[List[T]] = {
+			// Get transfers and associated components going from wanted ID
+			getHistory(cID, getIDs).flatMap((history) =>
+				if (history.transfers.isEmpty) Future.successful(List.empty[T])
+				else {
+					// Make output list from transfers/components (e.g., graph edges)
+					val historyOutput = historyToOut(history)
+					// Get next set of IDs to query for
+					val nextSetIDs = history.transfers.map(getTransferID).toSet
+					// Look for any IDs already seen in this path
+					val intersect = nextSetIDs.intersect(soFar)
+					// If next list includes original componentID then we're looping so exit with a failure
+					// Otherwise recurse to work on components leading into this one, folding the new
+					// components' output into what we've found so far
+					if (intersect.nonEmpty) {
+						val s = if (intersect.size == 1) "" else "s"
+						Future.failed(new Exception(
+							s"ERROR: Found cyclical graph containing repeating component$s ${intersect.mkString(", ")}"
+						))
+					}
+					else
+						Future.fold(futures =
+							nextSetIDs.map((next) =>
+								makeTransferList1(
+									cID = next, soFar = soFar + next)
+							)
+						)(zero = historyOutput)(op = _ ++ _)
+				}
+			)
+		}
+		makeTransferList1(componentID, Set(componentID))
 	}
 
 	/**
@@ -177,16 +196,6 @@ object TransferHistory extends Controller with MongoController {
 	case class TransferEdge(fromQuad: Option[Quad], toQuad: Option[Quad], slice: Option[Slice],
 							cherries: Option[List[Int]], free: Option[Transfer.FreeList],
 							isTubeToMany: Boolean, isSampleOnly: Boolean, time: Long)
-
-	/**
-	  * Will adding this node to the graph make it cyclic?
-	  *
-	  * @param addition id of node to be added
-	  * @param graph graph that the node will be added to
-	  * @return true if node is already in graph and graph will thus become cyclic if node is added
-	  */
-	def isGraphAdditionCyclic(addition: String, graph: Graph[Component, LkDiEdge]) =
-		graph.nodes.exists((n) => n.id == addition)
 
 	/**
 	 * Get list of all projects referenced in a graph
@@ -258,23 +267,30 @@ object TransferHistory extends Controller with MongoController {
 	  */
 	private def makeDirectionalGraph(componentID: String, getIDs: (String) => Future[List[BSONDocument]],
 									 getTransferID: (Transfer) => String) = {
-		val edges = makeTransferList(componentID = componentID, getIDs = getIDs, getTransferID = getTransferID,
-			historyToList = (history) => {
-				// Find component in history's component list (note this list should be very small)
-				def findComponent(id: String) = {
-					history.components.find(_.id == id) match {
-						case Some(c) => c
-						case None => throw new Exception(s"Missing Component: $id")
+		val edges =
+			makeTransferList(
+				componentID = componentID,
+				getIDs = getIDs,
+				getTransferID = getTransferID,
+				historyToOut = (history) => {
+					// Find component in history's component list (note this list should be very small)
+					def findComponent(id: String) = {
+						history.components.find(_.id == id) match {
+							case Some(c) => c
+							case None => throw new Exception(s"Missing Component: $id")
+						}
 					}
+					// Map all the transfers into graph edges
+					history.transfers
+						.map((t) =>
+							(findComponent(t.from) ~+#> findComponent(t.to))(
+								TransferEdge(fromQuad = t.fromQuad, toQuad = t.toQuad,
+									slice = t.slice, cherries = t.cherries, free = t.free,
+									isTubeToMany = t.isTubeToMany, isSampleOnly = t.isSampleOnly, time = t.time)
+							)
+						)
 				}
-				// Map all the transfers into graph edges
-				history.transfers.map((t) =>
-					(findComponent(t.from) ~+#>
-						findComponent(t.to))(TransferEdge(fromQuad = t.fromQuad, toQuad = t.toQuad,
-						slice = t.slice, cherries = t.cherries, free = t.free,
-						isTubeToMany = t.isTubeToMany, isSampleOnly = t.isSampleOnly, time = t.time)))
-			}
-		)
+			)
 		// When future with list of edges returns make it into a graph
 		edges.flatMap((e) => {
 			// If empty then make graph with just node of component (or nothing if ID can't be found)
