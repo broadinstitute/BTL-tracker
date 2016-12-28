@@ -1,7 +1,7 @@
 package models
 import models.Component.ComponentType
 import models.ContainerDivisions.Division
-import models.db.{TrackerCollection, TransferCollection}
+import models.db.TrackerCollection
 import models.Transfer.Slice._
 import org.broadinstitute.spreadsheets.{CellSheet, HeaderSheet}
 import org.broadinstitute.spreadsheets.Utils._
@@ -352,61 +352,86 @@ object TransferFile {
 			case no: No => Future.successful(no)
 			// Now go on to get components in DB and check if input and components in DB agree
 			case Yes((transList, componentMap)) =>
-				// Now go find which components already there
-				val ids = componentMap.keys.toList
-				TrackerCollection.findIds(ids)
-					.map((components) => {
-						// See if types in DB and input agree
-						val typeErrs = checkTransferTypes(components, componentMap)
-						if (typeErrs.nonEmpty)
-							No(typeErrs.mkString("; "))
-						else {
-							// Get list of ids found
-							val componentIds = components.map(_.id)
-							// See if there were any ids not found
-							val notFound = ids.diff(componentIds)
-							// Check that type specified for all components that must be added
-							val noTypes = notFound.flatMap((cID) => {
-								componentMap.get(cID) match {
-									case Some(entries) =>
-										if (entries.flatMap(_.cType).headOption.isEmpty)
-											Some(s"Type must be specified for unregistered $cID")
-										else
-											None
-									case _ => None
+				// First check if there are simple cylical checks
+				// Not check for all cycles, but a good start
+				@tailrec
+				def selfLoopCheck(trans: List[TransferInfo]): Option[String] =
+					if (trans.isEmpty)
+						None
+					else {
+						val tHead = trans.head
+						val (headFrom, headTo) = (tHead.source.id, tHead.dest.id)
+						trans.tail
+							.find((next) => {
+								next.source.id == headTo && next.dest.id == headFrom
+							}) match {
+							case Some(reversed) =>
+								Some(s"Cyclical transfers between $headFrom and $headTo exist")
+							case None =>
+								selfLoopCheck(trans.tail)
+						}
+					}
+				selfLoopCheck(transList) match {
+					case Some(loopErr) =>
+						Future.successful(No(loopErr))
+					case None =>
+						// No obvious cycles
+						// Now go find which components already there
+						val ids = componentMap.keys.toList
+						TrackerCollection.findIds(ids)
+							.map((components) => {
+								// See if types in DB and input agree
+								val typeErrs = checkTransferTypes(components, componentMap)
+								if (typeErrs.nonEmpty)
+									No(typeErrs.mkString("; "))
+								else {
+									// Get list of ids found
+									val componentIds = components.map(_.id)
+									// See if there were any ids not found
+									val notFound = ids.diff(componentIds)
+									// Check that type specified for all components that must be added
+									val noTypes = notFound.flatMap((cID) => {
+										componentMap.get(cID) match {
+											case Some(entries) =>
+												if (entries.flatMap(_.cType).headOption.isEmpty)
+													Some(s"Type must be specified for unregistered $cID")
+												else
+													None
+											case _ => None
+										}
+									})
+									if (noTypes.nonEmpty)
+										No(noTypes.mkString("; "))
+									else {
+										// Get map of components found
+										val componentFoundMap = components.map((c) => c.id -> c).toMap
+										// Make map of components not found
+										val componentNotFoundMap: Map[String, Component] =
+											componentMap.flatMap {
+												case (cID, cInfo) =>
+													componentFoundMap.get(cID) match {
+														case None =>
+															// Know type there since we checked previously
+															val wantedComponent = cInfo.find(_.cType.isDefined).get
+															val componentToUse = makeComponent(wantedComponent)
+															Some(cID -> componentToUse)
+														case _ => None
+													}
+											}
+										// Get map for all components
+										val allComponents = componentFoundMap ++ componentNotFoundMap
+										// Check that wells are legit
+										val wellErrs = chkWells(allComponents, transList)
+										// Exit with errors or what's been found
+										if (wellErrs.nonEmpty)
+											No(wellErrs.mkString("; "))
+										else {
+											Yes(transList, componentFoundMap, componentNotFoundMap)
+										}
+									}
 								}
 							})
-							if (noTypes.nonEmpty)
-								No(noTypes.mkString("; "))
-							else {
-								// Get map of components found
-								val componentFoundMap = components.map((c) => c.id -> c).toMap
-								// Make map of components not found
-								val componentNotFoundMap: Map[String, Component] =
-									componentMap.flatMap {
-										case (cID, cInfo) =>
-											componentFoundMap.get(cID) match {
-												case None =>
-													// Know type there since we checked previously
-													val wantedComponent = cInfo.find(_.cType.isDefined).get
-													val componentToUse = makeComponent(wantedComponent)
-													Some(cID -> componentToUse)
-												case _ => None
-											}
-									}
-								// Get map for all components
-								val allComponents = componentFoundMap ++ componentNotFoundMap
-								// Check that wells are legit
-								val wellErrs = chkWells(allComponents, transList)
-								// Exit with errors or what's been found
-								if (wellErrs.nonEmpty)
-									No(wellErrs.mkString("; "))
-								else {
-									Yes(transList, componentFoundMap, componentNotFoundMap)
-								}
-							}
-						}
-					})
+				}
 		}
 	}
 
