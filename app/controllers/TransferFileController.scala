@@ -19,7 +19,9 @@ object TransferFileController extends Controller {
 	 * @return form to get transfer file parameters
 	 */
 	def findTransferFile(): Action[AnyContent] = Action { request =>
-			Ok(views.html.transferFile(MessageHandler.addStatusFlash(request, TransferFile.form)))
+			Ok(views.html.transferFile(
+				MessageHandler.addStatusFlash(request, TransferFile.form.fill(TransferFile(project = None)))
+			))
 	}
 
 	/**
@@ -47,7 +49,7 @@ object TransferFileController extends Controller {
 						case Some(tranFile) =>
 							tranFile.file(TransferFile.transferFileKey) match {
 								case Some(file) =>
-									TransferFile.insertTransferFile(data.project, file.ref.file.getCanonicalPath)
+									TransferFile.insertTransferFile(data, file.ref.file.getCanonicalPath)
 										.map {
 											case Yes((componentCount, trans)) =>
 												val (whole, quads, slices, sliceWells, chers, cherWells, frees, inWells, outWells) =

@@ -6,6 +6,21 @@
 }{
 	@componentIntro("Transfer file", transferFileForm)
 	@form(routes.TransferFileController.transferFile(), 'style -> "display:inline;", 'enctype -> "multipart/form-data") {
+		<h4>File Column Headers (skip to Transfer Data section if using specified defaults)</h4>
+		@inputText(transferFileForm(TransferFile.sourceIDHdrKey),
+			'style -> "display:inline;", '_label -> "Source ID header")
+		@inputText(transferFileForm(TransferFile.destIDHdrKey),
+			'style -> "display:inline;", '_label -> "Destination ID header")
+		@inputText(transferFileForm(TransferFile.sourceWellHdrKey),
+			'style -> "display:inline;", '_label -> "Source well header")
+		@inputText(transferFileForm(TransferFile.destWellHdrKey),
+			'style -> "display:inline;", '_label -> "Destination well header")
+		@inputText(transferFileForm(TransferFile.sourceTypeHdrKey),
+			'style -> "display:inline;", '_label -> "Source component type header")
+		@inputText(transferFileForm(TransferFile.destTypeHdrKey),
+			'style -> "display:inline;", '_label -> "Destination component type header")
+		<br>
+		<h4>Transfer Data</h4>
 		@inputText(transferFileForm(TransferFile.projectKey), '_label -> "Project")
 		@inputFile(transferFileForm(TransferFile.transferFileKey), '_label -> "Transfer File")
 		<input type="submit" value="Upload Transfer File" style="display:inline;">

@@ -18,11 +18,21 @@ import scala.concurrent.Future
  * Created by nnovod on 12/14/16.
  */
 
+import TransferFile._
 /**
- * Class to gather input from UI
- * @param project optional project
+ * Class to gather parameters from UI for component project and file headings.
+ * @param project optional project for transfer components
+ * @param sourceID source barcode file header
+ * @param destID destination barcode file header
+ * @param sourceWell source well file header
+ * @param destWell destination well file header
+ * @param sourceType source component type file header
+ * @param destType destination component type file header
  */
-case class TransferFile(project: Option[String])
+case class TransferFile(project: Option[String],
+						sourceID: String = sourceIDHdr, destID: String = destIDHdr,
+						sourceWell: String = sourceWellHdr,	destWell: String = destWellHdr,
+						sourceType: String = sourceTypeHdr, destType: String = destTypeHdr)
 
 /**
  * Object for form mappings and lots of code to process transfer files
@@ -32,19 +42,31 @@ object TransferFile {
 	// Form keys
 	val projectKey = "project"
 	val transferFileKey = "fileName"
+	val sourceIDHdrKey = "sourceID"
+	val destIDHdrKey = "destID"
+	val sourceWellHdrKey = "sourceWell"
+	val destWellHdrKey = "destWell"
+	val sourceTypeHdrKey = "sourceType"
+	val destTypeHdrKey = "destType"
 	// Form with mapping to object and validation
 	val form =
 		Form(mapping(
-			projectKey -> optional(text)
+			projectKey -> optional(text),
+			sourceIDHdrKey -> text,
+			destIDHdrKey -> text,
+			sourceWellHdrKey -> text,
+			destWellHdrKey -> text,
+			sourceTypeHdrKey -> text,
+			destTypeHdrKey -> text
 		)(TransferFile.apply)(TransferFile.unapply))
 
 	// File headers
-	private val sourcePlateHdr = "Source Plate Barcode"
-	private val destPlateHdr = "Destination Plate Barcode"
+	private val sourceIDHdr = "Source Barcode"
+	private val destIDHdr = "Destination Barcode"
 	private val sourceWellHdr = "Source Well"
 	private val destWellHdr = "Destination Well"
-	private val sourceTypeHdr = "Source Component Type"
-	private val destTypeHdr = "Destination Component Type"
+	private val sourceTypeHdr = "Source Type"
+	private val destTypeHdr = "Destination Type"
 	private val volHdr = "Transfer Volume"
 
 	// File component types
@@ -79,11 +101,11 @@ object TransferFile {
 
 	/**
 	 * Go parse contents of file containing transfers and insert the transfers found
-	 * @param project transfer project
+	 * @param transferFile transfer file information
 	 * @param file file name
 	 * @return transfers inserted or error message
 	 */
-	def insertTransferFile(project: Option[String], file: String): Future[YesOrNo[(Int, List[Transfer])]] = {
+	def insertTransferFile(transferFile: TransferFile, file: String): Future[YesOrNo[(Int, List[Transfer])]] = {
 		/*
 		 * Open file that has transfers - can be either a csv file or excel spreadsheet
 		 * @param file file name
@@ -98,7 +120,7 @@ object TransferFile {
 		val sheet = getFile
 		// Get iterator to go through entries
 		val transferList = (new sheet.RowValueIter).toList
-		insertTransfers(project, transferList)
+		insertTransfers(transferFile, transferList)
 	}
 
 	// Transfers parsed, map of component(s) found in DB, map of components to be inserted into DB
@@ -112,9 +134,10 @@ object TransferFile {
 	 * Initial parse of transfers found.  We check for some obvious errors (missing IDs, invalid component types or
 	 * inconsisten types) and return the results.
 	 * @param transfers transfers found in input (list of maps with header->value)
+	 * @param transferParams transfer parameters
 	 * @return transfers found or error message
 	 */
-	private def checkTransferParse(transfers: InputData): YesOrNo[CheckData] = {
+	private def checkTransferParse(transfers: InputData, transferParams: TransferFile): YesOrNo[CheckData] = {
 		// Fold all the transfers into an error message or the transfer info
 		val (transList, errs) = transfers.foldLeft(List.empty[TransferInfo], Set.empty[String]) {
 			case ((platesSoFar, errsSoFar), row) =>
@@ -129,9 +152,9 @@ object TransferFile {
 					s"$c has invalid type: $cType.  Must be one of ${componentTypes.mkString(",")}"
 				// Get info from file
 				val (src, dst, sWell, dWell, sType, dType, vol) =
-					(row.get(sourcePlateHdr), row.get(destPlateHdr),
-						row.get(sourceWellHdr), row.get(destWellHdr),
-						row.get(sourceTypeHdr), row.get(destTypeHdr), row.get(volHdr))
+					(row.get(transferParams.sourceID), row.get(transferParams.destID),
+						row.get(transferParams.sourceWell), row.get(transferParams.destWell),
+						row.get(transferParams.sourceType), row.get(transferParams.destType), row.get(volHdr))
 				val source = checkIfEmpty(src)
 				val dest = checkIfEmpty(dst)
 				val sTypeDef = checkIfEmpty(sType)
@@ -140,7 +163,7 @@ object TransferFile {
 				val dWellDef = checkIfEmptyUC(dWell)
 				// Error if plate headers missing or component type is invalid
 				if (source.isEmpty || dest.isEmpty)
-					(platesSoFar, errsSoFar + s"$sourcePlateHdr and $destPlateHdr must be specified")
+					(platesSoFar, errsSoFar + s"${transferParams.sourceID} and ${transferParams.destID} must be specified")
 				else if (sTypeDef.isDefined && !componentTypes.contains(sTypeDef.get))
 					(platesSoFar, errsSoFar + makeTypeErr(source.get, sTypeDef.get))
 				else if (dTypeDef.isDefined && !componentTypes.contains(dTypeDef.get))
@@ -315,11 +338,11 @@ object TransferFile {
 
 	/**
 	 * Check that transfers are legit.
+	 * @param transferParams transfer parameters
 	 * @param transfers transfers found in input (list of maps with header->value)
-	 * @param project project associated with transfers
 	 * @return if ok then list of transfers, list of components in DB, list of components not in DB
 	 */
-	private def checkTransfers(transfers: InputData, project: Option[String]) : Future[YesOrNo[TranData]] = {
+	private def checkTransfers(transfers: InputData, transferParams: TransferFile) : Future[YesOrNo[TranData]] = {
 		/*
 		 * Make a component object from the input info
 		 * @param wantedComponent info for component to be created
@@ -331,7 +354,7 @@ object TransferFile {
 				case ComponentType.Plate =>
 					Plate(id = wantedComponent.id,
 						description = Some(desc),
-						project = project,
+						project = transferParams.project,
 						tags = List.empty,
 						locationID = None,
 						initialContent = None,
@@ -339,7 +362,7 @@ object TransferFile {
 				case ComponentType.Tube =>
 					Tube(id = wantedComponent.id,
 						description = Some(desc),
-						project = project,
+						project = transferParams.project,
 						tags = List.empty,
 						locationID = None,
 						initialContent = None
@@ -348,7 +371,7 @@ object TransferFile {
 		}
 
 		// Start by checking if input information looks good
-		checkTransferParse(transfers) match {
+		checkTransferParse(transfers, transferParams) match {
 			case no: No => Future.successful(no)
 			// Now go on to get components in DB and check if input and components in DB agree
 			case Yes((transList, componentMap)) =>
@@ -638,13 +661,14 @@ object TransferFile {
 
 	/**
 	 * Check and insert transfers.
-	 * @param project transfer project
+	 * @param transferParams transfer parameters
 	 * @param transfers transfers found in input (list of maps with header->value)
 	 * @return Error message or list of transfers done
 	 */
-	def insertTransfers(project: Option[String], transfers: InputData) : Future[YesOrNo[(Int, List[Transfer])]] = {
+	def insertTransfers(transferParams: TransferFile, transfers: InputData):
+	Future[YesOrNo[(Int, List[Transfer])]] = {
 		// Check if transfers look legit
-		checkTransfers(transfers, project).flatMap {
+		checkTransfers(transfers, transferParams).flatMap {
 			case no: No => Future.successful(no)
 			// Onward to insert transfers
 			case Yes((transList, componentFoundMap, componentNotFoundMap)) =>
@@ -716,7 +740,8 @@ object TransferFile {
 											(srcID, destID) -> wellList.sortBy(_._1)
 									}
 								// Make transfer objects for what we've found
-								val transfers = makeTransfer(wellTrans, allComponents, project).toList
+								val transfers =
+									makeTransfer(wellTrans, allComponents, transferParams.project).toList
 								// Do inserts
 								val inserts =
 									transfers

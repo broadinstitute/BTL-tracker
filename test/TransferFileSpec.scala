@@ -20,7 +20,7 @@ import TransferFileSpec._
 class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 	"The transfer file" must {
 		"Error when source not specified" in {
-			val tp = await(TransferFile.insertTransfers(None, List(Map(dpH->"dp1",swH->"A01",dwH->"A01"))))
+			val tp = await(TransferFile.insertTransfers(transParams, List(Map(dpH->"dp1",swH->"A01",dwH->"A01"))))
 			printMsg(tp)
 			tp mustBe a [No]
 			// When it was an exception
@@ -30,17 +30,17 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			//			}
 		}
 		"Error when destination not specified" in {
-			val tp = await(TransferFile.insertTransfers(None, List(Map(spH ->"sp1",swH->"A01",dwH->"A01"))))
+			val tp = await(TransferFile.insertTransfers(transParams, List(Map(spH ->"sp1",swH->"A01",dwH->"A01"))))
 			printMsg(tp)
 			tp mustBe a [No]
 		}
 		"Error when type not specified" in {
-			val tp = await(TransferFile.insertTransfers(None, List(Map(spH->"sp1",dpH->"dp1",swH->"A01",dwH->"A01"))))
+			val tp = await(TransferFile.insertTransfers(transParams, List(Map(spH->"sp1",dpH->"dp1",swH->"A01",dwH->"A01"))))
 			printMsg(tp)
 			tp mustBe a [No]
 		}
 		"Error when two different types specified" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02",stH->p384T,dtH->p384T)
 			)))
@@ -48,7 +48,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp mustBe a [No]
 		}
 		"Error when no well specified" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02")
 			)))
@@ -56,7 +56,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp mustBe a [No]
 		}
 		"Error when bad well specified" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"Z01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A99")
 			)))
@@ -73,7 +73,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 					onFailure = println
 				)
 			await(i)
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02")
 			)))
@@ -81,7 +81,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp mustBe a [No]
 		}
 		"Type specified once for cherry picking" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02")
 			)))
@@ -92,7 +92,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp.getYes mustEqual (2, tWanted)
 		}
 		"Type specified in input for cherry picking" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->p96T))))
 			printMsg(tp)
 			val tWanted =
@@ -110,7 +110,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 					onFailure = println
 				)
 			await(i)
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02")
 			)))
@@ -121,7 +121,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp.getYes mustEqual (1, tWanted)
 		}
 		"Cherry picking into tube" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p96T,dtH->tT),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02")
 			)))
@@ -132,7 +132,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp.getYes mustEqual (2, tWanted)
 		}
 		"Cherry picking from tube" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->tT,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",dwH->"A02")
 			)))
@@ -143,7 +143,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			tp.getYes mustEqual (2, tWanted)
 		}
 		"Quad transfer" in {
-			val tp = await(TransferFile.insertTransfers(None, quadList))
+			val tp = await(TransferFile.insertTransfers(transParams, quadList))
 			printMsg(tp)
 			tp mustBe a [Yes[_]]
 			val tWanted = List(Transfer("sp1","dp1",None,Some(Quad.Q1),None,None,None,None,false,false))
@@ -153,7 +153,7 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 			t mustEqual tWanted
 		}
 		"Free picking from 384->96" in {
-			val tp = await(TransferFile.insertTransfers(None, List(
+			val tp = await(TransferFile.insertTransfers(transParams, List(
 				Map(spH->"sp1", dpH->"dp1",swH->"A01",dwH->"A01",stH->p384T,dtH->p96T),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"A02"),
 				Map(spH->"sp1", dpH->"dp1",swH->"A02",dwH->"F02"),
@@ -178,14 +178,16 @@ class TransferFileSpec extends TestSpec with TestConfig with ScalaFutures {
 
 object TransferFileSpec {
 	// Headers in file
-	private val spH = "Source Plate Barcode"
-	private val dpH = "Destination Plate Barcode"
+	private val spH = "Source Barcode"
+	private val dpH = "Destination Barcode"
 	private val swH = "Source Well"
 	private val dwH = "Destination Well"
 	private val stH = "Source Component Type"
 	private val dtH = "Destination Component Type"
-	private val pH = "Project"
-	private val vH = "Transfer Volume"
+
+	private val transParams =
+		TransferFile(project = None, sourceID = spH, destID = dpH,
+			sourceWell = swH, destWell = dwH,sourceType = stH, destType = dtH)
 
 	// Component types in file
 	private val p96T = "96-well plate"
