@@ -217,6 +217,24 @@ object MolecularBarcodes {
 	// Barcodes used for TCR (P7 set for entire plate)
 	private val mbNxx33 = MolBarcodeNextera("TTGAGCCT", "Zidel", "Nxx")
 	private val mbNxx34 = MolBarcodeNextera("CCAGTTAG", "Jatod", "Nxx")
+	// Barcodes ued for MiRNA
+	private val mbNxx35 = MolBarcodeNextera("GCACACGA","Pahen", "Nxx")
+	private val mbNxx36 = MolBarcodeNextera("TCTGGCGA","Xoren", "Nxx")
+	private val mbNxx37 = MolBarcodeNextera("CATAGCGA","Hoden", "Nxx")
+	private val mbNxx38 = MolBarcodeNextera("CAGGAGCC","Hinij", "Nxx")
+	private val mbNxx39 = MolBarcodeNextera("TGTCGGAT","Yokif", "Nxx")
+	private val mbNxx40 = MolBarcodeNextera("ATTATGTT","Fofiz", "Nxx")
+	private val mbNxx41 = MolBarcodeNextera("CCTACCAT","Jocef", "Nxx")
+	private val mbNxx42 = MolBarcodeNextera("TACTTAGC","Wezap", "Nxx")
+	private val mbNxx43 = MolBarcodeNextera("AACAATGG","Bebor", "Nxx")
+	private val mbNxx44 = MolBarcodeNextera("TATCTGCC","Wolij", "Nxx")
+	private val mbNxx45 = MolBarcodeNextera("GACCTAAC","Nelac", "Nxx")
+	private val mbNxx46 = MolBarcodeNextera("GGTCCAGA","Rojan", "Nxx")
+	private val mbNxx47 = MolBarcodeNextera("CAACTCTC","Halex", "Nxx")
+	private val mbNxx48 = MolBarcodeNextera("CATGCTTA","Hopow", "Nxx")
+	private val mbNxx49 = MolBarcodeNextera("CGTTACCA","Koweh", "Nxx")
+	private val mbNxx50 = MolBarcodeNextera("CTGTAATC","Liwax", "Nxx")
+
 
 	/**
 	 * Flip (turn 180 degrees) the contents of a barcode plate - contents of upper left corner become
@@ -976,4 +994,25 @@ object MolecularBarcodes {
 
 	// SQM Set1 flipped
 	val mbSQM96S1flipped: MolBarcodeContents = flip(mbSQM96S1)
+
+	private def makeRowBCs(bcs: List[MolBarcode], width: Int) = {
+		val iter = bcs.toIterator
+		val maxChar = ('A' + (bcs.length - 1)).toChar
+		for {
+			c <- 'A' to maxChar
+			bc = iter.next
+			i <- 1 to width
+		} yield f"$c$i%02d" -> MolBarcodeSingle(bc)
+	}
+
+	val mbMiRNA =
+		MolBarcodeContents(
+			makeRowBCs(
+				bcs = List(
+					mbNxx35, mbNxx36, mbNxx37, mbNxx38, mbNxx39, mbNxx40, mbNxx41, mbNxx42,
+					mbNxx43, mbNxx44, mbNxx45, mbNxx46, mbNxx47, mbNxx48, mbNxx49, mbNxx50
+				),
+				width = 12
+			).toMap
+		)
 }
