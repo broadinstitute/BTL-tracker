@@ -22,6 +22,8 @@ import TransferFile._
 /**
  * Class to gather parameters from UI for component project and file headings.
  * @param project optional project for transfer components
+ * @param defaultSourceID default source ID to use when no source ID specified
+ * @param defaultDestID default source ID to use when no source ID specified
  * @param sourceID source barcode file header
  * @param destID destination barcode file header
  * @param sourceWell source well file header
@@ -30,6 +32,7 @@ import TransferFile._
  * @param destType destination component type file header
  */
 case class TransferFile(project: Option[String],
+						defaultSourceID: Option[String] = None, defaultDestID: Option[String] = None,
 						sourceID: String = sourceIDHdr, destID: String = destIDHdr,
 						sourceWell: String = sourceWellHdr,	destWell: String = destWellHdr,
 						sourceType: String = sourceTypeHdr, destType: String = destTypeHdr)
@@ -48,10 +51,14 @@ object TransferFile {
 	val destWellHdrKey = "destWell"
 	val sourceTypeHdrKey = "sourceType"
 	val destTypeHdrKey = "destType"
+	val defaultSourceIDKey = "defSrcID"
+	val defaultDstIDKey = "defDstID"
 	// Form with mapping to object and validation
 	val form =
 		Form(mapping(
 			projectKey -> optional(text),
+			defaultSourceIDKey -> optional(text),
+			defaultDstIDKey -> optional(text),
 			sourceIDHdrKey -> text,
 			destIDHdrKey -> text,
 			sourceWellHdrKey -> text,
@@ -73,7 +80,7 @@ object TransferFile {
 	private val plate96Type = "96-well plate"
 	private val plate384Type = "384-well plate"
 	private val tubeType = "tube"
-	private val componentTypes = List(plate96Type, plate384Type, tubeType)
+	val componentTypes = List(plate96Type, plate384Type, tubeType)
 	// Map of file component types to real types
 	private val componentTypesMap =
 		Map(plate96Type -> ComponentType.Plate, plate384Type -> ComponentType.Plate, tubeType -> ComponentType.Tube)
@@ -143,6 +150,11 @@ object TransferFile {
 			case ((platesSoFar, errsSoFar), row) =>
 				def checkIfEmpty(opt: Option[String]) =
 					if (opt.isEmpty || opt.get.trim.isEmpty) None else Some(opt.get.trim)
+				def checkIfEmptyWithDefault(opt: Option[String], default: Option[String]) =
+					checkIfEmpty(opt) match {
+						case Some(s) => Some(s)
+						case None => checkIfEmpty(default)
+					}
 				def checkIfEmptyUC(opt: Option[String]) =
 					checkIfEmpty(opt) match {
 						case Some(str) => Some(str.toUpperCase)
@@ -155,8 +167,8 @@ object TransferFile {
 					(row.get(transferParams.sourceID), row.get(transferParams.destID),
 						row.get(transferParams.sourceWell), row.get(transferParams.destWell),
 						row.get(transferParams.sourceType), row.get(transferParams.destType), row.get(volHdr))
-				val source = checkIfEmpty(src)
-				val dest = checkIfEmpty(dst)
+				val source = checkIfEmptyWithDefault(src, transferParams.defaultSourceID)
+				val dest = checkIfEmptyWithDefault(dst, transferParams.defaultDestID)
 				val sTypeDef = checkIfEmpty(sType)
 				val dTypeDef = checkIfEmpty(dType)
 				val sWellDef = checkIfEmptyUC(sWell)

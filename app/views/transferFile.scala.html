@@ -1,6 +1,7 @@
 @(transferFileForm: Form[TransferFile])
 @import helper._
 
+@compTypes = {"Entries must be one of " + @{TransferFile.componentTypes.mkString(",")} + ")"}
 @main("Transfer file") {
 	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
 }{
@@ -16,12 +17,18 @@
 		@inputText(transferFileForm(TransferFile.destWellHdrKey),
 			'style -> "display:inline;", '_label -> "Destination well header")
 		@inputText(transferFileForm(TransferFile.sourceTypeHdrKey),
-			'style -> "display:inline;", '_label -> "Source component type header")
+			'style -> "display:inline;",
+			'_label -> "Source component type header (needed for transfers from unregistered components)")
 		@inputText(transferFileForm(TransferFile.destTypeHdrKey),
-			'style -> "display:inline;", '_label -> "Destination component type header")
+			'style -> "display:inline;",
+			'_label -> "Destination component type header (needed for transfers to unregistered components)")
 		<br>
 		<h4>Transfer Data</h4>
 		@inputText(transferFileForm(TransferFile.projectKey), '_label -> "Project")
+		@inputText(transferFileForm(TransferFile.defaultSourceIDKey),
+			'_label -> "Default source barcode (used for transfers where a source barcode is not specified)")
+		@inputText(transferFileForm(TransferFile.defaultDstIDKey),
+			'_label -> "Default destination barcode (used for transfers where a destination barcode is not specified)")
 		@inputFile(transferFileForm(TransferFile.transferFileKey), '_label -> "Transfer File")
 		<input type="submit" value="Upload Transfer File" style="display:inline;">
 	}
