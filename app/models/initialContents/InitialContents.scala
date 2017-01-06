@@ -139,7 +139,7 @@ object InitialContents {
 			HKSetB -> List(DIM16x24),
 			SamplePlate -> List(DIM8x12, DIM16x24),
 			AnonymousSamplePlate -> List(DIM8x12, DIM16x24),
-			MiRNA -> List(DIM8x12)
+			MiRNA -> List(DIM16x24)
 		)
 
 	/**

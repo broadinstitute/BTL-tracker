@@ -104,6 +104,16 @@ object MolecularBarcodes {
 	}
 
 	/**
+	 * Single molecular barcode in a well
+	 * @param m molecular barcode
+	 */
+	case class MolBarcodeNexteraSingle(m: MolBarcode) extends MolBarcodeWell {
+		def getName: String = "Illumina_P7-" + m.name
+		def getSeq: String = m.seq
+		def isNextera: Boolean = true
+	}
+
+	/**
 	 * Contents for a plate of molecular barcodes.
 	 * @param contents map of well->contents
 	 */
@@ -995,6 +1005,12 @@ object MolecularBarcodes {
 	// SQM Set1 flipped
 	val mbSQM96S1flipped: MolBarcodeContents = flip(mbSQM96S1)
 
+	/**
+	 * Make a nextera single barcode set where each row is a single barcode
+	 * @param bcs set of barcodes (one per row)
+	 * @param width width of each ro
+	 * @return collection of well->barcode
+	 */
 	private def makeRowBCs(bcs: List[MolBarcode], width: Int) = {
 		val iter = bcs.toIterator
 		val maxChar = ('A' + (bcs.length - 1)).toChar
@@ -1002,9 +1018,12 @@ object MolecularBarcodes {
 			c <- 'A' to maxChar
 			bc = iter.next
 			i <- 1 to width
-		} yield f"$c$i%02d" -> MolBarcodeSingle(bc)
+		} yield f"$c$i%02d" -> MolBarcodeNexteraSingle(bc)
 	}
 
+	/**
+	 * Micro RNA barcode set
+	 */
 	val mbMiRNA =
 		MolBarcodeContents(
 			makeRowBCs(
@@ -1012,7 +1031,7 @@ object MolecularBarcodes {
 					mbNxx35, mbNxx36, mbNxx37, mbNxx38, mbNxx39, mbNxx40, mbNxx41, mbNxx42,
 					mbNxx43, mbNxx44, mbNxx45, mbNxx46, mbNxx47, mbNxx48, mbNxx49, mbNxx50
 				),
-				width = 12
+				width = 24
 			).toMap
 		)
 }
