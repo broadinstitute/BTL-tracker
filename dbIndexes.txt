@@ -11,13 +11,13 @@ db.transfer.createIndex({"from":1, "to":1, "fromQuad":1, "toQuad":1, "slice":1},
 // Need to move rack scans out of Jira DB into Tracker DB
 // Need to update to mongo 2.6 to allow bulk operations that are done for tube positions in btllims
 // Switching from barcode to bc in rack entries...
-db.rack.find({ 'contents.0.barcode': { $exists: 1 } }).snapshot().forEach(function(item)
-{
-    for(i = 0; i != item.contents.length; ++i)
-    {
-        item.contents[i].bc = item.contents[i].barcode;
-        delete item.contents[i].barcode;
-    }
+// db.rack.find({ 'contents.0.barcode': { $exists: 1 } }).snapshot().forEach(function(item)
+// {
+//    for(i = 0; i != item.contents.length; ++i)
+//    {
+//        item.contents[i].bc = item.contents[i].barcode;
+//        delete item.contents[i].barcode;
+//    }
 
-    db.rack.update({_id: item._id}, item);
-});
+//    db.rack.update({_id: item._id}, item);
+// });

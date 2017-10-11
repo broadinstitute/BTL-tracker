@@ -154,7 +154,6 @@ object MolecularBarcodes {
 	private val mbSxx14 = MolBarcodeNextera("GCTAGCAG","Poded","Sxx")
 	private val mbSxx15 = MolBarcodeNextera("TAATCCGG","Waxer","Sxx")
 	private val mbSxx16 = MolBarcodeNextera("TGGTGCAT","Yiyef","Sxx")
-	// private val mbS504 = MolBarcodeNextera("AGAGTAGA","Datan","Sxx")
 	private val mbSxx17 = MolBarcodeNextera("GAACTTCG","Nalok","Sxx")
 	private val mbSxx18 = MolBarcodeNextera("AGTAGGCA","Dodih","Sxx")
 	private val mbSxx19 = MolBarcodeNextera("GGAATACG","Rafak","Sxx")
@@ -162,6 +161,89 @@ object MolecularBarcodes {
 	private val mbSxx21 = MolBarcodeNextera("TCATGTCT","Xayol","Sxx")
 	private val mbSxx22 = MolBarcodeNextera("CGACTCTC","Kalex","Sxx")
 	private val mbSxx23 = MolBarcodeNextera("TTCACAGA","Zecan","Sxx")
+	//Low Input Metagenomic
+	private val mbSxx101 = MolBarcodeNextera("ATCTTCTC","Fezex","Sxx")
+	private val mbSxx102 = MolBarcodeNextera("CAGCTCAC","Hilec","Sxx")
+	private val mbSxx103 = MolBarcodeNextera("GGTTATCT","Rowol","Sxx")
+	private val mbSxx104 = MolBarcodeNextera("TCCGCATA","Xepaw","Sxx")
+	private val mbSxx105 = MolBarcodeNextera("TGCTTCAC","Yezec","Sxx")
+	private val mbSxx106 = MolBarcodeNextera("GCTTCCTA","Poxew","Sxx")
+	private val mbSxx107 = MolBarcodeNextera("GACCATCT","Nehol","Sxx")
+	private val mbSxx108 = MolBarcodeNextera("CTGGTATT","Litaz","Sxx")
+	private val mbSxx109 = MolBarcodeNextera("TTAATCAC","Zafec","Sxx")
+	private val mbSxx110 = MolBarcodeNextera("CGCGAATA","Kenaw","Sxx")
+	private val mbSxx111 = MolBarcodeNextera("GCTCACCA","Poheh","Sxx")
+	private val mbSxx113 = MolBarcodeNextera("ATCCTTAA","Felob","Sxx")
+	private val mbSxx114 = MolBarcodeNextera("TTCTTGGC","Zezip","Sxx")
+	private val mbSxx115 = MolBarcodeNextera("CATCACTT","Hohez","Sxx")
+	private val mbSxx116 = MolBarcodeNextera("CGAACTTC","Kacox","Sxx")
+	private val mbSxx117 = MolBarcodeNextera("GACATTAA","Nefob","Sxx")
+	private val mbSxx118 = MolBarcodeNextera("TTCACCTT","Zecez","Sxx")
+	private val mbSxx119 = MolBarcodeNextera("CCAATCTG","Jafey","Sxx")
+	private val mbSxx120 = MolBarcodeNextera("CGACAGTT","Kahiz","Sxx")
+	private val mbSxx25 = MolBarcodeNextera("ATCGACTG","Feney","Sxx")
+	private val mbSxx27 = MolBarcodeNextera("TACTCTCC","Wexoj","Sxx")
+	private val mbSxx28 = MolBarcodeNextera("TGACAGCA","Yahih","Sxx")
+	private val mbSxx29 = MolBarcodeNextera("GCAGGTTG","Paroy","Sxx")
+	private val mbSxx30 = MolBarcodeNextera("TTCCAGCT","Zehil","Sxx")
+	private val mbSxx31 = MolBarcodeNextera("TAGTTAGC","Wizap","Sxx")
+	private val mbSxx32 = MolBarcodeNextera("AGCGCTAA","Depob","Sxx")
+	private val mbSxx33 = MolBarcodeNextera("CGGTTCTT","Kizez","Sxx")
+	private val mbSxx34 = MolBarcodeNextera("TAGCATTG","Wihoy","Sxx")
+	private val mbSxx35 = MolBarcodeNextera("AATTCAAC","Boxac","Sxx")
+	private val mbSxx37 = MolBarcodeNextera("GCTCTCTT","Polez","Sxx")
+	private val mbSxx38 = MolBarcodeNextera("TGACTTGG","Yalor","Sxx")
+	private val mbSxx39 = MolBarcodeNextera("TATGGTTC","Worox","Sxx")
+	private val mbSxx40 = MolBarcodeNextera("CACTAGCC","Hewij","Sxx")
+	private val mbSxx42 = MolBarcodeNextera("CTACATTG","Lahoy","Sxx")
+	private val mbSxx43 = MolBarcodeNextera("GCGATTAC","Pifoc","Sxx")
+	private val mbSxx44 = MolBarcodeNextera("AATTGGCC","Boyij","Sxx")
+	private val mbSxx45 = MolBarcodeNextera("AATTGCTT","Boyez","Sxx")
+	private val mbSxx46 = MolBarcodeNextera("TTGGTCTG","Zitey","Sxx")
+	private val mbSxx47 = MolBarcodeNextera("CATCCTGG","Hojor","Sxx")
+	private val mbSxx48 = MolBarcodeNextera("GGATTAAC","Razac","Sxx")
+	private val mbSxx50 = MolBarcodeNextera("TCATTCGA","Xazen","Sxx")
+	private val mbSxx51 = MolBarcodeNextera("GTCCAATC","Tehax","Sxx")
+	private val mbSxx52 = MolBarcodeNextera("CTTGGTCA","Loroh","Sxx")
+	private val mbSxx53 = MolBarcodeNextera("CCAACGCT","Jacil","Sxx")
+	private val mbSxx54 = MolBarcodeNextera("TCCACTTC","Xecox","Sxx")
+	private val mbSxx55 = MolBarcodeNextera("AATCTCCA","Boleh","Sxx")
+	private val mbSxx57 = MolBarcodeNextera("CTGCTCCT","Lilel","Sxx")
+	private val mbSxx59 = MolBarcodeNextera("GCTGATTC","Ponox","Sxx")
+	private val mbSxx60 = MolBarcodeNextera("GAATCGAC","Naxic","Sxx")
+	private val mbSxx62 = MolBarcodeNextera("CACGATTC","Henox","Sxx")
+	private val mbSxx63 = MolBarcodeNextera("GCTCCGAT","Pojif","Sxx")
+	private val mbSxx64 = MolBarcodeNextera("ACAAGTCA","Cadoh","Sxx")
+	private val mbSxx65 = MolBarcodeNextera("GCTGCACT","Popal","Sxx")
+	private val mbSxx67 = MolBarcodeNextera("CTGTATTC","Liwox","Sxx")
+	private val mbSxx68 = MolBarcodeNextera("ATATCCGA","Faxen","Sxx")
+	private val mbSxx69 = MolBarcodeNextera("TTGTCCAT","Zixef","Sxx")
+	private val mbSxx70 = MolBarcodeNextera("AGTAAGTC","Dobix","Sxx")
+	private val mbSxx71 = MolBarcodeNextera("GAATATCA","Nawoh","Sxx")
+	private val mbSxx73 = MolBarcodeNextera("CCTGTCAT","Jotef","Sxx")
+	private val mbSxx74 = MolBarcodeNextera("GACGGTTA","Nerow","Sxx")
+	private val mbSxx75 = MolBarcodeNextera("CTATTAGC","Lazap","Sxx")
+	private val mbSxx76 = MolBarcodeNextera("TCCAACCA","Xebeh","Sxx")
+	private val mbSxx77 = MolBarcodeNextera("CTGGCTAT","Lipof","Sxx")
+	private val mbSxx78 = MolBarcodeNextera("ACTGGCTC","Corex","Sxx")
+	private val mbSxx79 = MolBarcodeNextera("CCATCACA","Jaxah","Sxx")
+	private val mbSxx81 = MolBarcodeNextera("CACTTCAT","Hezef","Sxx")
+	private val mbSxx82 = MolBarcodeNextera("CAAGCTTA","Hapow","Sxx")
+	private val mbSxx83 = MolBarcodeNextera("AGGTACCA","Diweh","Sxx")
+	private val mbSxx84 = MolBarcodeNextera("TCCATAAC","Xefac","Sxx")
+	private val mbSxx85 = MolBarcodeNextera("GTCCTCAT","Telef","Sxx")
+	private val mbSxx86 = MolBarcodeNextera("AGTACTGC","Docop","Sxx")
+	private val mbSxx87 = MolBarcodeNextera("CTTGAATC","Lonax","Sxx")
+	private val mbSxx88 = MolBarcodeNextera("CCAACTAA","Jacob","Sxx")
+	private val mbSxx89 = MolBarcodeNextera("AATACCAT","Bocef","Sxx")
+	private val mbSxx90 = MolBarcodeNextera("ACCTATGC","Cewop","Sxx")
+	private val mbSxx92 = MolBarcodeNextera("CTGACATC","Licax","Sxx")
+	private val mbSxx93 = MolBarcodeNextera("GCCACCAT","Pecef","Sxx")
+	private val mbSxx95 = MolBarcodeNextera("TGCTATTA","Yewow","Sxx")
+	private val mbSxx96 = MolBarcodeNextera("CTTCTGGC","Lolip","Sxx")
+	private val mbSxx98 = MolBarcodeNextera("TACTCCAG","Wexed","Sxx")
+	private val mbSxx99 = MolBarcodeNextera("ATCATACC","Fefaj","Sxx")
+
 
 	// Create i7 Nextera Molecular barcodes
 	private val mbN701 = MolBarcodeNextera("TAAGGCGA","Waren","N701")
@@ -244,6 +326,85 @@ object MolecularBarcodes {
 	private val mbNxx48 = MolBarcodeNextera("CATGCTTA","Hopow", "Nxx")
 	private val mbNxx49 = MolBarcodeNextera("CGTTACCA","Koweh", "Nxx")
 	private val mbNxx50 = MolBarcodeNextera("CTGTAATC","Liwax", "Nxx")
+	//Low Input Metagenomic
+	private val mbNxx731 = MolBarcodeNextera("AAGTAGAG","Biwid","Nxx")
+	private val mbNxx733 = MolBarcodeNextera("GCACATCT","Pahol","Nxx")
+	private val mbNxx734 = MolBarcodeNextera("TTCGCTGA","Zepon","Nxx")
+	private val mbNxx735 = MolBarcodeNextera("AGCAATTC","Debox","Nxx")
+	private val mbNxx736 = MolBarcodeNextera("CACATCCT","Hefel","Nxx")
+	private val mbNxx738 = MolBarcodeNextera("AAGGATGT","Binot","Nxx")
+	private val mbNxx739 = MolBarcodeNextera("ACACGATC","Cakax","Nxx")
+	private val mbNxx741 = MolBarcodeNextera("GTATAACA","Tawah","Nxx")
+	private val mbNxx742 = MolBarcodeNextera("TGCTCGAC","Yexic","Nxx")
+	private val mbNxx743 = MolBarcodeNextera("AACTTGAC","Bezic","Nxx")
+	private val mbNxx744 = MolBarcodeNextera("AGTTGCTT","Doyez","Nxx")
+	private val mbNxx745 = MolBarcodeNextera("TCGGAATG","Xinay","Nxx")
+	private val mbNxx747 = MolBarcodeNextera("TGTTCCGA","Yoxen","Nxx")
+	private val mbNxx748 = MolBarcodeNextera("AGGATCTA","Difew","Nxx")
+	private val mbNxx750 = MolBarcodeNextera("CCTATGCC","Jofij","Nxx")
+	private val mbNxx752 = MolBarcodeNextera("ATAGCGTC","Fapix","Nxx")
+	private val mbNxx754 = MolBarcodeNextera("ATTCTAGG","Folar","Nxx")
+	private val mbNxx755 = MolBarcodeNextera("CATGATCG","Honok","Nxx")
+	private val mbNxx757 = MolBarcodeNextera("GACAGTAA","Nedob","Nxx")
+	private val mbNxx759 = MolBarcodeNextera("TCGCCTTG","Xijoy","Nxx")
+	private val mbNxx761 = MolBarcodeNextera("GAAGAAGT","Nanat","Nxx")
+	private val mbNxx764 = MolBarcodeNextera("AGGTTATC","Dizax","Nxx")
+	private val mbNxx765 = MolBarcodeNextera("TTACGCAC","Zakec","Nxx")
+	private val mbNxx766 = MolBarcodeNextera("CCTTCGCA","Joxih","Nxx")
+	private val mbNxx767 = MolBarcodeNextera("AAGACACT","Bical","Nxx")
+	private val mbNxx768 = MolBarcodeNextera("ATTGTCTG","Fotey","Nxx")
+	private val mbNxx769 = MolBarcodeNextera("TCCAGCAA","Xedeb","Nxx")
+	private val mbNxx770 = MolBarcodeNextera("TAATGAAC","Wayac","Nxx")
+	private val mbNxx771 = MolBarcodeNextera("TCCTTGGT","Xezit","Nxx")
+	private val mbNxx772 = MolBarcodeNextera("GTCTGATG","Teyay","Nxx")
+	private val mbNxx773 = MolBarcodeNextera("GTCATCTA","Tefew","Nxx")
+	private val mbNxx774 = MolBarcodeNextera("TTGAATAG","Zibod","Nxx")
+	private val mbNxx775 = MolBarcodeNextera("TCTCGGTC","Xokix","Nxx")
+	private val mbNxx776 = MolBarcodeNextera("CAGCAAGG","Hihar","Nxx")
+	private val mbNxx777 = MolBarcodeNextera("GAACCTAG","Najod","Nxx")
+	private val mbNxx778 = MolBarcodeNextera("CCAGAGCT","Janil","Nxx")
+	private val mbNxx779 = MolBarcodeNextera("AACGCATT","Bepaz","Nxx")
+	private val mbNxx780 = MolBarcodeNextera("CCAACATT","Jacaz","Nxx")
+	private val mbNxx783 = MolBarcodeNextera("AATGTTCT","Botol","Nxx")
+	private val mbNxx784 = MolBarcodeNextera("CGCCTTCC","Keloj","Nxx")
+	private val mbNxx785 = MolBarcodeNextera("GACCAGGA","Nehin","Nxx")
+	private val mbNxx787 = MolBarcodeNextera("ACAGGTAT","Carof","Nxx")
+	private val mbNxx789 = MolBarcodeNextera("GCCGTCGA","Peten","Nxx")
+	private val mbNxx790 = MolBarcodeNextera("TAAGCACA","Wapah","Nxx")
+	private val mbNxx791 = MolBarcodeNextera("ACTAAGAC","Cobic","Nxx")
+	private val mbNxx792 = MolBarcodeNextera("CAGCGGTA","Hikiw","Nxx")
+	private val mbNxx793 = MolBarcodeNextera("GCCTAGCC","Pewij","Nxx")
+	private val mbNxx794 = MolBarcodeNextera("TATCCAGG","Wojar","Nxx")
+	private val mbNxx795 = MolBarcodeNextera("AGGTAAGG","Diwar","Nxx")
+	private val mbNxx796 = MolBarcodeNextera("ATTCCTCT","Fojol","Nxx")
+	private val mbNxx797 = MolBarcodeNextera("GTAACATC","Tacax","Nxx")
+	private val mbNxx798 = MolBarcodeNextera("TCGCTAGA","Xilan","Nxx")
+	private val mbNxx799 = MolBarcodeNextera("ATTATCAA","Fofeb","Nxx")
+	private val mbNxx800 = MolBarcodeNextera("CAATAGTC","Hawix","Nxx")
+	private val mbNxx801 = MolBarcodeNextera("GTCCACAG","Tehed","Nxx")
+	private val mbNxx802 = MolBarcodeNextera("TCTGCAAG","Xopad","Nxx")
+	private val mbNxx804 = MolBarcodeNextera("CTAACTCG","Lacok","Nxx")
+	private val mbNxx805 = MolBarcodeNextera("GAAGGAAG","Narad","Nxx")
+	private val mbNxx806 = MolBarcodeNextera("TGTAATCA","Yoboh","Nxx")
+	private val mbNxx807 = MolBarcodeNextera("ACAGTTGA","Caton","Nxx")
+	private val mbNxx808 = MolBarcodeNextera("CTATGCGT","Layet","Nxx")
+	private val mbNxx809 = MolBarcodeNextera("GACCGTTG","Nekoy","Nxx")
+	private val mbNxx810 = MolBarcodeNextera("TTGTCTAT","Zixof","Nxx")
+	private val mbNxx811 = MolBarcodeNextera("ACTGTATC","Cotax","Nxx")
+	private val mbNxx812 = MolBarcodeNextera("CTGCGGAT","Likif","Nxx")
+	private val mbNxx814 = MolBarcodeNextera("TTAATCAG","Zafed","Nxx")
+	private val mbNxx815 = MolBarcodeNextera("AGCATGGA","Defin","Nxx")
+	private val mbNxx816 = MolBarcodeNextera("CTGTGGCG","Liyik","Nxx")
+	private val mbNxx817 = MolBarcodeNextera("GATATCCA","Nofeh","Nxx")
+	private val mbNxx818 = MolBarcodeNextera("TTATATCT","Zawol","Nxx")
+	private val mbNxx819 = MolBarcodeNextera("AGGTCGCA","Dixih","Nxx")
+	private val mbNxx820 = MolBarcodeNextera("CTACCAGG","Lajar","Nxx")
+	private val mbNxx821 = MolBarcodeNextera("ACCAACTG","Cebey","Nxx")
+	private val mbNxx822 = MolBarcodeNextera("TGCAAGTA","Yebiw","Nxx")
+	private val mbNxx823 = MolBarcodeNextera("AGGTGCGA","Diyen","Nxx")
+	private val mbNxx824 = MolBarcodeNextera("CGCTATGT","Kewot","Nxx")
+	private val mbNxx825 = MolBarcodeNextera("GCCGCAAC","Pepac","Nxx")
+	private val mbNxx826 = MolBarcodeNextera("TGTAACTC","Yobex","Nxx")
 
 
 	/**
@@ -389,6 +550,107 @@ object MolecularBarcodes {
 	val mbSet384HKA = MolBarcodeContents(HKPair384.makeSet(mbSet384HKRowsA,mbSet384HKCols))
 	// HK (housekeeping) Plate B
 	val mbSet384HKB = MolBarcodeContents(HKPair384.makeSet(mbSet384HKRowsB,mbSet384HKCols))
+
+	// Low input Metagenomic set
+	val mbSet96LIMG = MolBarcodeContents(Map(
+		"A01" -> MolBarcodeNexteraPair(mbSxx25, mbNxx731),
+		"B01" -> MolBarcodeNexteraPair(mbSxx14, mbNxx46),
+		"C01" -> MolBarcodeNexteraPair(mbSxx27, mbNxx733),
+		"D01" -> MolBarcodeNexteraPair(mbSxx28, mbNxx734),
+		"E01" -> MolBarcodeNexteraPair(mbSxx29, mbNxx735),
+		"F01" -> MolBarcodeNexteraPair(mbSxx30, mbNxx736),
+		"G01" -> MolBarcodeNexteraPair(mbSxx31, mbNxx34),
+		"H01" -> MolBarcodeNexteraPair(mbSxx32, mbNxx738),
+		"A02" -> MolBarcodeNexteraPair(mbSxx33, mbNxx739),
+		"B02" -> MolBarcodeNexteraPair(mbSxx34, mbNxx48),
+		"C02" -> MolBarcodeNexteraPair(mbSxx35, mbNxx741),
+		"D02" -> MolBarcodeNexteraPair(mbSxx23, mbNxx742),
+		"E02" -> MolBarcodeNexteraPair(mbSxx37, mbNxx743),
+		"F02" -> MolBarcodeNexteraPair(mbSxx38, mbNxx744),
+		"G02" -> MolBarcodeNexteraPair(mbSxx39, mbNxx745),
+		"H02" -> MolBarcodeNexteraPair(mbSxx40, mbNxx33),
+		"A03" -> MolBarcodeNexteraPair(mbSxx1, mbNxx747),
+		"B03" -> MolBarcodeNexteraPair(mbSxx42, mbNxx748),
+		"C03" -> MolBarcodeNexteraPair(mbSxx43, mbNxx37),
+		"D03" -> MolBarcodeNexteraPair(mbSxx44, mbNxx750),
+		"E03" -> MolBarcodeNexteraPair(mbSxx45, mbNxx39),
+		"F03" -> MolBarcodeNexteraPair(mbSxx46, mbNxx752),
+		"G03" -> MolBarcodeNexteraPair(mbSxx47, mbNxx41),
+		"H03" -> MolBarcodeNexteraPair(mbSxx48, mbNxx754),
+		"A04" -> MolBarcodeNexteraPair(mbSxx11, mbNxx755),
+		"B04" -> MolBarcodeNexteraPair(mbSxx50, mbNxx36),
+		"C04" -> MolBarcodeNexteraPair(mbSxx51, mbNxx757),
+		"D04" -> MolBarcodeNexteraPair(mbSxx52, mbNxx38),
+		"E04" -> MolBarcodeNexteraPair(mbSxx53, mbNxx759),
+		"F04" -> MolBarcodeNexteraPair(mbSxx54, mbNxx40),
+		"G04" -> MolBarcodeNexteraPair(mbSxx55, mbNxx761),
+		"H04" -> MolBarcodeNexteraPair(mbSxx13, mbNxx42),
+		"A05" -> MolBarcodeNexteraPair(mbSxx57, mbNxx49),
+		"B05" -> MolBarcodeNexteraPair(mbSxx7, mbNxx764),
+		"C05" -> MolBarcodeNexteraPair(mbSxx59, mbNxx765),
+		"D05" -> MolBarcodeNexteraPair(mbSxx60, mbNxx766),
+		"E05" -> MolBarcodeNexteraPair(mbSxx2, mbNxx767),
+		"F05" -> MolBarcodeNexteraPair(mbSxx62, mbNxx768),
+		"G05" -> MolBarcodeNexteraPair(mbSxx63, mbNxx769),
+		"H05" -> MolBarcodeNexteraPair(mbSxx64, mbNxx770),
+		"A06" -> MolBarcodeNexteraPair(mbSxx65, mbNxx771),
+		"B06" -> MolBarcodeNexteraPair(mbSxx17, mbNxx772),
+		"C06" -> MolBarcodeNexteraPair(mbSxx67, mbNxx773),
+		"D06" -> MolBarcodeNexteraPair(mbSxx68, mbNxx774),
+		"E06" -> MolBarcodeNexteraPair(mbSxx69, mbNxx775),
+		"F06" -> MolBarcodeNexteraPair(mbSxx70, mbNxx776),
+		"G06" -> MolBarcodeNexteraPair(mbSxx71, mbNxx777),
+		"H06" -> MolBarcodeNexteraPair(mbSxx12, mbNxx778),
+		"A07" -> MolBarcodeNexteraPair(mbSxx73, mbNxx779),
+		"B07" -> MolBarcodeNexteraPair(mbSxx74, mbNxx780),
+		"C07" -> MolBarcodeNexteraPair(mbSxx75, mbNxx50),
+		"D07" -> MolBarcodeNexteraPair(mbSxx76, mbNxx44),
+		"E07" -> MolBarcodeNexteraPair(mbSxx77, mbNxx783),
+		"F07" -> MolBarcodeNexteraPair(mbSxx78, mbNxx784),
+		"G07" -> MolBarcodeNexteraPair(mbSxx79, mbNxx785),
+		"H07" -> MolBarcodeNexteraPair(mbSxx5, mbNxx32),
+		"A08" -> MolBarcodeNexteraPair(mbSxx81, mbNxx787),
+		"B08" -> MolBarcodeNexteraPair(mbSxx82, mbNxx47),
+		"C08" -> MolBarcodeNexteraPair(mbSxx83, mbNxx789),
+		"D08" -> MolBarcodeNexteraPair(mbSxx84, mbNxx790),
+		"E08" -> MolBarcodeNexteraPair(mbSxx85, mbNxx791),
+		"F08" -> MolBarcodeNexteraPair(mbSxx86, mbNxx792),
+		"G08" -> MolBarcodeNexteraPair(mbSxx87, mbNxx793),
+		"H08" -> MolBarcodeNexteraPair(mbSxx88, mbNxx794),
+		"A09" -> MolBarcodeNexteraPair(mbSxx89, mbNxx795),
+		"B09" -> MolBarcodeNexteraPair(mbSxx90, mbNxx796),
+		"C09" -> MolBarcodeNexteraPair(mbSxx6, mbNxx797),
+		"D09" -> MolBarcodeNexteraPair(mbSxx92, mbNxx798),
+		"E09" -> MolBarcodeNexteraPair(mbSxx93, mbNxx799),
+		"F09" -> MolBarcodeNexteraPair(mbSxx22, mbNxx800),
+		"G09" -> MolBarcodeNexteraPair(mbSxx95, mbNxx801),
+		"H09" -> MolBarcodeNexteraPair(mbSxx96, mbNxx802),
+		"A10" -> MolBarcodeNexteraPair(mbSxx10, mbNxx43),
+		"B10" -> MolBarcodeNexteraPair(mbSxx98, mbNxx804),
+		"C10" -> MolBarcodeNexteraPair(mbSxx99, mbNxx805),
+		"D10" -> MolBarcodeNexteraPair(mbSxx3, mbNxx806),
+		"E10" -> MolBarcodeNexteraPair(mbSxx101, mbNxx807),
+		"F10" -> MolBarcodeNexteraPair(mbSxx102, mbNxx808),
+		"G10" -> MolBarcodeNexteraPair(mbSxx103, mbNxx809),
+		"H10" -> MolBarcodeNexteraPair(mbSxx104, mbNxx810),
+		"A11" -> MolBarcodeNexteraPair(mbSxx105, mbNxx811),
+		"B11" -> MolBarcodeNexteraPair(mbSxx106, mbNxx812),
+		"C11" -> MolBarcodeNexteraPair(mbSxx107, mbNxx45),
+		"D11" -> MolBarcodeNexteraPair(mbSxx108, mbNxx814),
+		"E11" -> MolBarcodeNexteraPair(mbSxx109, mbNxx815),
+		"F11" -> MolBarcodeNexteraPair(mbSxx110, mbNxx816),
+		"G11" -> MolBarcodeNexteraPair(mbSxx111, mbNxx817),
+		"H11" -> MolBarcodeNexteraPair(mbSxx21, mbNxx818),
+		"A12" -> MolBarcodeNexteraPair(mbSxx113, mbNxx819),
+		"B12" -> MolBarcodeNexteraPair(mbSxx114, mbNxx820),
+		"C12" -> MolBarcodeNexteraPair(mbSxx115, mbNxx821),
+		"D12" -> MolBarcodeNexteraPair(mbSxx116, mbNxx822),
+		"E12" -> MolBarcodeNexteraPair(mbSxx117, mbNxx823),
+		"F12" -> MolBarcodeNexteraPair(mbSxx118, mbNxx824),
+		"G12" -> MolBarcodeNexteraPair(mbSxx119, mbNxx825),
+		"H12" -> MolBarcodeNexteraPair(mbSxx120, mbNxx826)
+		)
+	)
 
 	// Trugrade Set1 (384 well plate)
 	val mbTG384S1 = MolBarcodeContents(Map(

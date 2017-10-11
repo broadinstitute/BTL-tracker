@@ -1,7 +1,8 @@
 # Routes
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
-
+# if wanting to add new requests, a) add the route, b) add the html, c) add the method
+# Request method | sub-url | package.object.method
 # Home page
 GET         /                                           controllers.Application.index
 

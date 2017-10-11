@@ -33,6 +33,7 @@ object InitialContents {
 		val HKSetA = Value("Housekeeping 384-well Set 1")
 		val HKSetB = Value("Housekeeping 384-well Set 2")
 		val MiRNA = Value("MiRNA P7 Set")
+		val LIMG = Value("Low Input Metagenomic Set")
 		// Plate of samples with sample Map
 		val SamplePlate = Value("Sample Plate")
 		// Plate of samples with no map
@@ -60,7 +61,7 @@ object InitialContents {
 		val molBarcodes = List(
 			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
 			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
-			TCRSetA, TCRSetB, HKSetA, HKSetB, MiRNA
+			TCRSetA, TCRSetB, HKSetA, HKSetB, MiRNA, LIMG
 		)
 
 		/**
@@ -139,7 +140,8 @@ object InitialContents {
 			HKSetB -> List(DIM16x24),
 			SamplePlate -> List(DIM8x12, DIM16x24),
 			AnonymousSamplePlate -> List(DIM8x12, DIM16x24),
-			MiRNA -> List(DIM16x24)
+			MiRNA -> List(DIM16x24),
+			LIMG -> List(DIM8x12)
 		)
 
 	/**
@@ -170,7 +172,8 @@ object InitialContents {
 			TCRSetB -> MolecularBarcodes.mbSet384TCellB,
 			HKSetA -> MolecularBarcodes.mbSet384HKA,
 			HKSetB -> MolecularBarcodes.mbSet384HKB,
-			MiRNA -> MolecularBarcodes.mbMiRNA
+			MiRNA -> MolecularBarcodes.mbMiRNA,
+			LIMG -> MolecularBarcodes.mbSet96LIMG
 		)
 
 	// Sorted list of display values for putting in drop down lists, etc
