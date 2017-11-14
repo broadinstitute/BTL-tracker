@@ -20,9 +20,11 @@
 		<input type="submit" value="Register Stack" style="display:inline;">
 	}
 	@form(controllers.routes.TransferFileController.findTransferFile(), 'style -> "display:inline;") {
-		<input type="submit" value="Transfer file" style="display:inline;">
+		<input type="submit" value="Transfer File" style="display:inline;">
 	}
+
 	<br><br>
+
 	<div id="footer">
 		<label for="qRegister" style="font-size:13px;">&nbspRegister ID:</label>
 		<input type="text" id="qRegister" name="qRegister" size=20 placeholder="Component ID" style="display:inline;"/>
@@ -34,6 +36,13 @@
 		<input type="text" id="fromTran" name="fromTran" size=20 placeholder="from" style="display:inline;"/>
 		<input type="text" id="toTran" name="toTran" size=20 placeholder="to" style="display:inline;"/>
 		<input type="text" id="projTran" name="projTran" size=20 placeholder="optional project" style="display:inline;"/>
+		<br><br>
+		<label for="barcodesSub" style="font-size:13px;">Upload Barcodes:</label>
+		<br>
+		@form(controllers.routes.BarcodeController.upload(), 'style -> "display:inline;") {
+			<button type = "submit">Upload</button>
+			<input type="file" id= "barcodesSub" style="display:inline;">
+			}
 	</div>
 	<script type='text/javascript' src="@routes.Assets.at("javascripts/quickOperations.js")"></script>
 }
