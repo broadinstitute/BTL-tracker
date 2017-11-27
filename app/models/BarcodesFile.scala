@@ -4,28 +4,31 @@ import org.broadinstitute.spreadsheets.{CellSheet, HeaderSheet}
 import org.broadinstitute.spreadsheets.Utils.{getCSVFileData, getSheetData, isSpreadSheet}
 import play.api.data.Form
 import play.api.data.Forms.{mapping, optional, text}
-import utils.{Yes, YesOrNo}
+import utils.{MessageHandler, Yes, YesOrNo}
+import views.html.defaultpages.badRequest
 
 import scala.concurrent.Future
 
 /**
   * Created by amr on 11/15/2017.
   */
-case class BarcodesFile (fileName: Option[String])
+case class BarcodesFile (setName: Option[String])
 
 object BarcodesFile {
   val fileKey = "barcodesFile"
-  val foo = "bar"
+  val setName = ""
   val form =
-    Form(mapping(foo -> optional(text))(BarcodesFile.apply)(BarcodesFile.unapply))
+    Form(mapping(setName -> optional(text))(BarcodesFile.apply)(BarcodesFile.unapply))
 
   def insertBarcodesFile(file: String): Future[YesOrNo[Int]] = {
     def getFile = {
       val sheetToVals = (sh: CellSheet) => new HeaderSheet(sh)
-      if (isSpreadSheet(file)) getSheetData(file, "Sheet1", sheetToVals)
+      if (isSpreadSheet(file)) {
+        //TODO: getSheetData currently doesn't work with excel files properly at least in windows.
+        getSheetData(file, 0, sheetToVals)
+      }
       else getCSVFileData(file, sheetToVals)
       }
-
     val sheet = getFile
     val barcodesList = (new sheet.RowValueIter).toList
     println(barcodesList)

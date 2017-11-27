@@ -6,8 +6,10 @@
 }{
 	@componentIntro("Barcodes File", barcodesFileForm)
 	@form(routes.BarcodesController.upload(), 'style -> "display:inline;", 'enctype -> "multipart/form-data") {
-		@inputFile(barcodesFileForm(BarcodesFile.fileKey), '_label -> "Transfer File")
-		<input type="submit" value="Upload Transfer File" style="display:inline;">
+		@inputText(barcodesFileForm(BarcodesFile.setName),
+			'_label -> "Specify a name for this barcode set:")
+		@inputFile(barcodesFileForm(BarcodesFile.fileKey), '_label -> "Barcodes File")
+		<input type="submit" value="Upload Barcodes File" style="display:inline;">
 	}
 	@homeOption(Seq.empty)
 }

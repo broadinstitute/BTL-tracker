@@ -25,7 +25,7 @@ object BarcodesController extends Controller {
 
   def displayBarcodesView(): Action[AnyContent] = Action { request =>
     Ok(views.html.barcodesFile(
-      MessageHandler.addStatusFlash(request, BarcodesFile.form.fill(BarcodesFile(fileName = None)))
+      MessageHandler.addStatusFlash(request, BarcodesFile.form.fill(BarcodesFile(setName = None)))
       )
     )
   }
