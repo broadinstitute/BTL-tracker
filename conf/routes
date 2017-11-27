@@ -136,7 +136,10 @@ GET        /WUS/:id                                     controllers.Application.
 GET        /transferFile                                controllers.TransferFileController.findTransferFile()
 # Post with transfer file
 POST       /transferFile                                controllers.TransferFileController.transferFile()
+
+# Get request to go to upload file page
+GET         /addBarcodes                                controllers.BarcodesController.displayBarcodesView()
 # Post request to upload the the barcode file
-POST      /addBarcodes                                  controllers.BarcodeController.upload()
+POST      /addBarcodes                                  controllers.BarcodesController.upload()
 
 

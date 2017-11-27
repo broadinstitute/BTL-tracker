@@ -1,0 +1,13 @@
+@(barcodesFileForm: Form[BarcodesFile])
+@import helper._
+
+@main("Barcode File") {
+	<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/icon.png")">
+}{
+	@componentIntro("Barcodes File", barcodesFileForm)
+	@form(routes.BarcodesController.upload(), 'style -> "display:inline;", 'enctype -> "multipart/form-data") {
+		@inputFile(barcodesFileForm(BarcodesFile.fileKey), '_label -> "Transfer File")
+		<input type="submit" value="Upload Transfer File" style="display:inline;">
+	}
+	@homeOption(Seq.empty)
+}
