@@ -32,7 +32,12 @@ object BarcodesFile {
     val sheet = getFile
     val barcodesList = (new sheet.RowValueIter).toList
     println(barcodesList)
-    //TODO validate/cleanse data file.
+    //TODO validate/cleanse data file:
+    //TODO: file type must be of one listed in enum.
+    //TODO: Barcode sequences must contain only G, A, T, C
+    //TODO: Mfgr must be of name in an enum.
+    //TODO: Row locations must be of letter A - P
+    //TODO: Column integers must of integer 1 - 24
     //TODO process barcodesList to add each entry to database
     //TODO remove this when done.
     Future.successful(Yes(0))
