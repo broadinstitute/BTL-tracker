@@ -6,7 +6,7 @@ import play.api.data.Form
 import play.api.data.Forms.{mapping, optional, text}
 import utils.{MessageHandler, Yes, YesOrNo}
 import views.html.defaultpages.badRequest
-
+import validations.BarcodesValidation._
 import scala.concurrent.Future
 
 /**
@@ -32,6 +32,7 @@ object BarcodesFile {
     val sheet = getFile
     val barcodesList = (new sheet.RowValueIter).toList
     println(barcodesList)
+    val result = barcodesList.map(entry => validateBarcode("", ""))
     //TODO validate/cleanse data file:
     //TODO: file type must be of one listed in enum.
     //TODO: Barcode sequences must contain only G, A, T, C
