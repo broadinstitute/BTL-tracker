@@ -20,6 +20,17 @@ object BarcodesValidation{
     }
   }
 
+  object BarcodeFileHeaders extends Enumeration {
+    type BarcodeFileHeader = Value
+//    val Well, well, Name, name = Value
+    val p7_seq = Value("P7 Index")
+    val p5_seq = Value("P5 Index")
+
+    def hasValidHeaders(entry: Map[String, String]): Boolean = {
+      entry.keys.toList.containsSlice(BarcodeFileHeaders.values.toSeq)
+    }
+  }
+
   object Manufacturers extends Enumeration{
     type manufacturer = Value
     val Illumina = Value

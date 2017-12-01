@@ -3,6 +3,7 @@ import validations.BarcodesValidation.{BarcodeSeq, BarcodeWell, BarcodesFileExte
 
 /**
   * Created by Amr on 11/28/2017.
+  * Perform direct tests on validation functions in validations package
   */
 class ValidationSpec extends FlatSpec with Matchers {
 

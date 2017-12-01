@@ -20,7 +20,21 @@ object BarcodesFile {
   val form =
     Form(mapping(setName -> optional(text))(BarcodesFile.apply)(BarcodesFile.unapply))
 
+  def validateEntry(entry: Map[String, String]): List[Tuple2[Boolean, String]] = {
+    //Validate barcode well, map boolean result
+    //Validate barcode seq
+    //TODO: Need to work on this as it isn't working properly now. Run BarcodesFileSpec to see why.
+    List(
+      (BarcodeWell.isValidWell(entry.getOrElse("Well", "A:1")), "isValidWell"),
+      (BarcodeSeq.isValidLength(entry.getOrElse("P7 Index", "P7 seq missing or is of nonstandard length")), "P7 isValidLength"),
+      (BarcodeSeq.isValidLength(entry.getOrElse("P5 Index", "P7 seq missing or is of nonstandard length")), "P5 isValidLength"),
+      (BarcodeSeq.isValidSeq(entry.getOrElse("P7 Index", "P7 seq missing or contains non-DNA characters")), "P5 isValidSeq"),
+      (BarcodeSeq.isValidSeq(entry.getOrElse("P5 Index", "P7 seq missing or contains non-DNA characters")), "P7 isValidSeq")
+    )
+  }
+
   def insertBarcodesFile(file: String): Future[YesOrNo[Int]] = {
+
     def getFile = {
       val sheetToVals = (sh: CellSheet) => new HeaderSheet(sh)
       if (isSpreadSheet(file)) {
@@ -31,18 +45,9 @@ object BarcodesFile {
       }
     val sheet = getFile
     val barcodesList = (new sheet.RowValueIter).toList
-    println(barcodesList)
-    val result = barcodesList.map(entry => validateBarcode("", ""))
-    //TODO validate/cleanse data file:
-    //TODO: file type must be of one listed in enum.
-    //TODO: Barcode sequences must contain only G, A, T, C
-    //TODO: Mfgr must be of name in an enum.
-    //TODO: Row locations must be of letter A - P
-    //TODO: Column integers must of integer 1 - 24
-    //TODO process barcodesList to add each entry to database
+    val validationResults = barcodesList.map(entry => validateEntry(entry))
+
     //TODO remove this when done.
     Future.successful(Yes(0))
   }
-  //TODO: parse barcodes file
-  //TODO: Return number of barcodes added
 }
