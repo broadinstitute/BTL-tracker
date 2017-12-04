@@ -63,11 +63,15 @@ class BarcodesFileSpec extends FlatSpec with Matchers{
   "barcodes_test.csv contents" should "pass validateEntry" in {
     val validationResult = barcodesList.map(entry => validateEntry(entry))
     validationResult.head.unzip._1.forall(p => p) should be (true)
+    val errors = validationResult.flatten.filter(p => !p._1)
+    errors.size should be (0)
   }
 
   "barcodes_test_bad_data.csv contents" should "fail validateEntry" in {
     val badValidationResult = badBarcodesList.map(entry => validateEntry(entry))
+    val errors = badValidationResult.flatten.filter(p => !p._1)
     badValidationResult.head.unzip._1.forall(p => p) should be (false)
+    errors.size should be (7)
   }
 }
 
