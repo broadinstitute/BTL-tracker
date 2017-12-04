@@ -12,25 +12,29 @@ import play.api.mvc.MultipartFormData
   * Perform barcode validations on a concrete example file.
   */
 class BarcodesFileSpec extends FlatSpec with Matchers{
-  // Setup sheet data
+  // Setup sheet data for a good sheet
   private val sheetToVals = (sh: CellSheet) => new HeaderSheet(sh)
   private val file = getClass.getResource("barcodes_test.csv").toString.replace("file:","")
   private val sheet = {
     getCSVFileData(file, sheetToVals)
   }
   private val barcodesList = (new sheet.RowValueIter).toList
+
+  // Setup sheet data for a bad sheet
   private val badFile = getClass.getResource("barcodes_test_bad_data.csv").toString.replace("file:","")
   private val badSheet = {
     getCSVFileData(badFile, sheetToVals)
   }
   private val badBarcodesList = (new badSheet.RowValueIter).toList
 
+  // A good map for sheetless testing.
   private val goodEntries = List(
     Map("Well" -> "A1", "Row" -> "A", "Column" -> "01", "P7 Index" -> "AAGTAGAG", "P5 Index" -> "ATCGACTG", "name" -> "Illumina_P5-Feney_P7-Biwid"),
     Map("Well" -> "b1", "Row" -> "B", "Column" -> "01", "P7 Index" -> "ggtccaga", "P5 Index" -> "GCTAGCAG", "name" -> "Illumina_P5-Poded_P7-Rojan"),
     Map("Well" -> "C01", "Row" -> "C", "Column" -> "01", "P7 Index" -> "GCACATCT", "P5 Index" -> "TaCtCTcC", "name" -> "Illumina_P5-Wexoj_P7-Pahol")
   )
 
+  // A bad map for sheetless testing
   private val badEntries = List(
     // Bad well
     Map("Well" -> "Z25", "Row" -> "A", "Column" -> "01", "P7 Index" -> "AAGTAGAG", "P5 Index" -> "ATCGACTG", "name" -> "Illumina_P5-Feney_P7-Biwid"),
