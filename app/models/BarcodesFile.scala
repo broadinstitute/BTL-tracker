@@ -20,16 +20,37 @@ object BarcodesFile {
   val form =
     Form(mapping(setName -> optional(text))(BarcodesFile.apply)(BarcodesFile.unapply))
 
-  def validateEntry(entry: Map[String, String]): List[Tuple2[Boolean, String]] = {
-    //Validate barcode well, map boolean result
-    //Validate barcode seq
-    //TODO: Need to work on this as it isn't working properly now. Run BarcodesFileSpec to see why.
+  /** validateEntry
+    * A function to validate each cell in a  row/entry in a sheet.
+    * @param entry a row of a sheet.
+    * @return A list of tuples containing the validity tuple of each cell in the row.
+    */
+  def validateEntry(entry: Map[String, String]): List[(Boolean, Option[String])] = {
+
+    /** validateCell
+      * Inner function for validating a specific cell's content.
+      * @param cellKey they key in the entry. Used for error messages only.
+      * @param cell the Option[String] representing the cell (ex: a get call on a map).
+      * @param func the validation function to use.
+      * @return A list of tuples, with each tuple representing the validation result, and if the result is false,
+      *         a string returning the invalid data.
+      */
+    def validateCell(cellKey: String, cell: Option[String], func:(String) => Boolean): (Boolean, Option[String]) = {
+      cell match {
+        case Some(cellContents)  =>
+          val result = func(cellContents)
+          if (result) (result, None)
+          else (result, Some(s"$cellContents is not a valid ${cellKey.toLowerCase()}."))
+        case None => (false, Some(s"$cellKey not found."))
+      }
+    }
+    // Populate the list of row/entry cell validations using validateCell.
     List(
-      (BarcodeWell.isValidWell(entry.getOrElse("Well", "A:1")), "isValidWell"),
-      (BarcodeSeq.isValidLength(entry.getOrElse("P7 Index", "P7 seq missing or is of nonstandard length")), "P7 isValidLength"),
-      (BarcodeSeq.isValidLength(entry.getOrElse("P5 Index", "P7 seq missing or is of nonstandard length")), "P5 isValidLength"),
-      (BarcodeSeq.isValidSeq(entry.getOrElse("P7 Index", "P7 seq missing or contains non-DNA characters")), "P5 isValidSeq"),
-      (BarcodeSeq.isValidSeq(entry.getOrElse("P5 Index", "P7 seq missing or contains non-DNA characters")), "P7 isValidSeq")
+      validateCell("Well", entry.get("Well"), BarcodeWell.isValidWell),
+      validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeq.isValidSeq),
+      validateCell("P5 Index", entry.get("P5 Index"), BarcodeSeq.isValidSeq),
+      validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeq.isValidLength),
+      validateCell("P5 Index", entry.get("P5 Index"), BarcodeSeq.isValidLength)
     )
   }
 
@@ -45,6 +66,7 @@ object BarcodesFile {
       }
     val sheet = getFile
     val barcodesList = (new sheet.RowValueIter).toList
+    //This creates a List(of sheet rows) of lists(of row data) of tuples (cell validation and message)
     val validationResults = barcodesList.map(entry => validateEntry(entry))
 
     //TODO remove this when done.
