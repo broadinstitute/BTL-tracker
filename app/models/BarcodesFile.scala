@@ -61,7 +61,7 @@ object BarcodesFile {
     * @param file the path to the file
     * @return A tuple of Future and errors.
     */
-  def insertBarcodesFile(file: String): (Future[YesOrNo[Int]], List[(Boolean, Option[String])]) = {
+  def insertBarcodesFile(file: String): (Future[YesOrNo[Int]], List[Map[String, String]], List[(Boolean, Option[String])]) = {
     /**
       * Gets the file and turns it into a HeaderSheet object.
       * @return HeaderSheet object.
@@ -80,6 +80,6 @@ object BarcodesFile {
     //This creates a List(of sheet rows) of lists(of row data) of tuples (cell validation and message)
     val validationResults = barcodesList.map(entry => validateEntry(entry))
     val errors = validationResults.flatten.filter(p => !p._1)
-    (Future.successful(Yes(0)), errors)
+    (Future.successful(Yes(0)), barcodesList, errors)
   }
 }

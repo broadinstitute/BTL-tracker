@@ -79,7 +79,7 @@ object BarcodesController extends Controller {
                     } else {
                       //TODO: Figure out how to make <br> show up in the barcodesFile html.
                       // Currently the <br> gets converted to 'lt' and 'gt' text so the <br> doesn't do what it's supposed to do.
-                      val errorString = result._2.unzip._2.flatten.mkString("<br>")
+                      val errorString = result._2.flatten.mkString("<br>")
                       futureBadRequest(data, errorString)
                     }
                   } else {
