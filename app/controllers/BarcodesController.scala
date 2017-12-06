@@ -60,6 +60,7 @@ object BarcodesController extends Controller {
                   if (BarcodesFileExtension.isValidFilename(file.filename)) {
                     val result = BarcodesFile.insertBarcodesFile(file.ref.file.getCanonicalPath)
                     if (result._2.isEmpty) {
+
                       result._1.map(
                         _ =>
                           //TODO: Need to figure out how I'm going to insert data into DB
@@ -79,7 +80,7 @@ object BarcodesController extends Controller {
                     } else {
                       //TODO: Figure out how to make <br> show up in the barcodesFile html.
                       // Currently the <br> gets converted to 'lt' and 'gt' text so the <br> doesn't do what it's supposed to do.
-                      val errorString = result._2.flatten.mkString("<br>")
+                      val errorString = result._3.unzip._2.flatten.mkString("<br>")
                       futureBadRequest(data, errorString)
                     }
                   } else {
