@@ -20,14 +20,31 @@ object BarcodesValidation{
     }
   }
 
-  object BarcodeFileHeaders extends Enumeration {
-    type BarcodeFileHeader = Value
-//    val Well, well, Name, name = Value
+  //TODO: is there are more elegant way than having two almost identical objects(PairedBarcodeFileheader, SingleBarcodeFileHeader)
+  object PairedBarcodeFileHeaders extends Enumeration {
+    type PairedBarcodeFileHeaders = Value
     val p7_seq = Value("P7 Index")
     val p5_seq = Value("P5 Index")
+    val well = Value("Well")
+    val name = Value("name")
 
     def hasValidHeaders(entry: Map[String, String]): Boolean = {
-      entry.keys.toList.containsSlice(BarcodeFileHeaders.values.toSeq)
+      val entryKeys = entry.keys.toSet
+      val enumValuesAsStrings = PairedBarcodeFileHeaders.values.map(v => v.toString)
+      enumValuesAsStrings.subsetOf(entryKeys)
+    }
+  }
+
+  object SingleBarcodeFileHeaders extends Enumeration {
+    type SingleBarcodeFileHeaders = Value
+    val p7_seq = Value("P7 Index")
+    val well = Value("Well")
+    val name = Value("name")
+
+    def hasValidHeaders(entry: Map[String, String]): Boolean = {
+      val entryKeys = entry.keys.toSet
+      val enumValuesAsStrings = SingleBarcodeFileHeaders.values.map(v => v.toString)
+      enumValuesAsStrings.subsetOf(entryKeys)
     }
   }
 

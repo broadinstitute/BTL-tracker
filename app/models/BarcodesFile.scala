@@ -57,11 +57,11 @@ object BarcodesFile {
   }
 
   /**
-    * Validates a barcode file while also turning it into a sheet
+    * Validates a barcode file while also transmuting it into a sheet
     * @param file the path to the file
     * @return A tuple of Future and errors.
     */
-  def insertBarcodesFile(file: String): (Future[YesOrNo[Int]], List[Map[String, String]], List[(Boolean, Option[String])]) = {
+  def barcodesFileToSheet(file: String): (Future[YesOrNo[Int]], List[Map[String, String]], List[(Boolean, Option[String])]) = {
     /**
       * Gets the file and turns it into a HeaderSheet object.
       * @return HeaderSheet object.
