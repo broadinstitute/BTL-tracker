@@ -16,7 +16,7 @@ import scala.concurrent.Future
   */
 case class BarcodesFile (setName: Option[String])
 
-object BarcodesFile {
+object BarcodesFile{
   val fileKey = "barcodesFile"
   val setName = ""
   val form =

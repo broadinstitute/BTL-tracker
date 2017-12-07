@@ -91,6 +91,7 @@ object BarcodesController extends Controller {
                                   //TODO: Add these barcodes to barcode collection, but only if they don't exist already
                                   val i5Barcode = MolBarcode(i5, n.split("_").filter(n => n.contains("P5")).head.replace("P5-", ""))
                                   val i7Barcode = MolBarcode(i7, n.split("_").filter(n => n.contains("P7")).head.replace("P7-", ""))
+                                  MolBarcode.create(i5Barcode)
                                   //TODO: Add this to the set in set collection
                                   MolBarcodeNexteraPair(
                                     i5 = i5Barcode,

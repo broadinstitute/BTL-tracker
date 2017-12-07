@@ -1,8 +1,10 @@
 package models.initialContents
 
-import models.{TransferWells, Transfer, Plate}
+import models.{Plate, Transfer, TransferWells}
 import Transfer.Quad._
+import models.db.DBOpers
 import models.initialContents.InitialContents.ContentsMap
+import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
 
 /**
  * @author Nathaniel Novod
@@ -29,6 +31,13 @@ object MolecularBarcodes {
 		}
 	}
 
+	object MolBarcode extends DBOpers[MolBarcode]{
+		protected val collectionNameKey = "mongodb.collection.barcodes"
+		protected val collectionNameDefault = "barcodes"
+		implicit val barcodeHandler = Macros.handler[MolBarcode]
+		val reader = implicitly[BSONDocumentReader[MolBarcode]]
+		val writer = implicitly[BSONDocumentWriter[MolBarcode]]
+	}
 	/**
 	 * Nextera molecular barcode
 	 * @param seq sequence
