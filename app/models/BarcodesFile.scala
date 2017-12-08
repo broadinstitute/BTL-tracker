@@ -20,7 +20,7 @@ object BarcodesFile{
   val fileKey = "barcodesFile"
   val setName = ""
   val form =
-    Form(mapping(setName -> optional(text))(BarcodesFile.apply)(BarcodesFile.unapply))
+    Form(mapping("setName" -> optional(text))(BarcodesFile.apply)(BarcodesFile.unapply))
 
   /** validateEntry
     * A function to validate each cell in a  row/entry in a sheet.

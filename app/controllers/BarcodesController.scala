@@ -5,9 +5,12 @@ import play.api.mvc._
 import utils.{MessageHandler, Yes}
 import utils.MessageHandler.FlashingKeys
 import validations.BarcodesValidation._
-import models.db.{ TrackerCollection, DBOpers }
+import models.db.{DBOpers, TrackerCollection}
+
 import scala.concurrent.Future
 import models.initialContents.MolecularBarcodes._
+import reactivemongo.bson
+import reactivemongo.bson.BSONDocument
 /**
   * Created by amr on 11/13/2017.
   */
@@ -30,8 +33,6 @@ object BarcodesController extends Controller {
     )
   }
 
-  def add() = {}
-
   def upload(): Action[AnyContent] = {
     Action.async { implicit request => {
       def futureBadRequest(data: BarcodesFile, err: String) =
@@ -53,6 +54,7 @@ object BarcodesController extends Controller {
           )
         },
         data => {
+          //TODO: Figure out why set name is always 'none' even when specified in form. Can't add sets until this is figured out.
           request.body.asMultipartFormData match {
             case Some(barFile) =>
               barFile.file(BarcodesFile.fileKey) match {
@@ -88,21 +90,24 @@ object BarcodesController extends Controller {
                               val pairName = entry.get("name")
                               Seq(i7Seq, i5Seq, pairName) match {
                                 case Seq(Some(i7), Some(i5), Some(n)) =>
-                                  //TODO: Add these barcodes to barcode collection, but only if they don't exist already
-                                  val i5Barcode = MolBarcode(i5, n.split("_").filter(n => n.contains("P5")).head.replace("P5-", ""))
-                                  val i7Barcode = MolBarcode(i7, n.split("_").filter(n => n.contains("P7")).head.replace("P7-", ""))
-                                  MolBarcode.create(i5Barcode)
+                                  // Add these barcodes to barcode collection, but only if they don't exist already
+                                  val i5Name = n.split("_").filter(n => n.contains("P5")).head.replace("P5-", "")
+                                  val i7Name = n.split("_").filter(n => n.contains("P7")).head.replace("P7-", "")
+                                  val i5Barcode = MolBarcode(i5, i5Name)
+                                  val i7Barcode = MolBarcode(i7, i7Name)
+                                  MolBarcode.createUnique(i5Barcode)
+                                  MolBarcode.createUnique(i7Barcode)
                                   //TODO: Add this to the set in set collection
                                   MolBarcodeNexteraPair(
                                     i5 = i5Barcode,
                                     i7 = i7Barcode
                                   )
-
                                   Future.successful(Yes(0))
 
                                 case Seq(Some(i7), None, Some(n)) =>
                                   //TODO: Add these barcodes to the barcode collection but only if it doesn't exist already.
                                   val i7Barcode = MolBarcode(i7, n.replace("P7-", ""))
+                                  MolBarcode.createUnique(i7Barcode)
                                   //TODO: Add this to the set in set collection
                                   MolBarcodeNexteraSingle(i7Barcode)
                                   Future.successful(Yes(0))
