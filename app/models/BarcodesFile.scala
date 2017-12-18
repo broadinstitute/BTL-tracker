@@ -1,26 +1,21 @@
 package models
 
-import controllers.BarcodesController.BadRequest
 import org.broadinstitute.spreadsheets.{CellSheet, HeaderSheet}
 import org.broadinstitute.spreadsheets.Utils.{getCSVFileData, getSheetData, isSpreadSheet}
 import play.api.data.Form
-import play.api.data.Forms.{mapping, optional, text}
-import utils.{MessageHandler, No, Yes, YesOrNo}
-import views.html.defaultpages.badRequest
+import play.api.data.Forms.{mapping, nonEmptyText}
 import validations.BarcodesValidation._
-
-import scala.concurrent.Future
 
 /**
   * Created by amr on 11/15/2017.
   */
-case class BarcodesFile (setName: Option[String])
+case class BarcodesFile (setName: String)
 
 object BarcodesFile{
   val fileKey = "barcodesFile"
-  val setName = ""
+  val setKey = "setKey"
   val form =
-    Form(mapping("setName" -> optional(text))(BarcodesFile.apply)(BarcodesFile.unapply))
+    Form(mapping(setKey -> nonEmptyText)(BarcodesFile.apply)(BarcodesFile.unapply))
 
   /** validateEntry
     * A function to validate each cell in a  row/entry in a sheet.
@@ -61,7 +56,7 @@ object BarcodesFile{
     * @param file the path to the file
     * @return A tuple of Future and errors.
     */
-  def barcodesFileToSheet(file: String): (Future[YesOrNo[Int]], List[Map[String, String]], List[(Boolean, Option[String])]) = {
+  def barcodesFileToSheet(file: String): (List[Map[String, String]], List[(Boolean, Option[String])]) = {
     /**
       * Gets the file and turns it into a HeaderSheet object.
       * @return HeaderSheet object.
@@ -80,6 +75,6 @@ object BarcodesFile{
     //This creates a List(of sheet rows) of lists(of row data) of tuples (cell validation and message)
     val validationResults = barcodesList.map(entry => validateEntry(entry))
     val errors = validationResults.flatten.filter(p => !p._1)
-    (Future.successful(Yes(0)), barcodesList, errors)
+    (barcodesList, errors)
   }
 }

@@ -5,4 +5,4 @@
 ***************************************************************@
 @(intro: String, componentForm: Form[_])
 <h1>@intro</h1>
-@componentForm.globalErrors.map {error => <span class="error">@error.message</span><br>}
+@componentForm.globalErrors.map {error => <span class="error">@Html(error.message)</span><br>}

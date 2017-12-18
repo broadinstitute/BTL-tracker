@@ -1,6 +1,7 @@
 package controllers
+import models.BarcodeSet.BarcodeSet
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import models.BarcodesFile
+import models.{BarcodeWell, BarcodesFile}
 import play.api.mvc._
 import utils.{MessageHandler, Yes}
 import utils.MessageHandler.FlashingKeys
@@ -28,9 +29,13 @@ object BarcodesController extends Controller {
 
   def displayBarcodesView(): Action[AnyContent] = Action { request =>
     Ok(views.html.barcodesFile(
-      MessageHandler.addStatusFlash(request, BarcodesFile.form.fill(BarcodesFile(setName = None)))
+      MessageHandler.addStatusFlash(request, BarcodesFile.form.fill(BarcodesFile(setName = "")))
       )
     )
+  }
+
+  def getSetContents(barcodesList: List[Map[String, String]]):List[BarcodeWell] = {
+    barcodesList.map(entry => {???})
   }
 
   def upload(): Action[AnyContent] = {
@@ -54,31 +59,22 @@ object BarcodesController extends Controller {
           )
         },
         data => {
-          //TODO: Figure out why set name is always 'none' even when specified in form. Can't add sets until this is figured out.
           request.body.asMultipartFormData match {
-            case Some(barFile) =>
-              barFile.file(BarcodesFile.fileKey) match {
+            case Some(barData) =>
+              barData.file(BarcodesFile.fileKey) match {
                 case Some(file) =>
+                  //TODO: Use this to start making the sets.
+
                   if (BarcodesFileExtension.isValidFilename(file.filename)) {
                     val result = BarcodesFile.barcodesFileToSheet(file.ref.file.getCanonicalPath)
-                    val errors = result._3
+                    val errors = result._2
                     if (errors.isEmpty) {
-                      val barcodesList = result._2
+                      val barcodesList = result._1
+                      val set = BarcodeSet(name = data.setName,
+                        //TODO: Need to figure out how I'm going to populate contents
+                        contents = getSetContents()
+                      )
                       barcodesList.map(entry => {
-                        //TODO: Need to figure out how I'm going to insert data into DB
-                        /**
-                          * Option 1: Pass the barcodesList data out to here and add it to the DB at this level. This
-                          * allows me to keep the current architecture where we only do DB operation if result._2.isEmpty.
-                          *
-                          * Option 2: Do the DB operations in insertBarcodesFile, which means I need to figure out
-                          * how to pass a Future 'unsuccessful' back out of that method that will trigger the app
-                          * to show the errors on the web interface for the user.
-                          */
-                        //TODO: Trying option 1. Here we are entering the data into database into two collections at same time.
-                        // Need to insert name and sequences into barcodes collection. Each barcode will need a unique
-                        // id or can use the mongo object ID as unique ID.
-                        // Need to insert set name and wells into set collection.
-                        // ID of barcode in barcode set should appear in the corresponding wells of the set.
 
                         entry.get("Well") match {
                           case Some(w) =>
@@ -89,28 +85,31 @@ object BarcodesController extends Controller {
                               val i5Seq = entry.get("P5 Index")
                               val pairName = entry.get("name")
                               Seq(i7Seq, i5Seq, pairName) match {
+                                  // We have a i7 barcode, i5 barcode, and a name
                                 case Seq(Some(i7), Some(i5), Some(n)) =>
                                   // Add these barcodes to barcode collection, but only if they don't exist already
                                   val i5Name = n.split("_").filter(n => n.contains("P5")).head.replace("P5-", "")
                                   val i7Name = n.split("_").filter(n => n.contains("P7")).head.replace("P7-", "")
                                   val i5Barcode = MolBarcode(i5, i5Name)
                                   val i7Barcode = MolBarcode(i7, i7Name)
-                                  MolBarcode.createUnique(i5Barcode)
-                                  MolBarcode.createUnique(i7Barcode)
+                                  MolBarcode.create(i5Barcode)
+                                  MolBarcode.create(i7Barcode)
                                   //TODO: Add this to the set in set collection
                                   MolBarcodeNexteraPair(
                                     i5 = i5Barcode,
                                     i7 = i7Barcode
                                   )
                                   Future.successful(Yes(0))
-
+                                //TODO: We have a i7 barcode only and a name
                                 case Seq(Some(i7), None, Some(n)) =>
                                   //TODO: Add these barcodes to the barcode collection but only if it doesn't exist already.
                                   val i7Barcode = MolBarcode(i7, n.replace("P7-", ""))
-                                  MolBarcode.createUnique(i7Barcode)
+                                  MolBarcode.create(i7Barcode)
                                   //TODO: Add this to the set in set collection
                                   MolBarcodeNexteraSingle(i7Barcode)
                                   Future.successful(Yes(0))
+                                //TODO: We have both barcodes but no names for them
+                                case Seq(Some(i7), Some(i5), None) => ???
 
                                 case _ => futureBadRequest(data, "")
                               }
@@ -123,17 +122,15 @@ object BarcodesController extends Controller {
                         }
                         }
                       )
-                      result._1.map(
-                        _ =>
-                          FlashingKeys.setFlashingValue(
-                            r = Redirect(routes.Application.index()),
-                            k = FlashingKeys.Status, s = s"Barcodes: ${file.ref.file.getCanonicalPath}."
-                          )
+                        Future(FlashingKeys.setFlashingValue(
+                          r = Redirect(routes.Application.index()),
+                          k = FlashingKeys.Status, s = s"Barcodes: ${file.ref.file.getCanonicalPath}."
+                        )
                       )
                     } else {
                       //TODO: Figure out how to make <br> show up in the barcodesFile html.
                       // Currently the <br> gets converted to 'lt' and 'gt' text so the <br> doesn't do what it's supposed to do.
-                      val errorString = result._3.unzip._2.flatten.mkString("<br>")
+                      val errorString = result._2.unzip._2.flatten.mkString("<br>")
                       futureBadRequest(data, errorString)
                     }
                   } else {

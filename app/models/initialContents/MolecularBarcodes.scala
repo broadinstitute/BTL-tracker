@@ -18,6 +18,7 @@ object MolecularBarcodes {
 	 * @param seq sequence
 	 * @param name name
 	 */
+	//TODO: since name is option it should really be an option[string] but this messes up a bunch of stuff. Fix it later.
 	case class MolBarcode(seq: String, name: String) {
 		private val comp = Map('C' -> 'G','G' -> 'C','A' -> 'T','T' -> 'A')
 
@@ -44,6 +45,8 @@ object MolecularBarcodes {
 	 * @param name name
 	 * @param name1 alternate name
 	 */
+	//TODO: since name and name1 are optional it should really be an option[string] but this messes up a bunch of stuff. Fix it later.
+
 	class MolBarcodeNextera(seq: String, name: String, val name1: String) extends MolBarcode(seq, name)
 	// Companion object with apply - can't have case class extending from case class so apply will do
 	object MolBarcodeNextera {

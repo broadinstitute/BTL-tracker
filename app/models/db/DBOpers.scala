@@ -59,30 +59,6 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 	def create(entry: T) =
 		collection.insert(entry)
 
-
-
-	//TODO: How can we make this generic? Review with NN. Also, how can I pass some notion of success/failure with associated message.
-	/**
-		* Create a new entry in the DB collection if entry doesn't exist already.
-		* @param barcode barcode object
-		* @return Success/Failure
-		*/
-	def createUnique(barcode: MolBarcode) = {
-		val query = Await.result(read(BSONDocument("seq" -> barcode.seq, "name" -> barcode.name)), 5.seconds)
-		query.length match {
-				//Query returned nothing so barcode doesn't exist. Create it.
-			case 0 =>
-				collection.insert(barcode)
-				Success
-				// Here the barcode exists, so no need to create, but that's still a success to us.
-			case 1 => Success
-				// Here more than one copy of the barcode exists, and that's a problem. Make sure we know about it.
-			case x  if x > 1 => Failure
-				// Something else went wrong.
-			case _	=> Failure
-		}
-	}
-
 	/**
 	  * Read entires based on a query.
 	  * @param query BSON DB query
