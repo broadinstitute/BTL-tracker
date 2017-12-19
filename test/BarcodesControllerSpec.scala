@@ -1,6 +1,5 @@
 import models.initialContents.MolecularBarcodes.MolBarcode
 import org.scalatest.{FlatSpec, Matchers}
-import models.db.{ TrackerCollection, DBOpers }
 
 /**
   * Created by amr on 12/4/2017.

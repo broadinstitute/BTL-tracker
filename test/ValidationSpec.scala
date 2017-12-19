@@ -22,39 +22,39 @@ class ValidationSpec extends FlatSpec with Matchers {
     BarcodesFileExtension.isValidFilename("/another/invalid/path/badfile") should be (false)
   }
 
-  "BarcodeWell" should "return true for valid wells and false for invalid ones" in {
-    BarcodeWell.isValidWell("A1") should be (true)
-    BarcodeWell.isValidWell("P09") should be (true)
-    BarcodeWell.isValidWell("G11") should be (true)
+  "BarcodeWellValidations" should "return true for valid wells and false for invalid ones" in {
+    BarcodeWellValidations.isValidWell("A1") should be (true)
+    BarcodeWellValidations.isValidWell("P09") should be (true)
+    BarcodeWellValidations.isValidWell("G11") should be (true)
 
   }
   it should "return false when well row is not A thru P or column is not 1 thru 24" in {
-    BarcodeWell.isValidWell("z06") should be (false)
-    BarcodeWell.isValidWell("A99") should be (false)
-    BarcodeWell.isValidWell("Z99") should be (false)
+    BarcodeWellValidations.isValidWell("z06") should be (false)
+    BarcodeWellValidations.isValidWell("A99") should be (false)
+    BarcodeWellValidations.isValidWell("Z99") should be (false)
   }
 
-  "BarcodeSeq" should "return true if seq only contains DNA bases" in {
-    BarcodeSeq.isValidSeq("ACCTATGC") should be (true)
-    BarcodeSeq.isValidSeq("CtTCTgGC") should be (true)
-    BarcodeSeq.isValidSeq("gatccctt") should be (true)
+  "BarcodeSeqValidations" should "return true if seq only contains DNA bases" in {
+    BarcodeSeqValidations.isValidSeq("ACCTATGC") should be (true)
+    BarcodeSeqValidations.isValidSeq("CtTCTgGC") should be (true)
+    BarcodeSeqValidations.isValidSeq("gatccctt") should be (true)
 
   }
   it should "return false if seq contains any non-DNA letters" in {
-    BarcodeSeq.isValidSeq("123456") should be (false)
-    BarcodeSeq.isValidSeq("ACCTxTGC") should be (false)
-    BarcodeSeq.isValidSeq("ACcTnTGC") should be (false)
+    BarcodeSeqValidations.isValidSeq("123456") should be (false)
+    BarcodeSeqValidations.isValidSeq("ACCTxTGC") should be (false)
+    BarcodeSeqValidations.isValidSeq("ACcTnTGC") should be (false)
   }
 
   it should "return true if seq is 8 characters long" in {
-    BarcodeSeq.isValidLength("ACCTATGC") should be (true)
-    BarcodeSeq.isValidLength("CtTCTgGC") should be (true)
-    BarcodeSeq.isValidLength("gatccctt") should be (true)
+    BarcodeSeqValidations.isValidLength("ACCTATGC") should be (true)
+    BarcodeSeqValidations.isValidLength("CtTCTgGC") should be (true)
+    BarcodeSeqValidations.isValidLength("gatccctt") should be (true)
   }
   it should "return false if seq is not 8 characters long" in {
-    BarcodeSeq.isValidLength("ACCTA") should be (false)
-    BarcodeSeq.isValidLength("ACCTATGCACCTATGC") should be (false)
-    BarcodeSeq.isValidLength("") should be (false)
+    BarcodeSeqValidations.isValidLength("ACCTA") should be (false)
+    BarcodeSeqValidations.isValidLength("ACCTATGCACCTATGC") should be (false)
+    BarcodeSeqValidations.isValidLength("") should be (false)
   }
 
   "Manufacturers" should "be true when passed valid manufacturer name" in {

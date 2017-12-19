@@ -3,7 +3,7 @@ import java.io.InputStream
 import models.BarcodesFile.validateEntry
 import org.broadinstitute.spreadsheets.{CellSheet, HeaderSheet}
 import org.broadinstitute.spreadsheets.Utils.{getCSVFileData, getSheetData, isSpreadSheet}
-import validations.BarcodesValidation.{BarcodeSeq, BarcodeWell, BarcodesFileExtension, Manufacturers}
+import validations.BarcodesValidation.{BarcodeSeqValidations, BarcodeWellValidations, BarcodesFileExtension, Manufacturers}
 import org.scalatest.{FlatSpec, Matchers}
 import play.api.libs.Files
 import play.api.mvc.MultipartFormData

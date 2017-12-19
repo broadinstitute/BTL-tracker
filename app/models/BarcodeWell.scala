@@ -7,7 +7,7 @@ import models.initialContents.MolecularBarcodes.MolBarcode
   */
 case class BarcodeWell (
                          location: String,
-                         p5Contents: Option[Seq[MolBarcode]],
-                         p7Contents: Option[Seq[MolBarcode]]
+                         i5Contents: Option[MolBarcode],
+                         i7Contents: Option[MolBarcode]
                        )
 

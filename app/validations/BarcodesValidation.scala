@@ -7,7 +7,7 @@ package validations
 object BarcodesValidation{
 
   def validateBarcode(well: String, seq: String): Boolean = {
-    BarcodeWell.isValidWell(well) && BarcodeSeq.isValidSeq(seq)
+    BarcodeWellValidations.isValidWell(well) && BarcodeSeqValidations.isValidSeq(seq)
   }
 
   object BarcodesFileExtension extends Enumeration {
@@ -57,7 +57,14 @@ object BarcodesValidation{
     }
   }
 
-  object BarcodeWell {
+  object BarcodeWellValidations {
+
+    def isValidWell(w: String): Boolean = {
+      val row: String = w.replaceAll("[^A-Za-z]", "")
+      val col: Int = w.replaceAll("[^0-9]+", "").toInt
+      isValidRow(row) && isValidColumn(col)
+    }
+
     def isValidRow(r: String): Boolean = {
       if (r.toUpperCase >= "A" && r.toUpperCase <= "P") true
       else false
@@ -67,15 +74,9 @@ object BarcodesValidation{
       if (c >= 1 && c <= 24) true
       else false
     }
-
-    def isValidWell(w: String): Boolean = {
-      val row: String = w.replaceAll("[^A-Za-z]", "")
-      val col: Int = w.replaceAll("[^0-9]+", "").toInt
-      isValidRow(row) && isValidColumn(col)
-    }
   }
 
-  object BarcodeSeq {
+  object BarcodeSeqValidations {
     def isValidSeq(s: String): Boolean = {
       s.toUpperCase().matches("[ATCG]+")
     }

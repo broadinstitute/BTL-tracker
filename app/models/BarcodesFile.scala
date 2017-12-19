@@ -43,11 +43,11 @@ object BarcodesFile{
     }
     // Populate the list of row/entry cell validations using validateCell.
     List(
-      validateCell("Well", entry.get("Well"), BarcodeWell.isValidWell),
-      validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeq.isValidSeq),
-      validateCell("P5 Index", entry.get("P5 Index"), BarcodeSeq.isValidSeq),
-      validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeq.isValidLength),
-      validateCell("P5 Index", entry.get("P5 Index"), BarcodeSeq.isValidLength)
+      validateCell("Well", entry.get("Well"), BarcodeWellValidations.isValidWell),
+      validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeqValidations.isValidSeq),
+      validateCell("P5 Index", entry.get("P5 Index"), BarcodeSeqValidations.isValidSeq),
+      validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeqValidations.isValidLength),
+      validateCell("P5 Index", entry.get("P5 Index"), BarcodeSeqValidations.isValidLength)
     )
   }
 

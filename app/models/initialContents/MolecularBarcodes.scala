@@ -32,6 +32,7 @@ object MolecularBarcodes {
 		}
 	}
 
+
 	object MolBarcode extends DBOpers[MolBarcode]{
 		protected val collectionNameKey = "mongodb.collection.barcodes"
 		protected val collectionNameDefault = "barcodes"
