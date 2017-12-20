@@ -19,7 +19,8 @@ class BarcodesControllerSpec extends FlatSpec with Matchers{
     MolBarcode("ACACGATC", "Cakax"),
     MolBarcode("CATGCTTA", "Hopow")
   )
-
+  //TODO: test makeSetWells
+  //TODO: test upload()
   "" should "" in {
     val result = goodBarcodes.map( b => MolBarcode.create(b))
     println(result)

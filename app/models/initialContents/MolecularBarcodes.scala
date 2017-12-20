@@ -4,7 +4,7 @@ import models.{Plate, Transfer, TransferWells}
 import Transfer.Quad._
 import models.db.DBOpers
 import models.initialContents.InitialContents.ContentsMap
-import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
+import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, BSONObjectID, Macros}
 
 /**
  * @author Nathaniel Novod
@@ -19,7 +19,7 @@ object MolecularBarcodes {
 	 * @param name name
 	 */
 	//TODO: since name is option it should really be an option[string] but this messes up a bunch of stuff. Fix it later.
-	case class MolBarcode(seq: String, name: String) {
+	case class MolBarcode(seq: String, name: String, id: BSONObjectID = BSONObjectID.generate) {
 		private val comp = Map('C' -> 'G','G' -> 'C','A' -> 'T','T' -> 'A')
 
 		/**

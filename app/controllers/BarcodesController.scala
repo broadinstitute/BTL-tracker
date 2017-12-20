@@ -2,13 +2,16 @@ package controllers
 
 import models.BarcodeSet.BarcodeSet
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import models.{BarcodeWell, BarcodesFile}
+import models.BarcodesFile
+import models.BarcodeWell.BarcodeWell
 import play.api.mvc._
 import utils.MessageHandler
 import utils.MessageHandler.FlashingKeys
 import validations.BarcodesValidation._
+
 import scala.concurrent.Future
 import models.initialContents.MolecularBarcodes._
+import reactivemongo.bson.{BSONDocument, BSONObjectID}
 /**
   * Created by amr on 11/13/2017.
   */
@@ -85,24 +88,28 @@ object BarcodesController extends Controller {
               // We have a i7 barcode, i5 barcode, and a name
               case Seq(Some(i7), Some(i5), Some(n)) =>
                 val pair = makePair(i7Seq.get, i5Seq.get, pairName)
+                MolBarcode.create(pair.i5)
+                MolBarcode.create(pair.i7)
+                val i7Query = BSONDocument("name" -> pair.i7.name, "seq" -> pair.i7.seq)
                 Some(BarcodeWell(
                   location = well,
-                  i5Contents = Some(pair.i5),
-                  i7Contents = Some(pair.i7)
+                  i5Contents = Some(pair.i5.id),
+                  i7Contents = Some(pair.i7.id)
                 ))
               case Seq(Some(i7), None, Some(n)) =>
+                val i7Barcode = MolBarcode(seq = i7, name = getName("P7", n))
                 Some(BarcodeWell(
                   location = well,
                   i5Contents = None,
-                  i7Contents = Some(MolBarcode(seq = i7, name = getName("P7", n)))
+                  i7Contents = Some(i7Barcode.id)
                 ))
 
               case Seq(Some(i7), Some(i5), None) =>
                 val anonPair = makePair(i7Seq.get, i5Seq.get, None)
                 Some(BarcodeWell(
                   location = well,
-                  i5Contents = Some(anonPair.i5),
-                  i7Contents = Some(anonPair.i7)
+                  i5Contents = Some(anonPair.i5.id),
+                  i7Contents = Some(anonPair.i7.id)
                 ))
               case _ => None
             }
@@ -150,22 +157,26 @@ object BarcodesController extends Controller {
                     if (errors.isEmpty) {
                       //Get the list of barcodes
                       val barcodesList = result._1
+
                       //Make wells out of them
                       val setWells = makeSetWells(barcodesList)
                       //Make a set out of the barcodes
                       val set = BarcodeSet(name = data.setName,
                         contents = setWells.map(w => w.get)
                       )
+                      BarcodeSet.create(set)
                       //Add barcodes to the database and count how many added successfully.
                       //TODO: This will catch when a key already exists for example but it's not properly showing the Exception in GUI
-                      val insertionResults = set.contents.map(well => {
-                        try {
-                          MolBarcode.create(well.i5Contents.get)
-                          MolBarcode.create(well.i7Contents.get)
-                        } catch {
-                          case e: Exception => futureBadRequest(data, e.getMessage)
-                        }
-                      })
+                      val insertionResults = set.contents.size
+//                      val insertionResults = set.contents.map(well => {
+//                        try {
+//
+//                          MolBarcode.create(well.i5Contents.get)
+//                          MolBarcode.create(well.i7Contents.get)
+//                        } catch {
+//                          case e: Exception => futureBadRequest(data, e.getMessage)
+//                        }
+//                      })
 
                       //TODO: The flashing message is no longer showing up on screen.
                       Future(FlashingKeys.setFlashingValue(
