@@ -93,23 +93,23 @@ object BarcodesController extends Controller {
                 val i7Query = BSONDocument("name" -> pair.i7.name, "seq" -> pair.i7.seq)
                 Some(BarcodeWell(
                   location = well,
-                  i5Contents = Some(pair.i5.id),
-                  i7Contents = Some(pair.i7.id)
+                  i5Contents = Some(pair.i5._id),
+                  i7Contents = Some(pair.i7._id)
                 ))
               case Seq(Some(i7), None, Some(n)) =>
                 val i7Barcode = MolBarcode(seq = i7, name = getName("P7", n))
                 Some(BarcodeWell(
                   location = well,
                   i5Contents = None,
-                  i7Contents = Some(i7Barcode.id)
+                  i7Contents = Some(i7Barcode._id)
                 ))
 
               case Seq(Some(i7), Some(i5), None) =>
                 val anonPair = makePair(i7Seq.get, i5Seq.get, None)
                 Some(BarcodeWell(
                   location = well,
-                  i5Contents = Some(anonPair.i5.id),
-                  i7Contents = Some(anonPair.i7.id)
+                  i5Contents = Some(anonPair.i5._id),
+                  i7Contents = Some(anonPair.i7._id)
                 ))
               case _ => None
             }
@@ -181,7 +181,7 @@ object BarcodesController extends Controller {
                       //TODO: The flashing message is no longer showing up on screen.
                       Future(FlashingKeys.setFlashingValue(
                         r = Redirect(routes.Application.index()),
-                        k = FlashingKeys.Status, s = s"$insertionResults barcodes added as set $set."
+                        k = FlashingKeys.Status, s = s"$insertionResults barcodes added as set ${data.setName}"
                       )
                     )
                     } else {

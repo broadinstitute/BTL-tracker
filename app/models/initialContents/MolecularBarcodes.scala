@@ -19,7 +19,7 @@ object MolecularBarcodes {
 	 * @param name name
 	 */
 	//TODO: since name is option it should really be an option[string] but this messes up a bunch of stuff. Fix it later.
-	case class MolBarcode(seq: String, name: String, id: BSONObjectID = BSONObjectID.generate) {
+	case class MolBarcode(seq: String, name: String, _id: BSONObjectID = BSONObjectID.generate) {
 		private val comp = Map('C' -> 'G','G' -> 'C','A' -> 'T','T' -> 'A')
 
 		/**
