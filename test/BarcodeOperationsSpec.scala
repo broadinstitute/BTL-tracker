@@ -1,11 +1,20 @@
 import models.initialContents.MolecularBarcodes.MolBarcode
 import org.scalatest.{FlatSpec, Matchers}
+import org.specs2.mutable._
+
+import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.{Await, Future}
+import play.api.test._
+import play.api.test.Helpers._
+
+import scala.util.{Failure, Success}
+
 
 /**
   * Created by amr on 12/4/2017.
   * A set of tests for db operations related to barcodes.
   */
-class BarcodesControllerSpec extends FlatSpec with Matchers{
+class BarcodeOperationsSpec extends Specification{
   // set up a bunch of molbarcode objects.
   private val goodBarcodes = List(
     MolBarcode("AAGTAGAG", "Biwid"),
@@ -19,11 +28,18 @@ class BarcodesControllerSpec extends FlatSpec with Matchers{
     MolBarcode("ACACGATC", "Cakax"),
     MolBarcode("CATGCTTA", "Hopow")
   )
-  //TODO: test makeSetWells
-  //TODO: test upload()
-  "" should "" in {
-    val result = goodBarcodes.map( b => MolBarcode.create(b))
-    println(result)
+
+  "Good barcodes" should {
+    {
+      "be added to the database" in {
+        //TODO: Add good barcodes and verify they've been added to the DB either via response analysis or querying for them.
+        val response = goodBarcodes.map(b => MolBarcode.create(b))
+
+      }
+      "not be duplicated in the database" in {
+        //TODO: Try to add same barcodes and query DB to make sure we don't have duplicates.
+      }
+    }
   }
   // do the various db operations on them
   // test that what was expected happened.

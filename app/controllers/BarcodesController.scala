@@ -1,4 +1,5 @@
 package controllers
+import java.util.concurrent.ExecutionException
 
 import models.BarcodeSet.BarcodeSet
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -9,9 +10,13 @@ import utils.MessageHandler
 import utils.MessageHandler.FlashingKeys
 import validations.BarcodesValidation._
 
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import models.initialContents.MolecularBarcodes._
-import reactivemongo.bson.{BSONDocument, BSONObjectID}
+import reactivemongo.bson.BSONDocument
+import reactivemongo.core.errors.{DatabaseException, GenericDatabaseException}
+
+import scala.util.{Failure, Success}
 /**
   * Created by amr on 11/13/2017.
   */
@@ -164,24 +169,15 @@ object BarcodesController extends Controller {
                       val set = BarcodeSet(name = data.setName,
                         contents = setWells.map(w => w.get)
                       )
-                      BarcodeSet.create(set)
+                      val response = BarcodeSet.create(set)
+                      //TODO: I want to tell the user if the barcodes or set already exist in the database.
+                      // Having this blocking code accomplishes that but not in an elegant way. I would prefer to use
+                      // the messaging in the GUI to do this.
+                      Await.result(response, 5.seconds)
                       //Add barcodes to the database and count how many added successfully.
-                      //TODO: This will catch when a key already exists for example but it's not properly showing the Exception in GUI
-                      val insertionResults = set.contents.size
-//                      val insertionResults = set.contents.map(well => {
-//                        try {
-//
-//                          MolBarcode.create(well.i5Contents.get)
-//                          MolBarcode.create(well.i7Contents.get)
-//                        } catch {
-//                          case e: Exception => futureBadRequest(data, e.getMessage)
-//                        }
-//                      })
-
-                      //TODO: The flashing message is no longer showing up on screen.
                       Future(FlashingKeys.setFlashingValue(
                         r = Redirect(routes.Application.index()),
-                        k = FlashingKeys.Status, s = s"$insertionResults barcodes added as set ${data.setName}"
+                        k = FlashingKeys.Status, s = s"${set.contents.size} barcodes added as set ${data.setName}"
                       )
                     )
                     } else {
