@@ -132,6 +132,8 @@ object MolecularBarcodes {
 	 */
 	case class MolBarcodeContents(contents: Map[String, MolBarcodeWell]) extends ContentsMap[MolBarcodeWell]
 
+
+	//TODO: All of these barcodes will need to be converted to a sheet that can be entered via the add barcodes interface.
 	// Create i5 Nextera Molecular barcodes
 	private val mbS502 = MolBarcodeNextera("CTCTCTAT","Lexof","S502")
 	private val mbS503 = MolBarcodeNextera("TATCCTCT","Wojol","S503")
@@ -516,6 +518,7 @@ object MolecularBarcodes {
 	 */
 	private object HKPair384 extends HKPairPlate with Plate384
 
+	//TODO: These will need to change somehow since all the barcode variables in this list will go away. Possibly query the DB to create them?
 	// Set up row and column contents for Nextera paired barcodes - then making the sets is easy
 	private val mbSetABRows = List(mbS502,mbS503,mbS505,mbS506,mbS507,mbS508,mbS510,mbS511)
 	private val mbSetCDRows = List(mbS513,mbS515,mbS516,mbS517,mbS518,mbS520,mbS521,mbS522)
@@ -563,7 +566,7 @@ object MolecularBarcodes {
 	val mbSet384HKA = MolBarcodeContents(HKPair384.makeSet(mbSet384HKRowsA,mbSet384HKCols))
 	// HK (housekeeping) Plate B
 	val mbSet384HKB = MolBarcodeContents(HKPair384.makeSet(mbSet384HKRowsB,mbSet384HKCols))
-
+	//TODO: This will have to change too. Will have to query the low input metagenomic set from the DB and then create this mapping.
 	// Low input Metagenomic set
 	val mbSet96LIMG = MolBarcodeContents(Map(
 		"A01" -> MolBarcodeNexteraPair(mbSxx25, mbNxx731),
@@ -1070,6 +1073,7 @@ object MolecularBarcodes {
 		}
 	}
 
+	//TODO: This will probably also need to change.
 	// Get 96-well TruGrade barcodes (quadrants of the 384-well plate)
 	// TruGrade 96-well Set1
 	val mbTG96S1 = MolBarcodeContents(getTruGradeQuadriant(TransferWells.qFrom384(Q1)))
@@ -1081,6 +1085,9 @@ object MolecularBarcodes {
 	val mbTG96S4 = MolBarcodeContents(getTruGradeQuadriant(TransferWells.qFrom384(Q4)))
 
 	// SQM Set1 (96 well plate)
+
+	//TODO: This will probably also need to change.
+
 	val mbSQM96S1 = MolBarcodeContents(Map(
 		"A01" ->
 			MolBarcodeSQMPair(MolBarcode("ATCGACTG","DualIndex_361_PondFwdPrimer"), MolBarcode("AAGTAGAG", "tagged_57")),
