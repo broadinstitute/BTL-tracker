@@ -600,7 +600,7 @@ object MolecularBarcodes {
 		"F05" -> MolBarcodeNexteraPair(mbSxx62, mbNxx768),
 		"G05" -> MolBarcodeNexteraPair(mbSxx63, mbNxx769),
 		"H05" -> MolBarcodeNexteraPair(mbSxx122, mbNxx770),
-		"A06" -> MolBarcodeNexteraPair(mbSxx126, mbNxx771),
+		"A06" -> MolBarcodeNexteraPair(mbSxx126, mbN708),
 		"B06" -> MolBarcodeNexteraPair(mbSxx17, mbNxx772),
 		"C06" -> MolBarcodeNexteraPair(mbSxx67, mbNxx773),
 		"D06" -> MolBarcodeNexteraPair(mbSxx68, mbNxx774),
