@@ -29,18 +29,18 @@ class BarcodeOperationsSpec extends Specification{
     MolBarcode("CATGCTTA", "Hopow")
   )
 
-  "Good barcodes" should {
-    {
-      "be added to the database" in {
-        //TODO: Add good barcodes and verify they've been added to the DB either via response analysis or querying for them.
-        val response = goodBarcodes.map(b => MolBarcode.create(b))
-
-      }
-      "not be duplicated in the database" in {
-        //TODO: Try to add same barcodes and query DB to make sure we don't have duplicates.
-      }
-    }
-  }
+//  "Good barcodes" should {
+//    {
+//      "be added to the database" in {
+//        //TODO: Add good barcodes and verify they've been added to the DB either via response analysis or querying for them.
+////        val response = goodBarcodes.map(b => MolBarcode.create(b))
+//
+//      }
+//      "not be duplicated in the database" in {
+//        //TODO: Try to add same barcodes and query DB to make sure we don't have duplicates.
+//      }
+//    }
+//  }
   // do the various db operations on them
   // test that what was expected happened.
 

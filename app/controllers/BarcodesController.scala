@@ -1,6 +1,4 @@
 package controllers
-import java.util.concurrent.ExecutionException
-
 import models.BarcodeSet.BarcodeSet
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import models.BarcodesFile
@@ -13,10 +11,7 @@ import validations.BarcodesValidation._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import models.initialContents.MolecularBarcodes._
-import reactivemongo.bson.BSONDocument
-import reactivemongo.core.errors.{DatabaseException, GenericDatabaseException}
 
-import scala.util.{Failure, Success}
 /**
   * Created by amr on 11/13/2017.
   */
@@ -79,7 +74,8 @@ object BarcodesController extends Controller {
           )
       }
     }
-    // MakeSetWells calls
+
+    // Create the actual barcodes by mapping the list
     barcodesList.map(entry => {
       entry.get("Well") match {
         case Some(well) =>
@@ -92,10 +88,9 @@ object BarcodesController extends Controller {
             Seq(i7Seq, i5Seq, pairName) match {
               // We have a i7 barcode, i5 barcode, and a name
               case Seq(Some(i7), Some(i5), Some(n)) =>
-                val pair = makePair(i7Seq.get, i5Seq.get, pairName)
+                val pair = makePair(i7, i5, Some(n))
                 MolBarcode.create(pair.i5)
                 MolBarcode.create(pair.i7)
-                val i7Query = BSONDocument("name" -> pair.i7.name, "seq" -> pair.i7.seq)
                 Some(BarcodeWell(
                   location = well,
                   i5Contents = Some(pair.i5._id),
@@ -163,18 +158,38 @@ object BarcodesController extends Controller {
                       //Get the list of barcodes
                       val barcodesList = result._1
 
-                      //Make wells out of them
+                      //Make wells out of them, which also adds them to the database.
                       val setWells = makeSetWells(barcodesList)
                       //Make a set out of the barcodes
                       val set = BarcodeSet(name = data.setName,
                         contents = setWells.map(w => w.get)
                       )
                       val response = BarcodeSet.create(set)
-                      //TODO: I want to tell the user if the barcodes or set already exist in the database.
-                      // Having this blocking code accomplishes that but not in an elegant way. I would prefer to use
+                      //TODO: I want to tell the user if the set already exists in the database.
+                      // Having this blocking code here accomplishes that but not in an elegant way. I would prefer to use
                       // the messaging in the GUI to do this.
                       Await.result(response, 5.seconds)
-                      //Add barcodes to the database and count how many added successfully.
+//                      BarcodeSet.create(set).onComplete {
+//                        case Success(s) =>
+//                          if (s.ok) {
+//                            // operation worked, can wrap things up.
+//                            Future(FlashingKeys.setFlashingValue(
+//                              r = Redirect(routes.Application.index()),
+//                              k = FlashingKeys.Status, s = s"${set.contents.size} barcodes added as set ${data.setName}"
+//                              )
+//                            )
+//                          } else {
+//                            //operation failed, notify user
+//                            futureBadRequest(data, s.err.getOrElse("Unable to add set to database."))
+//                          }
+//                        case Failure(f) => futureBadRequest(data,  "Barcode Set not created for an unknown reason.")
+//                      }
+//                      Await.result(response, 5.seconds) match {
+//                        case e: Exception => futureBadRequest(data, e.message)
+//                        case _ => None
+//                      }
+                      //TODO: I don't get why I can't remove this since the code is duplicated in the if (s.ok) block
+                      // and the else statement returns futureBadRequest. I feel like all the return cases are handled.
                       Future(FlashingKeys.setFlashingValue(
                         r = Redirect(routes.Application.index()),
                         k = FlashingKeys.Status, s = s"${set.contents.size} barcodes added as set ${data.setName}"
