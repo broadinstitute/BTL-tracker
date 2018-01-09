@@ -11,6 +11,11 @@ import play.api.libs.json.Format
  *
  * Initial contents for a container.
  */
+
+// TODO: I am starting to wonder if this entire initial contents concept will have to go with barcodes and sets being in DB.
+// Initial contents implies you have contents that don't change while the server is running, which is not actually true
+// anymore once you allow users to add barcodes.
+
 object InitialContents {
 	object ContentType extends Enumeration {
 		type ContentType = Value
