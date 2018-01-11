@@ -39,6 +39,7 @@ object InitialContents {
 		val HKSetB = Value("Housekeeping 384-well Set 2")
 		val MiRNA = Value("MiRNA P7 Set")
 		val LIMG = Value("Low Input Metagenomic Set")
+
 		// Plate of samples with sample Map
 		val SamplePlate = Value("Sample Plate")
 		// Plate of samples with no map
@@ -184,7 +185,9 @@ object InitialContents {
 	// Sorted list of display values for putting in drop down lists, etc
 	def getContentDisplayValues(validContents: List[ContentType.ContentType]): List[String] = {
 		// Contents to always display first
+		//TODO: This will need to change so that we pull the values from the database.
 		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes)
+//		val displayFirst = List("Foo")
 		// Get group of contents in displayFirst list vs. rest of list
 		val contentsByDisplayFirst = validContents.groupBy((ct) => displayFirst.contains(ct))
 		// Sort contents we want sorted

@@ -1,13 +1,12 @@
 import models.initialContents.MolecularBarcodes.MolBarcode
-import org.scalatest.{FlatSpec, Matchers}
 import org.specs2.mutable._
-
-import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{Await, Future}
 import play.api.test._
 import play.api.test.Helpers._
+import reactivemongo.core.commands.LastError
 
-import scala.util.{Failure, Success}
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 
 
 /**
@@ -15,6 +14,8 @@ import scala.util.{Failure, Success}
   * A set of tests for db operations related to barcodes.
   */
 class BarcodeOperationsSpec extends Specification{
+  //This forces tests to be run sequentially which is what I want in this case.
+  override def is = args(sequential = true) ^ super.is
   // set up a bunch of molbarcode objects.
   private val goodBarcodes = List(
     MolBarcode("AAGTAGAG", "Biwid"),
@@ -28,20 +29,27 @@ class BarcodeOperationsSpec extends Specification{
     MolBarcode("ACACGATC", "Cakax"),
     MolBarcode("CATGCTTA", "Hopow")
   )
-
-//  "Good barcodes" should {
-//    {
-//      "be added to the database" in {
-//        //TODO: Add good barcodes and verify they've been added to the DB either via response analysis or querying for them.
-////        val response = goodBarcodes.map(b => MolBarcode.create(b))
-//
-//      }
-//      "not be duplicated in the database" in {
-//        //TODO: Try to add same barcodes and query DB to make sure we don't have duplicates.
-//      }
-//    }
-//  }
-  // do the various db operations on them
-  // test that what was expected happened.
-
+  running(TestServer(3333)) {
+    "Good barcodes" should {
+      {
+        "be created in a local database" in {
+          running(TestServer(3333)) {
+            // Insert all the barcodes in the database and return the results.
+            val results = goodBarcodes.map(b => Await.result(MolBarcode.create(b), Duration.Inf))
+            // Get all the LastErrors for each creation so we can see if they all worked.
+            val res = results.map(r => r.ok)
+            // If they all worked, false should not be contained in res.
+            res.contains(false) shouldEqual false
+          }
+        }
+        "be deleted from the local database" in {
+          running(TestServer(3333)) {
+            val results = goodBarcodes.map(b => Await.result(MolBarcode.delete(b), Duration.Inf))
+            val res = results.map(r => r.ok)
+            res.contains(false) shouldEqual false
+          }
+        }
+      }
+    }
+  }
 }

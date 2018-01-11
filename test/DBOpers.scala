@@ -8,7 +8,7 @@ import scala.concurrent.Future
  * DB operations needed for tests
  * Created by nnovod on 12/1/16.
  */
-object DBOpers {
+object  DBOpers {
 	/**
 	 * Insert a component into the DB
 	 *
