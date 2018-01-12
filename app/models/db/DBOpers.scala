@@ -86,6 +86,11 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 	def delete(entry: T) =
 		collection.remove(entry)
 
+	def deleteByID(id: BSONObjectID) = {
+		collection.remove(BSONDocument("_id" -> id))
+	}
+
+
 	/**
 	  * Update if document exists, otherwise insert
 	  * @param selector BSON DB query to select entries to update

@@ -7,10 +7,12 @@ import play.api.mvc._
 import utils.MessageHandler
 import utils.MessageHandler.FlashingKeys
 import validations.BarcodesValidation._
-
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import models.initialContents.MolecularBarcodes._
+import reactivemongo.core.commands.LastError
+
+import scala.collection.mutable.ListBuffer
 
 /**
   * Created by amr on 11/13/2017.
@@ -34,16 +36,53 @@ object BarcodesController extends Controller {
   }
 
   /**
-    * Make the wells for a particular set of barcodes provided the wells exist.
+    * Insert barcodes into database.
+    * @param barcodeObjects A list of barcode objects.
+    * @return //TODO: Probably a better way than appending to a mutable list here but don't know how at the moment.
+    */
+  def insertBarcodeObjects(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): List[LastError] = {
+    var errors = new ListBuffer[LastError]()
+    barcodeObjects.map {
+      case Some(b) => b._2 match {
+        case Left(l) =>
+          val res = Await.result(MolBarcode.create(l), 10.seconds)
+          errors.append(res)
+        case Right(r)=>
+          val r1 = Await.result(MolBarcode.create(r.i5), 10.seconds)
+          val r2 = Await.result(MolBarcode.create(r.i7), 10.seconds)
+          errors.append(r1)
+          errors.append(r2)
+      }
+      case None => None
+    }
+    errors.toList
+  }
+
+  /**
+    * Create well objects from a list of barcode objects.
+    * @param barcodeObjects list of MolBarcode or MolBarcodeNexteraPair objects
+    * @return A list of BarcodeWell objects.
+    */
+  def makeSetWells(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): List[BarcodeWell] = {
+    barcodeObjects.map(o => {
+      o.get._2 match {
+        case Left(i7Only) => BarcodeWell(location = o.get._1, i7Contents = Some(i7Only._id), i5Contents = None)
+        case Right(pair) => BarcodeWell(location = o.get._1, i7Contents = Some(pair.i7._id), i5Contents = Some(pair.i5._id))
+      }
+    })
+  }
+
+  /**
+    * Makes the barcode objects as either lone barcodes or paired barcodes for further processing.
     * @param barcodesList a list of entries from a barcodes spreadsheet. Each item in list corresponds to a row in the
     *                     original sheet.
     * @return a list of barcode wells. We use option but should never really have any none values here because
     *         validations would complain before we got to this point.
     */
-  def makeSetWells(barcodesList: List[Map[String, String]]):List[Option[BarcodeWell]] = {
+  def makeBarcodeObjects(barcodesList: List[Map[String, String]]): List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]] = {
     /**
       * Parse the barcode name from the name string from sheet (ex: Illumina_P5-Feney_P7-Biwid)
-      * @param barcodeType: The hobbit name prefix indicating if it is the P5 or P7 name (ex: P5, P7).
+      * @param barcodeType: The hobbit name prefix indicating which name to extract (ex: P5, P7).
       * @param pairName: The pair name to be parsed (ex: Illumina_P5-Feney_P7-Biwid).
       * @return A 'hobbit' name parsed out of the pairName (ex: Feney).
       */
@@ -75,7 +114,7 @@ object BarcodesController extends Controller {
       }
     }
 
-    // Create the actual barcodes by mapping the list
+    // Map the barcodes to objects
     barcodesList.map(entry => {
       entry.get("Well") match {
         case Some(well) =>
@@ -89,28 +128,15 @@ object BarcodesController extends Controller {
               // We have a i7 barcode, i5 barcode, and a name
               case Seq(Some(i7), Some(i5), Some(n)) =>
                 val pair = makePair(i7, i5, Some(n))
-                MolBarcode.create(pair.i5)
-                MolBarcode.create(pair.i7)
-                Some(BarcodeWell(
-                  location = well,
-                  i5Contents = Some(pair.i5._id),
-                  i7Contents = Some(pair.i7._id)
-                ))
+                Some(Tuple2(well, Right(pair)))
+
               case Seq(Some(i7), None, Some(n)) =>
                 val i7Barcode = MolBarcode(seq = i7, name = getName("P7", n))
-                Some(BarcodeWell(
-                  location = well,
-                  i5Contents = None,
-                  i7Contents = Some(i7Barcode._id)
-                ))
+                Some(Tuple2(well, Left(i7Barcode)))
 
               case Seq(Some(i7), Some(i5), None) =>
-                val anonPair = makePair(i7Seq.get, i5Seq.get, None)
-                Some(BarcodeWell(
-                  location = well,
-                  i5Contents = Some(anonPair.i5._id),
-                  i7Contents = Some(anonPair.i7._id)
-                ))
+                val anonPair = makePair(i7, i5, None)
+                Some(Tuple2(well, Right(anonPair)))
               case _ => None
             }
           } else {
@@ -158,12 +184,24 @@ object BarcodesController extends Controller {
                       //Get the list of barcodes
                       val barcodesList = result._1
 
-                      //Make wells out of them, which also adds them to the database.
-                      val setWells = makeSetWells(barcodesList)
+                      //Convert them into objects that can be placed into wells
+                      val barcodeObjects = makeBarcodeObjects(barcodesList)
+
+                      //Enter barcode objects into the DB
+                      val results = insertBarcodeObjects(barcodeObjects)
+
+                      // If results list has any LastErrors where ok is not true, put them in errors.
+                      val errors = results.filter(p => !p.ok)
+                      //TODO: Can evaluate errors here where if size isn't 0, their was a problem with a barcode.
+
+                      //Make wells out of them.
+                      val setWells = makeSetWells(barcodeObjects)
+
                       //Make a set out of the barcodes
                       val set = BarcodeSet(name = data.setName,
-                        contents = setWells.map(w => w.get)
+                        contents = setWells
                       )
+                      //Add the set to DB
                       val response = BarcodeSet.create(set)
                       //TODO: I want to tell the user if the set already exists in the database.
                       // Having this blocking code here accomplishes that but not in an elegant way. I would prefer to use
@@ -192,7 +230,7 @@ object BarcodesController extends Controller {
                       // and the else statement returns futureBadRequest. I feel like all the return cases are handled.
                       Future(FlashingKeys.setFlashingValue(
                         r = Redirect(routes.Application.index()),
-                        k = FlashingKeys.Status, s = s"${set.contents.size} barcodes added as set ${data.setName}"
+                        k = FlashingKeys.Status, s = s"${set.contents.size} barcode pairs added as set ${data.setName}"
                       )
                     )
                     } else {
