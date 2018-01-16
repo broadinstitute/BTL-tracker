@@ -147,6 +147,7 @@ trait ComponentController[C <: Component] extends Controller {
 	 * @param isStack creating a stack of components
 	 * @return future to create component(s) (on error displays form with errors)
 	 */
+	//TODO: 3. When a component creation is submitted, this create function is called.
 	def create(id: String, request: Request[AnyContent], isStack: Boolean = false) = {
 		doRequestFromForm(form,
 			// If a stack then convert to component that can make list

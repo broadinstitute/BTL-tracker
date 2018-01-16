@@ -107,4 +107,5 @@ class BarcodeOperationsSpec extends Specification{
       }
     }
   }
+
 }

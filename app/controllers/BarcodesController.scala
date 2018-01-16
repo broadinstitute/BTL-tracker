@@ -38,7 +38,7 @@ object BarcodesController extends Controller {
   /**
     * Insert barcodes into database.
     * @param barcodeObjects A list of barcode objects.
-    * @return //TODO: Probably a better way than appending to a mutable list here but don't know how at the moment.
+    * @return //TODO: Probably a better way than appending to a mutable list here but don't know how at the moment (probably using recursion)
     */
   def insertBarcodeObjects(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): List[LastError] = {
     var errors = new ListBuffer[LastError]()

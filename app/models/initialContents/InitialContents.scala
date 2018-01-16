@@ -1,10 +1,11 @@
 package models.initialContents
 
 import formats.CustomFormats._
-import models.ContainerDivisions
+import models.{BarcodeSet, ContainerDivisions}
 import ContainerDivisions.Division._
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 import play.api.libs.json.Format
+import reactivemongo.bson.BSONDocument
 
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
@@ -64,6 +65,8 @@ object InitialContents {
 		/**
 		 * List of all molecular barcode sets
 		 */
+		//TODO: I suspect if we can populate molBarcodes from DB somehow it would go a long way towards getting away from
+		// harcoded barcodes.
 		val molBarcodes = List(
 			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
 			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
@@ -73,7 +76,10 @@ object InitialContents {
 		/**
 		 * List of valid plate contents
 		 */
-		val plateContents: List[ContentType] = SamplePlate :: AnonymousSamplePlate :: molBarcodes
+		val plateContents: List[ContentType] = {
+			SamplePlate :: AnonymousSamplePlate :: molBarcodes
+
+		}
 
 		/**
 		 * List of all antibodies
@@ -185,9 +191,9 @@ object InitialContents {
 	// Sorted list of display values for putting in drop down lists, etc
 	def getContentDisplayValues(validContents: List[ContentType.ContentType]): List[String] = {
 		// Contents to always display first
-		//TODO: This will need to change so that we pull the values from the database.
+		//TODO: 1. This populates Initial Content dropdown menu on the 'add' -> plate page. This will need to change so that we pull the values from the database.
 		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes)
-//		val displayFirst = List("Foo")
+//		val displayFirst = List(foo)
 		// Get group of contents in displayFirst list vs. rest of list
 		val contentsByDisplayFirst = validContents.groupBy((ct) => displayFirst.contains(ct))
 		// Sort contents we want sorted
