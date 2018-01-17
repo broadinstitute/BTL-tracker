@@ -2,18 +2,21 @@ import models.BarcodeSet.BarcodeSet
 import models.initialContents.MolecularBarcodes.MolBarcode
 import org.specs2.mutable._
 import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
+import models.db.BarcodeSetCollection.db
+import play.modules.reactivemongo.MongoController
 
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._
 import play.api.test.Helpers._
+import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson.BSONDocument
 
 /**
   * Created by amr on 12/4/2017.
   * A set of tests for db operations related to barcodes.
   */
-class BarcodeOperationsSpec extends Specification{
+class BarcodeOperationsSpec extends Specification {
   // This forces Specification to run the tests sequentially which is what we want here. If we don't, can run into
   // issue where testserver shuts down while another test is trying to access server because they run in parallel
   // by default.
@@ -101,8 +104,15 @@ class BarcodeOperationsSpec extends Specification{
           val notOk2 = result2.filter(futureLE => !Await.result(futureLE, Duration(5, SECONDS)).ok)
           notOk2.size mustEqual 0
 
-          //Delete and test deletion of BarcodeSet
+          //Delete and test deletion of BarcodeSet contents
           Await.result(BarcodeSet.delete(set), Duration(5, SECONDS)).ok mustEqual true
+
+          // Drop and test drop barcodes collection.
+          Await.result(db.collection[BSONCollection]("barcodes").drop(), Duration(5, SECONDS)) mustEqual true
+
+          // Drop and test drop of sets collection
+          Await.result(db.collection[BSONCollection]("sets").drop(), Duration(5, SECONDS)) mustEqual true
+
         }
       }
     }
