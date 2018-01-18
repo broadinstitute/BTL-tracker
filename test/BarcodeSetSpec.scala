@@ -2,11 +2,16 @@ import models.BarcodeSet.BarcodeSet
 import models.initialContents.MolecularBarcodes.MolBarcode
 import org.specs2.mutable._
 import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
+import models.db.BarcodeSetCollection.{barcodeSetCollectionName, db}
+import org.scalatest.time.Seconds
+
 import scala.Enumeration
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._
 import play.api.test.Helpers._
+import play.modules.reactivemongo.json.collection.JSONCollection
+import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson.BSONDocument
 
 /**
@@ -31,7 +36,7 @@ class BarcodeSetSpec extends Specification{
   object test extends Enumeration {
     type set = Value
   }
-  "Barcode sets" should {
+  "All BarcodeSets in set list" should {
     // Template for unit tests
     //      "" in {
     //        running(TestServer(3333)) {
@@ -42,11 +47,22 @@ class BarcodeSetSpec extends Specification{
     "be created in DB" in {
       running(TestServer(3333)) {
         val results = sets.map(set => Await.result(BarcodeSet.create(set), Duration(5, SECONDS)).ok)
-        //TODO: Need to figure out how to get all items in the set collection. The below doesn't work.
-        val test = BarcodeSet.read(BSONDocument("$exists" -> "true"))
         results must not contain false
+
          }
       }
-
+    "be retrievable from DB" in {
+      running(TestServer(3333)) {
+        //TODO: Having trouble figuring out how to get the contents of the collection. 
+        val test = db.collection[BSONCollection]("sets").find(BSONDocument("name" -> BSONDocument("$exists" -> true)))
+        val foo = test.cursor.productIterator
+        0 mustEqual 0
+      }
+    }
+//    "be removed in DB" in {
+//      running(TestServer(3333)) {
+//        Await.result(db.collection[JSONCollection]("sets").drop(), Duration(5, SECONDS)) mustEqual true
+//      }
+//    }
   }
 }
