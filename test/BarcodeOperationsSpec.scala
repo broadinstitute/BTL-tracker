@@ -3,8 +3,6 @@ import models.initialContents.MolecularBarcodes.MolBarcode
 import org.specs2.mutable._
 import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
 import models.db.BarcodeSetCollection.db
-import play.modules.reactivemongo.MongoController
-
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._

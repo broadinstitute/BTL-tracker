@@ -1,3 +1,7 @@
 TODO: Update the add view to populate dropdown menu using the set collection in the mongo database instead of using InitialContent
 -How is InitialContent used by the various parts of the tracker system?
 -Enumerations can't be dynamically generated but by their nature are fixed. Therefore might not be able to use enumerations anymore
+
+TODO: Figure out how to make Thaniel's original unit tests run.
+
+TODO: Replace enumerated sets with database-sourced ones.

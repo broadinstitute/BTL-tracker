@@ -1,18 +1,17 @@
 import models.BarcodeSet.BarcodeSet
-import models.initialContents.MolecularBarcodes.MolBarcode
 import org.specs2.mutable._
-import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
-import models.db.BarcodeSetCollection.{barcodeSetCollectionName, db}
-import org.scalatest.time.Seconds
+import controllers.BarcodesController.{makeBarcodeObjects, makeSetWells}
+import models.db.BarcodeSetCollection.db
 
-import scala.Enumeration
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._
 import play.api.test.Helpers._
 import play.modules.reactivemongo.json.collection.JSONCollection
 import reactivemongo.api.collections.default.BSONCollection
+import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.bson.BSONDocument
+
 
 /**
   * Created by amr on 1/16/2018.
@@ -45,7 +44,15 @@ class BarcodeSetSpec extends Specification{
     //        }
 
     "be created in DB" in {
-      running(TestServer(3333)) {
+      running(TestServer(3333))
+      {
+        // db.sets.createIndex({"name":1}, {unique:true, dropDups:true})
+        val index: Index = Index(
+          key = Seq(("name", IndexType.Ascending)),
+          unique = true,
+          dropDups = true
+        )
+        db.collection[BSONCollection]("sets").indexesManager.ensure(index)
         val results = sets.map(set => Await.result(BarcodeSet.create(set), Duration(5, SECONDS)).ok)
         results must not contain false
 
@@ -54,15 +61,17 @@ class BarcodeSetSpec extends Specification{
     "be retrievable from DB" in {
       running(TestServer(3333)) {
         //TODO: Having trouble figuring out how to get the contents of the collection. 
-        val test = db.collection[BSONCollection]("sets").find(BSONDocument("name" -> BSONDocument("$exists" -> true)))
-        val foo = test.cursor.productIterator
+        val sets = db.collection[BSONCollection]("sets")
+        val query = BSONDocument("name" -> "$exists")
+        val result = Await.result(BarcodeSet.read(query), Duration(5, SECONDS))
         0 mustEqual 0
       }
     }
-//    "be removed in DB" in {
-//      running(TestServer(3333)) {
-//        Await.result(db.collection[JSONCollection]("sets").drop(), Duration(5, SECONDS)) mustEqual true
-//      }
-//    }
+    "be removed in DB" in {
+      running(TestServer(3333)) {
+        val result = sets.map(s => Await.result(BarcodeSet.delete(s), Duration(5, SECONDS)).ok)
+        result must not contain false
+      }
+    }
   }
 }
