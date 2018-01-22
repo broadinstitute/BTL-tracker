@@ -58,13 +58,20 @@ class BarcodeSetSpec extends Specification{
 
          }
       }
-    "be retrievable from DB" in {
+    "have one retrievable from DB" in {
       running(TestServer(3333)) {
         //TODO: Having trouble figuring out how to get the contents of the collection. 
-        val sets = db.collection[BSONCollection]("sets")
-        val query = BSONDocument("name" -> "$exists")
+        val query = BSONDocument("name" -> "set1")
         val result = Await.result(BarcodeSet.read(query), Duration(5, SECONDS))
-        0 mustEqual 0
+        result.head.name mustEqual "set1"
+      }
+    }
+    "have all retrievable from DB" in {
+      running(TestServer(3333)) {
+        val query = BSONDocument()
+        val result = Await.result(BarcodeSet.read(query), Duration(5, SECONDS))
+        result.size mustEqual 5
+
       }
     }
     "be removed in DB" in {

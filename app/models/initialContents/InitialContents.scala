@@ -1,11 +1,13 @@
 package models.initialContents
-
+import models.BarcodeSet
 import formats.CustomFormats._
 import models.{BarcodeSet, ContainerDivisions}
 import ContainerDivisions.Division._
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 import play.api.libs.json.Format
 import reactivemongo.bson.BSONDocument
+import scala.concurrent.duration._
+import scala.concurrent.Await
 
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
@@ -193,7 +195,6 @@ object InitialContents {
 		// Contents to always display first
 		//TODO: 1. This populates Initial Content dropdown menu on the 'add' -> plate page. This will need to change so that we pull the values from the database.
 		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes)
-//		val displayFirst = List(foo)
 		// Get group of contents in displayFirst list vs. rest of list
 		val contentsByDisplayFirst = validContents.groupBy((ct) => displayFirst.contains(ct))
 		// Sort contents we want sorted
@@ -205,7 +206,14 @@ object InitialContents {
 	}
 
 	// Get list of display value for all types
-	def getAllContentDisplayValues: List[String] = getContentDisplayValues(ContentType.values.toList)
+	def getAllContentDisplayValues: List[String] = {
+		//TODO: Thought this would populate dropdown from the DB but it doesn't seem to actually do so.
+//		val setsFromDB = Await.result(BarcodeSet.BarcodeSet.read(BSONDocument()), 5.seconds).map(b => b.name.asInstanceOf[ContentType.Value])
+//		val c = ContentType.values.toList
+		getContentDisplayValues(ContentType.values.toList)
+//		getContentDisplayValues(setsFromDB)
+	}
+
 
 	/**
 	 * Initial contents
