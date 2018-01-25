@@ -1,4 +1,4 @@
-import models.BarcodeSet.BarcodeSet
+import models.BarcodeSetDB.BarcodeSet
 import models.initialContents.MolecularBarcodes.MolBarcode
 import org.specs2.mutable._
 import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
@@ -53,7 +53,8 @@ class BarcodeOperationsSpec extends Specification {
         running(TestServer(3333)) {
           //Create Barcodes
           val result = insertBarcodeObjects(barcodeObjects)
-          val notOk = result.filter(lastError => !lastError.ok)
+          //val notOk = result.filter(lastError => !lastError.ok)
+          val notOk = Await.result(result, Duration(10, SECONDS)).filter(lastError => !lastError.ok)
           notOk.size mustEqual 0
         }
       }

@@ -1,12 +1,14 @@
 package models
 
 import models.db.DBOpers
+import models.initialContents.MolecularBarcodes.MolBarcode
 import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, BSONObjectID, Macros}
 
 /**
   * Created by amr on 12/18/2017.
   */
 
+//TODO: remove the parent BarcodeWell objects not necessary. See BarcodeSet for example.
 object BarcodeWell {
 
   /**
@@ -19,8 +21,8 @@ object BarcodeWell {
   // Anything that  consumes the BarcodeWell object should convert the i5/i7Contents into a BarcodeObject immediately.
   case class BarcodeWell(
                           location: String,
-                          i5Contents: Option[BSONObjectID],
-                          i7Contents: Option[BSONObjectID]
+                          i5Contents: Option[MolBarcode],
+                          i7Contents: Option[MolBarcode]
                         )
 
   object BarcodeWell extends DBOpers[BarcodeWell] {

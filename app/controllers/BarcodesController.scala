@@ -1,5 +1,5 @@
 package controllers
-import models.BarcodeSet.BarcodeSet
+import models.BarcodeSetDB.BarcodeSet
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import models.BarcodesFile
 import models.BarcodeWell.BarcodeWell
@@ -39,24 +39,19 @@ object BarcodesController extends Controller {
   /**
     * Insert barcodes into database.
     * @param barcodeObjects A list of barcode objects.
-    * @return //TODO: Probably a better way than appending to a mutable list here but don't know how at the moment (probably using recursion)
+    * @return
     */
-  def insertBarcodeObjects(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): List[LastError] = {
-    var errors = new ListBuffer[LastError]()
-    barcodeObjects.map {
+  def insertBarcodeObjects(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): Future[List[LastError]] = {
+    val futuresList: List[Future[LastError]] = barcodeObjects.flatMap {
       case Some(b) => b._2 match {
         case Left(l) =>
-          val res = Await.result(MolBarcode.create(l), 10.seconds)
-          errors.append(res)
+          List(MolBarcode.create(l))
         case Right(r)=>
-          val r1 = Await.result(MolBarcode.create(r.i5), 10.seconds)
-          val r2 = Await.result(MolBarcode.create(r.i7), 10.seconds)
-          errors.append(r1)
-          errors.append(r2)
+          List(MolBarcode.create(r.i5), MolBarcode.create(r.i7))
       }
-      case None => None
+      case None => List(Future.failed(new Exception("No barcodes found.")))
     }
-    errors.toList
+    Future.sequence(futuresList)
   }
 
   /**
@@ -67,8 +62,8 @@ object BarcodesController extends Controller {
   def makeSetWells(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): List[BarcodeWell] = {
     barcodeObjects.map(o => {
       o.get._2 match {
-        case Left(i7Only) => BarcodeWell(location = o.get._1, i7Contents = Some(i7Only._id), i5Contents = None)
-        case Right(pair) => BarcodeWell(location = o.get._1, i7Contents = Some(pair.i7._id), i5Contents = Some(pair.i5._id))
+        case Left(i7Only) => BarcodeWell(location = o.get._1, i7Contents = Some(i7Only), i5Contents = None)
+        case Right(pair) => BarcodeWell(location = o.get._1, i7Contents = Some(pair.i7), i5Contents = Some(pair.i5))
       }
     })
   }
@@ -193,25 +188,30 @@ object BarcodesController extends Controller {
                       val results = insertBarcodeObjects(barcodeObjects)
 
                       // If results list has any LastErrors where ok is not true, put them in errors.
-                      val errors = results.filter(p => !p.ok)
-                      //TODO: Can evaluate errors here where if size isn't 0, their was a problem with a barcode.
+                      results.flatMap(r => {
+                        val notOkay = r.filter(lastError => !lastError.ok)
+                        if (notOkay.nonEmpty) {
+                          val errMsgs = notOkay.map(lastError => lastError.message)
+                          futureBadRequest(data, errMsgs.mkString("\n"))
+                        } else {
+                          //Make wells out of them.
+                          val setWells = makeSetWells(barcodeObjects)
 
-                      //Make wells out of them.
-                      val setWells = makeSetWells(barcodeObjects)
-
-                      //Make a set out of the barcodes
-                      val set = BarcodeSet(name = data.setName,
-                        contents = setWells
-                      )
-                      //Add the set to DB
-                      BarcodeSet.create(set).map(
-                        //TODO: Examine lastError to determine if the set already exists.
-                        lastError =>
-                        FlashingKeys.setFlashingValue(
-                        r = Redirect(routes.Application.index()),
-                        k = FlashingKeys.Status, s = s"${set.contents.size} barcode pairs added as set ${data.setName}"
-                      )
-                    )
+                          //Make a set out of the barcodes
+                          val set = BarcodeSet(name = data.setName,
+                            contents = setWells
+                          )
+                          //Add the set to DB
+                          BarcodeSet.create(set).map(
+                            //TODO: Examine lastError to determine if the set already exists.
+                            _ =>
+                              FlashingKeys.setFlashingValue(
+                                r = Redirect(routes.Application.index()),
+                                k = FlashingKeys.Status, s = s"${set.contents.size} barcode pairs added as set ${data.setName}"
+                            )
+                          )
+                        }
+                      })
                     } else {
                       val errorString = result._2.unzip._2.flatten.mkString("<br>")
                       futureBadRequest(data, errorString)
