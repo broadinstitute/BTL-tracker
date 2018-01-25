@@ -7,6 +7,7 @@ import play.api.mvc._
 import utils.MessageHandler
 import utils.MessageHandler.FlashingKeys
 import validations.BarcodesValidation._
+
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import models.initialContents.MolecularBarcodes._
@@ -79,6 +80,7 @@ object BarcodesController extends Controller {
     * @return a list of barcode wells. We use option but should never really have any none values here because
     *         validations would complain before we got to this point.
     */
+  //TODO: We should use MolBarcodePair instead of MolbarcodeNexteraPair
   def makeBarcodeObjects(barcodesList: List[Map[String, String]]): List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]] = {
     /**
       * Parse the barcode name from the name string from sheet (ex: Illumina_P5-Feney_P7-Biwid)
@@ -202,33 +204,10 @@ object BarcodesController extends Controller {
                         contents = setWells
                       )
                       //Add the set to DB
-                      val response = BarcodeSet.create(set)
-                      //TODO: I want to tell the user if the set already exists in the database.
-                      // Having this blocking code here accomplishes that but not in an elegant way. I would prefer to use
-                      // the messaging in the GUI to do this.
-                      Await.result(response, 5.seconds)
-//                      BarcodeSet.create(set).onComplete {
-//                        case Success(s) =>
-//                          if (s.ok) {
-//                            // operation worked, can wrap things up.
-//                            Future(FlashingKeys.setFlashingValue(
-//                              r = Redirect(routes.Application.index()),
-//                              k = FlashingKeys.Status, s = s"${set.contents.size} barcodes added as set ${data.setName}"
-//                              )
-//                            )
-//                          } else {
-//                            //operation failed, notify user
-//                            futureBadRequest(data, s.err.getOrElse("Unable to add set to database."))
-//                          }
-//                        case Failure(f) => futureBadRequest(data,  "Barcode Set not created for an unknown reason.")
-//                      }
-//                      Await.result(response, 5.seconds) match {
-//                        case e: Exception => futureBadRequest(data, e.message)
-//                        case _ => None
-//                      }
-                      //TODO: I don't get why I can't remove this since the code is duplicated in the if (s.ok) block
-                      // and the else statement returns futureBadRequest. I feel like all the return cases are handled.
-                      Future(FlashingKeys.setFlashingValue(
+                      BarcodeSet.create(set).map(
+                        //TODO: Examine lastError to determine if the set already exists.
+                        lastError =>
+                        FlashingKeys.setFlashingValue(
                         r = Redirect(routes.Application.index()),
                         k = FlashingKeys.Status, s = s"${set.contents.size} barcode pairs added as set ${data.setName}"
                       )

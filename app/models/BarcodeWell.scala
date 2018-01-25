@@ -15,6 +15,8 @@ object BarcodeWell {
     * @param i5Contents The BSONObjectID of the i5 barcode stored in the database.
     * @param i7Contents The BSONObjectID of the i7 barcode stored in the database.
     */
+  // TODO, never let i5Contents and i7Contents outside of BarcodeWell. Could do this by making the case class private.
+  // Anything that  consumes the BarcodeWell object should convert the i5/i7Contents into a BarcodeObject immediately.
   case class BarcodeWell(
                           location: String,
                           i5Contents: Option[BSONObjectID],

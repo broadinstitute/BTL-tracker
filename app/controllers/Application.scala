@@ -596,6 +596,10 @@ object Application extends Controller {
 	def javascriptRoutes = Action { implicit request =>
 		Ok(
 			Routes.javascriptRouter("jsRoutes")(
-				routes.javascript.Application.tags)).as("text/javascript")
-	}
+				routes.javascript.Application.tags,
+				//TODO: Need to  change this to the eventual route for retrieving barcodes sets
+				routes.javascript.Application.tags
+			)).as("text/javascript")
+
+		}
 }

@@ -19,6 +19,7 @@ object MolecularBarcodes {
 	 * @param name name
 	 */
 	//TODO: since name is option it should really be an option[string] but this messes up a bunch of stuff. Fix it later.
+	//TODO: Shouldn't generate BSONObjectID by default because it assumes we will always use it in the context of creation.
 	case class MolBarcode(seq: String, name: String, _id: BSONObjectID = BSONObjectID.generate) {
 		private val comp = Map('C' -> 'G','G' -> 'C','A' -> 'T','T' -> 'A')
 
@@ -30,6 +31,8 @@ object MolecularBarcodes {
 			val complement = seq.map(comp)
 			complement.reverse
 		}
+
+//		private def getId
 	}
 
 
