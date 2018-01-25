@@ -2,7 +2,7 @@ package models
 
 import models.BarcodeWell.BarcodeWell
 import models.db.DBOpers
-import models.initialContents.MolecularBarcodes.{MolBarcodeNexteraPair, MolBarcodeSingle, MolBarcodeWell}
+import models.initialContents.MolecularBarcodes.{MolBarcode, MolBarcodeNexteraPair, MolBarcodeSingle, MolBarcodeWell}
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, Macros}
 
 /**
@@ -13,17 +13,12 @@ import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter,
 case class BarcodeSetDB(
                      name: String,
                      contents: List[BarcodeWell]
-                     ) {
-  def isValidSize: Boolean = BarcodeSetDB.validSizes.contains(getSize)
-  def getSize: Int = contents.size
-}
+                     )
 
 
 object BarcodeSetDB extends DBOpers[BarcodeSetDB]{
 
-  val PLATE96 = 96
-  val PLATE384 = 384
-  private val validSizes = List(PLATE96, PLATE384)
+
   protected val collectionNameKey = "mongodb.collection.sets"
   protected val collectionNameDefault = "sets"
   implicit val barcodeSetHandler = Macros.handler[BarcodeSetDB]
@@ -43,5 +38,9 @@ object BarcodeSetDB extends DBOpers[BarcodeSetDB]{
             }
           })
       ))
+
+  def putSet(bs: BarcodeSet) = {
+    MolBarcode.read
+  }
 }
 
