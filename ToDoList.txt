@@ -1,7 +1,11 @@
-TODO: Update the add view to populate dropdown menu using the set collection in the mongo database instead of using InitialContent
--How is InitialContent used by the various parts of the tracker system?
--Enumerations can't be dynamically generated but by their nature are fixed. Therefore might not be able to use enumerations anymore
+#TODO: Refactoring for consumption of barcodes in the database
+1. Create or modify code to have a DBBarcodeWell class with signature of location, i5 (Option[Name]) and i7 Option[Name]
+and extends DBOpers.
+2. Create or modify code to have a DBBarcodeSet that extends DBOpers and has a setname and contents which is a set of barcode wells. It should also
+have functions for talking to the database directly.
+3. Create or modify code to have BarcodeWell class which DOES NOT see the database but essentially acts as a proxy object and rather
+than contain Option[Name] it should contain the Barcode object itself.
+4. Create or modify code to have a BarcodeSet class that has a name, and contents like DBBarcodeSet but also getters and setters
+that are public and call DBBarcodeSet's getters and setters.
 
-TODO: Figure out how to make Thaniel's original unit tests run.
-
-TODO: Replace enumerated sets with database-sourced ones.
+-The guys that talk to DB directly should be hidden as much as possible.
