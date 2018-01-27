@@ -1,8 +1,8 @@
 package models.initialContents
 import formats.CustomFormats._
-import models.{BarcodeSetDB, ContainerDivisions}
+import models.{DBBarcodeSet, ContainerDivisions}
 import ContainerDivisions.Division._
-import models.BarcodeSetDB
+import models.DBBarcodeSet
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 import play.api.libs.json.Format
 import reactivemongo.bson.BSONDocument
@@ -144,7 +144,7 @@ object InitialContents {
 		* @return
 		*/
 	def validDivisions: Future[Map[String, List[Division]]] ={
-		val result = BarcodeSetDB.read(BSONDocument())
+		val result = DBBarcodeSet.read(BSONDocument())
 		result.map(barcodeSet =>
 			barcodeSet.map(bs =>
 				bs.name ->
@@ -172,7 +172,7 @@ object InitialContents {
 
 	// Get contents for each type
 	def contents: Future[Map[String, ContentsMap[MolBarcodeWell]]] = {
-		val result = BarcodeSetDB.read(BSONDocument())
+		val result = DBBarcodeSet.read(BSONDocument())
 		result.map(barcodeSet =>
 			barcodeSet.map(bs =>
 				bs.name ->

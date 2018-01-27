@@ -7,6 +7,7 @@ import models.initialContents.MolecularBarcodes.MolBarcodeWell
   */
 case class BarcodeSet(
                          name: String,
+                         setType: String,
                          contents: List[MolBarcodeWell]
                        ) {
   def isValidSize: Boolean = BarcodeSet.validSizes.contains(getSize)
@@ -18,5 +19,6 @@ object BarcodeSet {
   val PLATE384 = 384
   private val validSizes = List(PLATE96, PLATE384)
 
-  def getSets = BarcodeSetDB.getSets
+  def readSets = DBBarcodeSet.readSets
+  def writeSet(bs:BarcodeSet) = DBBarcodeSet.writeSet(bs)
 }

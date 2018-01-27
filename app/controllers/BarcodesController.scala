@@ -1,5 +1,5 @@
 package controllers
-import models.BarcodeSetDB.BarcodeSet
+import models.DBBarcodeSet.BarcodeSet
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import models.BarcodesFile
 import models.BarcodeWell.BarcodeWell

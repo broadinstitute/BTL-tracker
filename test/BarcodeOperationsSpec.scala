@@ -1,4 +1,4 @@
-import models.BarcodeSetDB.BarcodeSet
+import models.DBBarcodeSet.BarcodeSet
 import models.initialContents.MolecularBarcodes.MolBarcode
 import org.specs2.mutable._
 import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
