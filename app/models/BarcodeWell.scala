@@ -17,12 +17,3 @@ case class BarcodeWell (
   override def getName: String = location
   override def isNextera: Boolean = false
 }
-
-
-object BarcodeWell {
-  protected val collectionNameKey = "mongodb.collection.wells"
-  protected val collectionNameDefault = "wells"
-  implicit val barcodeSetHandler = Macros.handler[BarcodeWell]
-  val reader = implicitly[BSONDocumentReader[BarcodeWell]]
-  val writer = implicitly[BSONDocumentWriter[BarcodeWell]]
-}

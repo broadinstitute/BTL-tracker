@@ -48,10 +48,11 @@ case class Plate(override val id: String,override val description: Option[String
 	 * @param request HTTP request (has hidden field with project set before update)
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	override protected def isValid(request: Request[AnyContent]) =
+	override protected def isValid(request: Request[AnyContent]): Map[Option[String], String] =
 		isProjectValid(getHiddenFields(request)).map((errMap) => {
 			initialContent match {
-				case Some(content) if !InitialContents.isContentValidForDivision(content, layout) =>
+					//TODO: Need to fix this as ! can't work on future[boolean]
+				case Some(content) if !InitialContents.isContentValidForDivision(content.toString, layout) =>
 					errMap + (Some(Container.contentKey) -> s"$content is invalid for plate with $layout")
 				case _ => errMap
 			}
