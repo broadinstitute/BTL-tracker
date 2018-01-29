@@ -7,7 +7,7 @@ import models.initialContents.MolecularBarcodes.MolBarcodeWell
 import play.api.libs.json.Format
 import reactivemongo.bson.BSONDocument
 import scala.concurrent.Future
-
+import scala.concurrent.ExecutionContext.Implicits.global
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
  *

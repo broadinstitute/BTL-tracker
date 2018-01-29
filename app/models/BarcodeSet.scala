@@ -2,6 +2,8 @@ package models
 
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 
+import scala.concurrent.Future
+
 /**
   * Created by amr on 1/25/2018.
   */
@@ -19,6 +21,6 @@ object BarcodeSet {
   val PLATE384 = 384
   private val validSizes = List(PLATE96, PLATE384)
 
-  def readSets = DBBarcodeSet.readSets
-  def writeSet(bs:BarcodeSet) = DBBarcodeSet.writeSet(bs)
+  def readSets: Future[List[BarcodeSet]] = DBBarcodeSet.readSets
+  def writeSet (bs:BarcodeSet) = DBBarcodeSet.writeSet(bs)
 }

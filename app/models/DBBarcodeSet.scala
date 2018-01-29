@@ -1,8 +1,7 @@
 package models
-
-import models.BarcodeWell.BarcodeWell
+import scala.concurrent.ExecutionContext.Implicits.global
 import models.db.DBOpers
-import models.initialContents.MolecularBarcodes.{MolBarcode, MolBarcodeNexteraPair, MolBarcodeSingle, MolBarcodeWell}
+import models.initialContents.MolecularBarcodes.{MolBarcode, MolBarcodeWell}
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, Macros}
 
 import scala.concurrent.Future
@@ -28,30 +27,40 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
   val reader = implicitly[BSONDocumentReader[DBBarcodeSet]]
   val writer = implicitly[BSONDocumentWriter[DBBarcodeSet]]
 
-
-  def readSets =
-    DBBarcodeSet.read(BSONDocument())
-      .map(barcodeSet => barcodeSet.map(
-        bs =>
-          bs.name -> bs.contents.map(bw => {
-            MolBarcode.read(BSONDocument("name" -> bw.i7Contents.get))
-              .map( bcList =>
-                bcList.head)
-              .map(i7bc => {
-              bw.i5Contents match {
-                //TODO: need to have another value in DB indicating what type of set this is (Nextera, SQM, etc..)
-                case Some(i5) =>
-                  MolBarcode.read(BSONDocument("name" -> i5))
-                    .map( bcList =>
-                      bcList.head)
-                    .map({ i5bc =>
-                    MolBarcodeNexteraPair(i5 = i5bc, i7 = i7bc)
-                  })
-                case None => MolBarcodeSingle(m = i7bc)
-              }
-            })
-          })
-      ))
+  //TODO: Review this with Thaniel
+  def readSets: Future[List[BarcodeSet]] = {
+    def getBarcode(bcName: String): Future[MolBarcode] = {
+      MolBarcode.read(BSONDocument("name" -> bcName)).map(x => x.head)
+    }
+    def getSetContents(contents: List[DBBarcodeWell]): List[MolBarcodeWell] = {
+      contents.map(dbBarcodeWell => {
+        //If we have i5Contents
+        if (dbBarcodeWell.i5Contents.nonEmpty) {
+          BarcodeWell(
+            location = dbBarcodeWell.location,
+            i5Contents = Some(getBarcode(dbBarcodeWell.i5Contents.get)),
+            i7Contents = Some(getBarcode(dbBarcodeWell.i7Contents.get))
+          )
+        } else {
+          BarcodeWell(
+            location = dbBarcodeWell.location,
+            i5Contents = None,
+            i7Contents = Some(getBarcode(dbBarcodeWell.i7Contents.get))
+          )
+        }
+      })
+    }
+    DBBarcodeSet.read(BSONDocument()).map( dbBarcodeSetList =>
+      dbBarcodeSetList.map(
+        dbBarcodeSet =>
+        BarcodeSet(
+          name = dbBarcodeSet.name,
+          setType = dbBarcodeSet.setType,
+          contents = getSetContents(dbBarcodeSet.contents)
+        )
+      )
+    )
+  }
 
   def writeSet(bs: BarcodeSet) = {
     val dbs = DBBarcodeSet(
