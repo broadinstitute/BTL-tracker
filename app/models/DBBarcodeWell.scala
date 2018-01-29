@@ -3,7 +3,7 @@ package models
 import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
 
 /**
-  * Created by Osiris on 1/26/2018.
+  * Created by Amr on 1/26/2018.
   */
 case class DBBarcodeWell (
                            location: String,
