@@ -60,7 +60,6 @@ class BarcodeSetSpec extends Specification{
       }
     "have one retrievable from DB" in {
       running(TestServer(3333)) {
-        //TODO: Having trouble figuring out how to get the contents of the collection. 
         val query = BSONDocument("name" -> "set1")
         val result = Await.result(BarcodeSet.read(query), Duration(5, SECONDS))
         result.head.name mustEqual "set1"

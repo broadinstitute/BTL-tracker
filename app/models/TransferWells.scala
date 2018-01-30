@@ -202,7 +202,6 @@ object TransferWells {
 
 	import Slice._
 
-	//@TODO Make slice methods handle FREE
 	def isSlice(s: Slice): Boolean = s != CP && s != FREE
 
 	/**

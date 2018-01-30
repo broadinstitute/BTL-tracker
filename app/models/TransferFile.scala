@@ -41,7 +41,6 @@ case class TransferFile(project: Option[String],
  * Object for form mappings and lots of code to process transfer files
  */
 object TransferFile {
-	//@TODO Ever want to handle racks?
 	// Form keys
 	val projectKey = "project"
 	val transferFileKey = "fileName"

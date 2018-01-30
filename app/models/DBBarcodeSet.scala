@@ -3,6 +3,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import models.db.DBOpers
 import models.initialContents.MolecularBarcodes.{MolBarcode, MolBarcodeWell}
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, Macros}
+import reactivemongo.core.commands.LastError
 
 import scala.concurrent.Future
 
@@ -32,7 +33,7 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
     def getBarcode(bcName: String): Future[MolBarcode] = {
       MolBarcode.read(BSONDocument("name" -> bcName)).map(x => x.head)
     }
-    def getSetContents(contents: List[DBBarcodeWell]): List[MolBarcodeWell] = {
+    def getSetContents(contents: List[DBBarcodeWell]): List[BarcodeWell] = {
       contents.map(dbBarcodeWell => {
         //If we have i5Contents
         if (dbBarcodeWell.i5Contents.nonEmpty) {
@@ -62,13 +63,21 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
     )
   }
 
-  def writeSet(bs: BarcodeSet) = {
+  def writeSet(bs: BarcodeSet): Future[LastError] = {
+//TODO: Figure out how we can get rid of the .results here to handle the futures rather than block for them.
     val dbs = DBBarcodeSet(
       name = bs.name,
       setType = bs.setType,
-      contents = ???
-
+      contents = {
+        bs.contents.map(well => {
+          well.i5Contents match {
+            case Some(i5) => well.i7Contents.get.map(bc => DBBarcodeWell(i5Contents = Some(i5.result(???).name), location = well.location, i7Contents = Some(bc.name))).result(???)
+            case None => well.i7Contents.get.map(bc => DBBarcodeWell(i5Contents = None, location = well.location, i7Contents = Some(bc.name))).result(???)
+          }
+        })
+      }
     )
+    DBBarcodeSet.create(dbs)
   }
 }
 

@@ -138,7 +138,6 @@ object RackController extends ComponentController[Rack] {
 		})
 	}
 
-	//@TODO Better error correction
 	private def insertScan(rackScan: RackScan) =
 		RackScan.insertOrReplace(rackScan).map((_) =>
 			Map.empty[Option[String], String])

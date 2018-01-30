@@ -20,7 +20,6 @@ object BarcodesValidation{
     }
   }
 
-  //TODO: is there are more elegant way than having two almost identical objects(PairedBarcodeFileheader, SingleBarcodeFileHeader)
   object PairedBarcodeFileHeaders extends Enumeration {
     type PairedBarcodeFileHeaders = Value
     val p7_seq = Value("P7 Index")

@@ -80,7 +80,6 @@ object PlateController extends ComponentController[Plate] {
 	 * @param id plate ID
 	 * @return responds to request with message and form with errors or home page
 	 */
-	//TODO: 2. when plate registration is submitted via the add plate route, this calls create from ComponentController
 	def createPlateFromForm(id: String) = Action.async { request => create(id, request) }
 
 	/**

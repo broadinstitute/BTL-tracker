@@ -12,7 +12,6 @@ import scala.concurrent.Future
  *         Date: 11/26/14
  *         Time: 3:10 PM
  */
-// @TODO Just an untested start
 object RestApplication extends Controller {
 	/**
 	 * Create a tracker item using Json as input.

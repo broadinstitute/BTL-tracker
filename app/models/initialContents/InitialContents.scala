@@ -14,7 +14,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
  * Initial contents for a container.
  */
 
-// TODO: I am starting to wonder if this entire initial contents concept will have to go with barcodes and sets being in DB.
 // Initial contents implies you have contents that don't change while the server is running, which is not actually true
 // anymore once you allow users to add barcodes.
 
@@ -211,7 +210,6 @@ object InitialContents {
 	// Sorted list of display values for putting in drop down lists, etc
 	def getContentDisplayValues(validContents: List[ContentType.ContentType]): List[String] = {
 		// Contents to always display first
-		//TODO: 1. This populates Initial Content dropdown menu on the 'add' -> plate page. This will need to change so that we pull the values from the database.
 		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes)
 		// Get group of contents in displayFirst list vs. rest of list
 		val contentsByDisplayFirst = validContents.groupBy((ct) => displayFirst.contains(ct))
@@ -225,7 +223,6 @@ object InitialContents {
 
 	// Get list of display value for all types
 	def getAllContentDisplayValues: List[String] = {
-		//TODO: Thought this would populate dropdown from the DB but it doesn't seem to actually do so.
 //		val setsFromDB = Await.result(BarcodeSet.BarcodeSet.read(BSONDocument()), 5.seconds).map(b => b.name.asInstanceOf[ContentType.Value])
 //		val c = ContentType.values.toList
 		getContentDisplayValues(ContentType.values.toList)

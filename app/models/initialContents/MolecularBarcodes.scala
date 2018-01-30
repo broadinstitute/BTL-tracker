@@ -19,7 +19,6 @@ object MolecularBarcodes {
 	 * @param name name
 	 */
 	//TODO: since name is option it should really be an option[string] but this messes up a bunch of stuff. Fix it later.
-	//TODO: Shouldn't generate BSONObjectID by default because it assumes we will always use it in the context of creation.
 	case class MolBarcode(seq: String, name: String) {
 		private val comp = Map('C' -> 'G','G' -> 'C','A' -> 'T','T' -> 'A')
 
@@ -54,10 +53,11 @@ object MolecularBarcodes {
 	object MolBarcodeNextera {
 		def apply(seq: String, name: String, name1: String) = new MolBarcodeNextera(seq,name,name1)
 	}
-
+	// think this actually describes anything about the well itself, just the barcode.
 	/**
 	 * Common interface for molecular barcodes placed in wells
 	 */
+	//TODO: Discuss with Thaniel. I really want to make this "a common interface for molecular barcodes" because I don't
 	trait MolBarcodeWell {
 		def getName: String
 		def getSeq: String

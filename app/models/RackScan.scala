@@ -95,7 +95,6 @@ object RackScan extends DBOpers[RackScan] {
 	 */
 	def findRack(bc: String) = read(BSONDocument(barcodeKey -> bc))
 
-	//@TODO - Eliminate this (do it all async) once it's decided exactly when the rack scan will be read
 
 	import scala.concurrent.Await
 	import scala.concurrent.duration._
@@ -132,7 +131,6 @@ object RackScan extends DBOpers[RackScan] {
 	 */
 	def insertOrReplace(rack: RackScan) = upsert(selector = BSONDocument(barcodeKey -> rack.barcode), entry = rack)
 
-	//@TODO Eliminate sync versions
 	def getABTubesSync(ids: List[String]) = {
 		val f = getABTubes(ids)
 		try {

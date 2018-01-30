@@ -10,7 +10,7 @@ import scala.concurrent.Future
 case class BarcodeSet(
                          name: String,
                          setType: String,
-                         contents: List[MolBarcodeWell]
+                         contents: List[BarcodeWell]
                        ) {
   def isValidSize: Boolean = BarcodeSet.validSizes.contains(getSize)
   def getSize: Int = contents.size

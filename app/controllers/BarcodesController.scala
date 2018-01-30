@@ -70,7 +70,7 @@ object BarcodesController extends Controller {
     *         validations would complain before we got to this point.
     */
   //TODO: We should use MolBarcodePair instead of MolbarcodeNexteraPair
-  def makeBarcodeObjects(barcodesList: List[Map[String, String]]): List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]] = {
+  def makeBarcodeObjects(barcodesList: List[Map[String, String]]): List[Option[(String, MolBarcodeWell)]]  = {
     /**
       * Parse the barcode name from the name string from sheet (ex: Illumina_P5-Feney_P7-Biwid)
       * @param barcodeType: The hobbit name prefix indicating which name to extract (ex: P5, P7).

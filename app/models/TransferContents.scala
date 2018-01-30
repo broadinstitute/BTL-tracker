@@ -198,7 +198,6 @@ object TransferContents {
 			 */
 			def getInitialContent(c: Component) =
 				c match {
-					// @TODO Clean this up - make async and maybe put more smarts in RackScan
 					case rack: Rack if rack.initialContent.isEmpty || rack.initialContent.get != ContentType.BSPtubes =>
 						RackScan.findRackSync(rack.id) match {
 							case (_, Some(err)) => (Map.empty[String, MergeResult], List(err))
@@ -393,7 +392,6 @@ object TransferContents {
 						Map(oneWell -> getAsOneResult(inputs))
 					}
 				val outContents = output.wells
-				//@TODO Need to use TruGrade quadrant plates to keep MID names matched with well name?
 				// Merge input into output - combine maps to get entries that might be in one but not the other and
 				// then within map combine what's in the same well.
 				val newResults = inContent ++ outContents.map {

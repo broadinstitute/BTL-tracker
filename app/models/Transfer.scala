@@ -606,7 +606,6 @@ object Transfer {
 	}
 
 	// String values for dropdown lists etc.
-	//@TODO Make UI that requests file if FREE specified
 	val sliceVals: List[String] = enumSortedList(Slice).filterNot(_ == Slice.FREE.toString)
 
 	// Keys for form
