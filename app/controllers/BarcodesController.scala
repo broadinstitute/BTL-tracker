@@ -35,13 +35,13 @@ object BarcodesController extends Controller {
     * @param barcodeObjects A list of barcode objects.
     * @return
     */
-  def insertBarcodeObjects(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): Future[List[LastError]] = {
+  def insertBarcodeObjects(barcodeObjects: List[Option[(String, MolBarcodeWell)]]): Future[List[LastError]] = {
     val futuresList: List[Future[LastError]] = barcodeObjects.flatMap {
       case Some(b) => b._2 match {
-        case Left(l) =>
-          List(MolBarcode.create(l))
-        case Right(r)=>
-          List(MolBarcode.create(r.i5), MolBarcode.create(r.i7))
+        case a: MolBarcode =>
+          List(MolBarcode.create(a))
+        case b: MolBarcodeNexteraPair =>
+          List(MolBarcode.create(b.i5), MolBarcode.create(b.i7))
       }
       case None => List(Future.failed(new Exception("No barcodes found.")))
     }
@@ -53,11 +53,11 @@ object BarcodesController extends Controller {
     * @param barcodeObjects list of MolBarcode or MolBarcodeNexteraPair objects
     * @return A list of BarcodeWell objects.
     */
-  def makeSetWells(barcodeObjects: List[Option[(String, Either[MolBarcode, MolBarcodeNexteraPair] with Product with Serializable)]]): List[BarcodeWell] = {
+  def makeSetWells(barcodeObjects: List[Option[(String, MolBarcodeWell)]]): List[BarcodeWell] = {
     barcodeObjects.map(o => {
       o.get._2 match {
-        case Left(i7Only) => BarcodeWell(location = o.get._1, i7Contents = Some(Future(i7Only)), i5Contents = None)
-        case Right(pair) => BarcodeWell(location = o.get._1, i7Contents = Some(Future(pair.i7)), i5Contents = Some(Future(pair.i5)))
+        case i7Only: MolBarcode => BarcodeWell(location = o.get._1, i7Contents = Some(Future(i7Only)), i5Contents = None)
+        case pair: MolBarcodeNexteraPair => BarcodeWell(location = o.get._1, i7Contents = Some(Future(pair.i7)), i5Contents = Some(Future(pair.i5)))
       }
     })
   }
@@ -70,7 +70,7 @@ object BarcodesController extends Controller {
     *         validations would complain before we got to this point.
     */
   //TODO: We should use MolBarcodePair instead of MolbarcodeNexteraPair
-  def makeBarcodeObjects(barcodesList: List[Map[String, String]]): List[Option[(String, MolBarcodeWell)]]  = {
+  def makeBarcodeObjects(barcodesList: List[Map[String, String]]): List[Option[(String, Barcode)]]  = {
     /**
       * Parse the barcode name from the name string from sheet (ex: Illumina_P5-Feney_P7-Biwid)
       * @param barcodeType: The hobbit name prefix indicating which name to extract (ex: P5, P7).
@@ -119,15 +119,15 @@ object BarcodesController extends Controller {
               // We have a i7 barcode, i5 barcode, and a name
               case Seq(Some(i7), Some(i5), Some(n)) =>
                 val pair = makePair(i7, i5, Some(n))
-                Some(Tuple2(well, Right(pair)))
+                Some(Tuple2(well, pair))
 
               case Seq(Some(i7), None, Some(n)) =>
                 val i7Barcode = MolBarcode(seq = i7, name = getName("P7", n))
-                Some(Tuple2(well, Left(i7Barcode)))
+                Some(Tuple2(well, i7Barcode))
 
               case Seq(Some(i7), Some(i5), None) =>
                 val anonPair = makePair(i7, i5, None)
-                Some(Tuple2(well, Right(anonPair)))
+                Some(Tuple2(well, anonPair))
               case _ => None
             }
           } else {
@@ -137,6 +137,7 @@ object BarcodesController extends Controller {
       }
     }
     )
+    //TODO: Don't know why it is complaining here since both MolBarcode and MolBarcodeNexteraPair inherit from Barcode.
   }
 
   /**

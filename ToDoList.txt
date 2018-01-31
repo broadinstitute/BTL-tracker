@@ -9,3 +9,16 @@ than contain Option[Name] it should contain the Barcode object itself.
 that are public and call DBBarcodeSet's getters and setters.
 
 -The guys that talk to DB directly should be hidden as much as possible.
+
+#TODO Agenda With Thaniel 1/30/18
+
+1. Resolve issue with makeBarcodeObjects where the function isn't returning what I expect even though all possible
+return objects inherit from the new Barcode parent trait.
+
+2. Look at writeSets function and how to handle futures.
+
+3. Check any remaining TODOs to fix.
+
+4. Fix any issues when building Tracker.
+
+5. Press forward with barcode consumption.

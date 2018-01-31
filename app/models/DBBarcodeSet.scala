@@ -64,16 +64,20 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
   }
 
   def writeSet(bs: BarcodeSet): Future[LastError] = {
-//TODO: Figure out how we can get rid of the .results here to handle the futures rather than block for them.
+    def getBarcodeName(bc: Future[MolBarcode]): String = {
+
+    }
+//TODO: Figure out how we can get rid of the .results here to handle the futures rath
     val dbs = DBBarcodeSet(
       name = bs.name,
       setType = bs.setType,
       contents = {
         bs.contents.map(well => {
-          well.i5Contents match {
-            case Some(i5) => well.i7Contents.get.map(bc => DBBarcodeWell(i5Contents = Some(i5.result(???).name), location = well.location, i7Contents = Some(bc.name))).result(???)
-            case None => well.i7Contents.get.map(bc => DBBarcodeWell(i5Contents = None, location = well.location, i7Contents = Some(bc.name))).result(???)
-          }
+          DBBarcodeWell(i7Contents = Some(getBarcodeName(well.i7Contents.get)), i5Contents = Some(getBarcodeName(well.i5Contents.get)), location = well.location)
+//          well.i5Contents match {
+//            case Some(i5bc) => well.i7Contents.get.map(i7bc => DBBarcodeWell(i5Contents = Some(i5bc.result(???).name), location = well.location, i7Contents = Some(i7bc.name))
+//            case None => well.i7Contents.get.map(i7bc => DBBarcodeWell(i5Contents = None, location = well.location, i7Contents = Some(i7bc.name))).result(???)
+//          }
         })
       }
     )
