@@ -32,12 +32,19 @@ object MolecularBarcodes {
 		}
 	}
 
-	//TODO: Review with Thaniel. This is may way of getting around using Either when I need to handle things that might be
-	// returning either a MolBarcode or MolBarcodeNextera
-	trait Barcode
+//	//TODO: Review with Thaniel. This is may way of getting around using Either when I need to handle things that might be
+//	// returning either a MolBarcode or MolBarcodeNextera
+//	trait Barcode
+//
+//	//TODO: This is a model for making a factory that can produce either single or paired wells of any content type.
+//	object Barcode {
+//		def getBarcodeWell(i5: Option[Barcode], i7: Barcode, kind: String): MolBarcodeWell = {
+//			???
+//		}
+//	}
 
 
-	object MolBarcode extends DBOpers[MolBarcode] with Barcode{
+	object MolBarcode extends DBOpers[MolBarcode] {
 		protected val collectionNameKey = "mongodb.collection.barcodes"
 		protected val collectionNameDefault = "barcodes"
 		implicit val barcodeHandler = Macros.handler[MolBarcode]
@@ -71,7 +78,7 @@ object MolecularBarcodes {
 	/**
 	 * Molecular barcode pairs in a well
 	 */
-	trait MolBarcodePair extends MolBarcodeWell with Barcode {
+	trait MolBarcodePair extends MolBarcodeWell {
 		val i5: MolBarcode
 		val i7: MolBarcode
 	}
@@ -115,7 +122,7 @@ object MolecularBarcodes {
 	 * Single molecular barcode in a well
  	 * @param m molecular barcode
 	 */
-	case class MolBarcodeSingle(m: MolBarcode) extends MolBarcodeWell {
+	case class MolBarcodeSingle(m: MolBarcode) extends MolBarcodeWell{
 		def getName: String = m.name
 		def getSeq: String = m.seq
 		def isNextera: Boolean = false
@@ -125,7 +132,7 @@ object MolecularBarcodes {
 	 * Single molecular barcode in a well
 	 * @param m molecular barcode
 	 */
-	case class MolBarcodeNexteraSingle(m: MolBarcode) extends MolBarcodeWell {
+	case class MolBarcodeNexteraSingle(m: MolBarcode) extends MolBarcodeWell{
 		def getName: String = "Illumina_P7-" + m.name
 		def getSeq: String = m.seq
 		def isNextera: Boolean = true

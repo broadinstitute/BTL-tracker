@@ -10,7 +10,7 @@ import scala.concurrent.Future
 case class BarcodeSet(
                          name: String,
                          setType: String,
-                         contents: List[BarcodeWell]
+                         contents: List[(String, MolBarcodeWell)]
                        ) {
   def isValidSize: Boolean = BarcodeSet.validSizes.contains(getSize)
   def getSize: Int = contents.size
@@ -21,6 +21,6 @@ object BarcodeSet {
   val PLATE384 = 384
   private val validSizes = List(PLATE96, PLATE384)
 
-  def readSets: Future[List[BarcodeSet]] = DBBarcodeSet.readSets
+  def readSet: Future[List[BarcodeSet]] = DBBarcodeSet.readSet
   def writeSet (bs:BarcodeSet) = DBBarcodeSet.writeSet(bs)
 }

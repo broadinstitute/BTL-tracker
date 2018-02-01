@@ -99,4 +99,6 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 	  */
 	def upsert(selector: BSONDocument, entry: T) =
 		collection.update(selector, entry, upsert = true)
+
+
 }
