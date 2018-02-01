@@ -186,31 +186,33 @@ object BarcodesController extends Controller {
                       val results = insertBarcodeObjects(barcodeObjects)
 
                       // If results list has any LastErrors where ok is not true, put them in errors.
-                      results.flatMap(r => {
-
-                        val notOkay = r.filter(lastError => !lastError.ok)
-                        if (notOkay.nonEmpty) {
-                          val errMsgs = notOkay.map(lastError => lastError.message)
-                          futureBadRequest(data, errMsgs.mkString("\n"))
-                        } else {
-                          //Make wells out of them.
-                          val setWells = makeSetWells(barcodeObjects)
-
-                          //Make a set out of the barcodes
-                          val set = BarcodeSet(name = data.setName,
-                            contents = setWells
-                          )
-                          //Add the set to DB
-                          BarcodeSet.create(set).map(
-                            //TODO: Examine lastError to determine if the set already exists.
-                            _ =>
-                              FlashingKeys.setFlashingValue(
-                                r = Redirect(routes.Application.index()),
-                                k = FlashingKeys.Status, s = s"${set.contents.size} barcode pairs added as set ${data.setName}"
-                            )
-                          )
-                        }
-                      }
+                      results.flatMap(r =>
+//                      {
+//
+//                        val notOkay = r.filter(lastError => !lastError.ok)
+//                        if (notOkay.nonEmpty) {
+//                          val errMsgs = notOkay.map(lastError => lastError.message)
+//                          futureBadRequest(data, errMsgs.mkString("\n"))
+//                        } else {
+//                          //Make wells out of them.
+//                          val setWells = makeSetWells(barcodeObjects)
+//
+//                          //Make a set out of the barcodes
+//                          val set = BarcodeSet(name = data.setName,
+//                            contents = setWells
+//                          )
+//                          //Add the set to DB
+//                          BarcodeSet.create(set).map(
+//                            //TODO: Examine lastError to determine if the set already exists.
+//                            _ =>
+//                              FlashingKeys.setFlashingValue(
+//                                r = Redirect(routes.Application.index()),
+//                                k = FlashingKeys.Status, s = s"${set.contents.size} barcode pairs added as set ${data.setName}"
+//                            )
+//                          )
+//                        }
+//                      }
+                        ???
                       )
                     } else {
                       val errorString = result._2.unzip._2.flatten.mkString("<br>")

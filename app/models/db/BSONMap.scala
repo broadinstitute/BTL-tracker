@@ -1,7 +1,7 @@
 package models.db
 
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONString}
-import models.DBBarcodeSet.DBWellPtr
+import models.DBBarcodeSet.DBWell
 /**
   * Created by amr on 2/1/2018.
   */
@@ -26,27 +26,9 @@ import models.DBBarcodeSet.DBWellPtr
     }
 }
 
-object DBMapWellPtr extends BSONMap[DBWellPtr]{
+object DBMapWellPtr extends BSONMap[DBWell]{
   implicit val read = MapReader
   implicit val write = MapWriter
 
 }
 
-object BSONMap extends BSONDocumentWriter[Map[String, DBWellPtr]] with BSONDocumentReader[Map[String, DBWellPtr]] {
-
-    def read(bson: BSONDocument): Map[String, DBWellPtr] = {
-      val elements = bson.elements.map { tuple =>
-        // assume that all values in the document are BSONDocuments
-        tuple._1 -> tuple._2.asInstanceOf[BSONString].value // vr.read(tuple._2.seeAsTry[BSONDocument].get)
-      }
-      elements.toMap
-    }
-
-
-    def write(map: Map[String, DBWellPtr]): BSONDocument = {
-      val elements = map.toStream.map { tuple =>
-        tuple._1 -> BSONString(tuple._2)//vw.write(tuple._2)
-      }
-      BSONDocument(elements)
-    }
-}

@@ -1,6 +1,8 @@
 package models.db
 
-import akka.actor.Status.{Success, Failure}
+import akka.actor.Status.{Failure, Success}
+import models.DBBarcodeSet.DBWell
+import models.DBBarcodeWell
 import models.initialContents.MolecularBarcodes.MolBarcode
 import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson._
@@ -41,6 +43,27 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 	  */
 	private def collection: BSONCollection = db.collection[BSONCollection](collectionName)
 
+	/**
+		* Custom read/write for maps.
+		*/
+//	implicit object BSONMap extends BSONDocumentWriter[Map[String, DBBarcodeWell]] with BSONDocumentReader[Map[String, DBBarcodeWell]] {
+//
+//		def read(bson: BSONDocument): Map[String, DBBarcodeWell] = {
+//			val elements = bson.elements.map {
+//				// assume that all values in the document are BSONDocuments
+//				case (key, value) => key -> DBBarcodeWell.reader.read(value.seeAsTry[BSONDocument].get)
+//			}
+//			elements.toMap
+//		}
+//
+//
+//		def write(map: Map[String, DBBarcodeWell]): BSONDocument = {
+//			val elements = map.toStream.map {
+//				case (key, value) => key -> DBBarcodeWell.writer.write(value)
+//			}
+//			BSONDocument(elements)
+//		}
+//	}
 	/**
 	  * Reader to convert from BSON documents to object type (read and delete).
 	  */

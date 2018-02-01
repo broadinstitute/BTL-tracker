@@ -68,7 +68,6 @@ object MolecularBarcodes {
 	/**
 	 * Common interface for molecular barcodes placed in wells
 	 */
-	//TODO: Discuss with Thaniel. I really want to make this "a common interface for molecular barcodes" because I don't think this really represents a well.
 	trait MolBarcodeWell {
 		def getName: String
 		def getSeq: String

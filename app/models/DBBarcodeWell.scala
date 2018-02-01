@@ -1,5 +1,6 @@
 package models
 
+import models.db.DBOpers
 import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
 
 /**
@@ -7,14 +8,16 @@ import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
   */
 case class DBBarcodeWell (
                            location: String,
-                           i5Contents: Option[String],
-                           i7Contents: Option[String]
+                           i5Name: Option[String],
+                           i7Name: Option[String],
+                           i5Seq: Option[String],
+                           i7Seq: Option[String]
 )
 
-object DBBarcodeWell {
+object DBBarcodeWell extends DBOpers[DBBarcodeWell] {
   protected val collectionNameKey = "mongodb.collection.wells"
   protected val collectionNameDefault = "wells"
-  implicit val barcodeSetHandler = Macros.handler[DBBarcodeWell]
+  implicit val barcodeWellHandler = Macros.handler[DBBarcodeWell]
   val reader = implicitly[BSONDocumentReader[DBBarcodeWell]]
   val writer = implicitly[BSONDocumentWriter[DBBarcodeWell]]
 }
