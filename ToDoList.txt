@@ -22,3 +22,17 @@ return objects inherit from the new Barcode parent trait.
 4. Fix any issues when building Tracker.
 
 5. Press forward with barcode consumption.
+
+#TODO Agenda 2/8/18
+
+1. Tracker doesn't compile. Let's first fix the 8 compilation errors.
+
+2. Fix issues with writeSet function in DBBarcodeSet class.
+
+3. Let's do a live test of code changes we made to populate dropdown list from sets listed in DB.
+
+4. Refactoring of BarcodeController
+
+5. Press forward with barcode consumption from barcodes in the DB.
+
+6. Once code complete, we'll need to transition the hardcoded barcodes to the database.

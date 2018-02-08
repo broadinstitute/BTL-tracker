@@ -170,42 +170,9 @@ object InitialContents {
 	def isContentValidForDivision(content: String, div: Division): Future[Boolean] = validDivisions.map(_(content).contains(div))
 
 	// Get contents for each type
-	def contents: Future[Map[String, ContentsMap[MolBarcodeWell]]] = {
-		val result = DBBarcodeSet.read(BSONDocument())
-		result.map(barcodeSet =>
-			barcodeSet.map(bs =>
-				bs.name ->
-					(
-						???
-						)
-				// Here we finish making the first map sourced from DB and add to it the fixedValidDivisions map. To make the
-				// contents consistent with validDivisions output, we convert the content of fixedValidDivisions to String.
-			).toMap
-		)
-//		Map[ContentType, ContentsMap[MolBarcodeWell]] (
-//			NexteraSetA -> MolecularBarcodes.mbSetA,
-//			NexteraSetB -> MolecularBarcodes.mbSetB,
-//			NexteraSetC -> MolecularBarcodes.mbSetC,
-//			NexteraSetD -> MolecularBarcodes.mbSetD,
-//			NexteraSetE -> MolecularBarcodes.mbSetE,
-//			Nextera384SetA -> MolecularBarcodes.mbSet384A,
-//			TruGrade384Set1 -> MolecularBarcodes.mbTG384S1,
-//			TruGrade96Set1 -> MolecularBarcodes.mbTG96S1,
-//			TruGrade96Set2 -> MolecularBarcodes.mbTG96S2,
-//			TruGrade96Set3 -> MolecularBarcodes.mbTG96S3,
-//			TruGrade96Set4 -> MolecularBarcodes.mbTG96S4,
-//			SQM96SetA -> MolecularBarcodes.mbSQM96S1,
-//			SQM96SetAFlipped -> MolecularBarcodes.mbSQM96S1flipped,
-//			TCRSetA -> MolecularBarcodes.mbSet384TCellA,
-//			TCRSetB -> MolecularBarcodes.mbSet384TCellB,
-//			HKSetA -> MolecularBarcodes.mbSet384HKA,
-//			HKSetB -> MolecularBarcodes.mbSet384HKB,
-//			MiRNA -> MolecularBarcodes.mbMiRNA,
-//			LIMG -> MolecularBarcodes.mbSet96LIMG
-//		)
+	def barcodeContents(setName: String): Future[ContentsMap[MolBarcodeWell]] = {
+		DBBarcodeSet.readSet(setName)
 	}
-
-
 
 	// Sorted list of display values for putting in drop down lists, etc
 	def getContentDisplayValues(validContents: List[ContentType.ContentType]): List[String] = {

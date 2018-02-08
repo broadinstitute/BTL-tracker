@@ -6,7 +6,7 @@ import models.initialContents.MolecularBarcodes
 import play.api.mvc._
 import utils.MessageHandler
 import validations.BarcodesValidation._
-
+import models.BarcodeSet._
 import scala.concurrent.Future
 import models.initialContents.MolecularBarcodes._
 import reactivemongo.core.commands.LastError
@@ -37,15 +37,18 @@ object BarcodesController extends Controller {
     * @param barcodeObjects A list of barcode objects.
     * @return
     */
-  def insertBarcodeObjects(barcodeObjects: List[Option[(String, MolBarcodeWell)]]): Future[List[LastError]] = {
+  def insertBarcodeObjects(barcodeObjects: List[(String, MolBarcodeWell)]): Future[List[LastError]] = {
     val futuresList: List[Future[LastError]] = barcodeObjects.flatMap {
-      case Some(b) => b._2 match {
-        case a: MolBarcodeNexteraSingle =>
-          List(MolBarcode.create(a.m))
-        case b: MolBarcodeNexteraPair =>
-          List(MolBarcode.create(b.i5), MolBarcode.create(b.i7))
+      case (_, well) => well match {
+        case bc: MolBarcodeNexteraSingle =>
+          List(MolBarcode.create(bc.m))
+        case bc: MolBarcodeNexteraPair =>
+          List(MolBarcode.create(bc.i5), MolBarcode.create(bc.i7))
+        case bc: MolBarcodeSingle =>
+          List(MolBarcode.create(bc.m))
+        case bc: MolBarcodeSQMPair =>
+          List(MolBarcode.create(bc.i5), MolBarcode.create(bc.i7))
       }
-      case None => List(Future.failed(new Exception("No barcodes found.")))
     }
     Future.sequence(futuresList)
   }
@@ -66,43 +69,25 @@ object BarcodesController extends Controller {
 
   /**
     * Makes the barcode objects as either lone barcodes or paired barcodes for further processing.
+    * @param bcType: The set type.
     * @param barcodesList a list of entries from a barcodes spreadsheet. Each item in list corresponds to a row in the
-    *                     original sheet.
+    *                     original sheet. So Map[String, String] is a map of key/value pairs for a single row.
     * @return a list of barcode wells. We use option but should never really have any none values here because
     *         validations would complain before we got to this point.
     */
-  def makeBarcodeObjects(barcodesList: List[Map[String, String]]): List[Option[(String, MolBarcodeWell)]]  = {
+  def makeBarcodeObjects(bcType: String, barcodesList: List[Map[String, String]]): List[(String, MolBarcodeWell)]  = {
     /**
       * Parse the barcode name from the name string from sheet (ex: Illumina_P5-Feney_P7-Biwid)
-      * @param barcodeType: The hobbit name prefix indicating which name to extract (ex: P5, P7).
+      * @param prefix: The hobbit name prefix indicating which name to extract (ex: P5, P7).
       * @param pairName: The pair name to be parsed (ex: Illumina_P5-Feney_P7-Biwid).
       * @return A 'hobbit' name parsed out of the pairName (ex: Feney).
       */
-    def getName(barcodeType: String, pairName: String): String = {
-      pairName.split("_").filter(n => n.contains(barcodeType)).head.replace(s"$barcodeType-", "")
-    }
-
-    /**
-      * Make a paired barcode object.
-      * @param i7seq: the i7 barcode sequence.
-      * @param i5seq: the i5 barcode sequence.
-      * @param pairName: the pairName.
-      * @return A MolBarcodeNexteraPair object.
-      */
-    def makePair(i7seq: String, i5seq: String, pairName: Option[String]): MolBarcodeNexteraPair = {
-      // Add these barcodes to barcode collection, but only if they don't exist already
+    def getName(prefix: String, pairName: Option[String]): String = {
       pairName match {
-        case Some(n) =>
-          MolBarcodeNexteraPair(
-            i5 = MolBarcode(i5seq, getName("P5", n)),
-            i7 = MolBarcode(i7seq, getName("P7", n))
-          )
-        case none =>
-          MolBarcodeNexteraPair(
-            i5 = MolBarcode(i5seq, ""),
-            i7 = MolBarcode(i7seq, "")
-          )
+        case Some(s) => s.split("_").filter(n => n.contains(prefix)).head.replace(s"$prefix-", "")
+        case None => ""
       }
+
     }
 
     // Map the barcodes to objects
@@ -114,33 +99,35 @@ object BarcodesController extends Controller {
             // Proceed with treating this entry as a pair
             val i7Seq = entry.get("P7 Index")
             val i5Seq = entry.get("P5 Index")
-            val pairName = entry.get("name")
-            Seq(i7Seq, i5Seq, pairName) match {
-              // We have a i7 barcode, i5 barcode, and a name
-              case Seq(Some(i7), Some(i5), Some(n)) =>
-                val pair = makePair(i7, i5, Some(n))
-                Some(Tuple2(well, pair))
-
-
-              case Seq(Some(i7), None, Some(n)) =>
-                val i7Barcode = MolBarcode(seq = i7, name = getName("P7", n))
-                Some(Tuple2(well, MolBarcodeNexteraSingle(i7Barcode)))
-
-              case Seq(Some(i7), Some(i5), None) =>
-                val anonPair = makePair(i7, i5, None)
-                Some(Tuple2(well, anonPair))
-
-              case _ => None
+            val name = entry.get("name")
+            val barcodeWell = bcType match {
+              case NEXTERA_PAIR =>
+                MolBarcodeNexteraPair(
+                  i5 = MolBarcode(i5Seq.get, getName("P5", name)),
+                  i7 = MolBarcode(i7Seq.get, getName("P7", name))
+                )
+              case SQM_PAIR =>
+                MolBarcodeSQMPair(
+                  i5 = MolBarcode(i5Seq.get, getName("P5", name)),
+                  i7 = MolBarcode(i7Seq.get, getName("P7", name))
+                )
+                //TODO: Need to find out how nextera single hobbit names are passed in to see if we need to further
+                // process name to get just hobbit name.
+              case NEXTERA_SINGLE => MolBarcodeNexteraSingle(m = MolBarcode(seq = i7Seq.get, name = name.get))
+              case SINGLE => MolBarcodeSingle(m = MolBarcode(seq = i7Seq.get, name = name.get))
+                //TODO: Need to return error that we didn't see a valid type.
+              case _ => ???
             }
+            well -> barcodeWell
           } else {
-            None
+            //TODO: Return an error declaring that headers are invalid.
+            ???
           }
-        case None => None
+          //TODO: Return an error saying there was no valid well.
+        case None => ???
       }
     }
     )
-
-    //TODO: Don't know why it is complaining here since both MolBarcode and MolBarcodeNexteraPair inherit from Barcode.
   }
 
   /**
@@ -180,7 +167,8 @@ object BarcodesController extends Controller {
                       val barcodesList = result._1
 
                       //Convert them into objects that can be placed into wells
-                      val barcodeObjects = makeBarcodeObjects(barcodesList)
+                      //TODO: Need to be able to get type from webform and pass it in here.
+                      val barcodeObjects = makeBarcodeObjects(NEXTERA_PAIR, barcodesList)
 
                       //Enter barcode objects into the DB
                       val results = insertBarcodeObjects(barcodeObjects)

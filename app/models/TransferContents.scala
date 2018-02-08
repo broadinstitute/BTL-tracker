@@ -7,9 +7,7 @@ import models.initialContents.InitialContents
 import models.TransferHistory.TransferEdge
 import InitialContents.ContentType
 import models.project.JiraProject
-
-import scala.concurrent.Future
-
+import scala.concurrent.{Await, Future}
 import scalax.collection.Graph
 import scalax.collection.edge.LkDiEdge
 
@@ -247,7 +245,8 @@ object TransferContents {
 					case container: Container =>
 						container.initialContent match {
 							case Some(ic) if ContentType.isMolBarcode(ic) =>
-								val mids = InitialContents.contents(ic).contents.map {
+								import scala.concurrent.duration.{Duration, SECONDS}
+								val mids = Await.result(InitialContents.barcodeContents(ic.toString), Duration(10, SECONDS)).contents.map {
 									case (well, mbw) =>
 										well -> MergeResult(sample = None,
 											mid = Set(MergeMid(sequence = mbw.getSeq, name = mbw.getName,

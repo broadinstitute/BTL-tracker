@@ -22,7 +22,7 @@ object BarcodesFile{
     * @param entry a row of a sheet.
     * @return A list of tuples containing the validity tuple of each cell in the row.
     */
-  def validateEntry(entry: Map[String, String]): List[(Boolean, Option[String])] = {
+  def validateEntry(entry: Map[String, String]): List[Option[String]] = {
 
     /** validateCell
       * Inner function for validating a specific cell's content.
@@ -32,13 +32,13 @@ object BarcodesFile{
       * @return A list of tuples, with each tuple representing the validation result, and if the result is false,
       *         a string returning the invalid data.
       */
-    def validateCell(cellKey: String, cell: Option[String], func:(String) => Boolean): (Boolean, Option[String]) = {
+    def validateCell(cellKey: String, cell: Option[String], func:(String) => Boolean): Option[String] = {
       cell match {
         case Some(cellContents)  =>
           val result = func(cellContents)
-          if (result) (result, None)
-          else (result, Some(s"$cellContents is not a valid ${cellKey.toLowerCase()}."))
-        case None => (false, Some(s"$cellKey not found."))
+          if (result) None
+          else Some(s"$cellContents is not a valid ${cellKey.toLowerCase()}.")
+        case None => Some(s"$cellKey not found.")
       }
     }
     // Populate the list of row/entry cell validations using validateCell.
@@ -56,7 +56,7 @@ object BarcodesFile{
     * @param file the path to the file
     * @return A tuple of Future and errors.
     */
-  def barcodesFileToSheet(file: String): (List[Map[String, String]], List[(Boolean, Option[String])]) = {
+  def barcodesFileToSheet(file: String): (List[Map[String, String]], Map[Int, List[String]]) = {
     /**
       * Gets the file and turns it into a HeaderSheet object.
       * @return HeaderSheet object.
@@ -74,7 +74,13 @@ object BarcodesFile{
     val barcodesList = (new sheet.RowValueIter).toList
     //This creates a List(of sheet rows) of lists(of row data) of tuples (cell validation and message)
     val validationResults = barcodesList.map(entry => validateEntry(entry))
-    val errors = validationResults.flatten.filter(p => !p._1)
+    val errors = validationResults.indices.flatMap((i) => {
+      val result = validationResults(i).flatten
+      if (result.isEmpty)
+        List.empty
+      else
+        List(i + 1 -> result)
+    }).toMap
     (barcodesList, errors)
   }
 }

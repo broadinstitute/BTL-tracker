@@ -10,10 +10,12 @@ import models.initialContents.InitialContents
 import models.project.JiraProject
 import play.api.data.Form
 import play.api.data.Forms._
-import play.api.libs.json.{Json,Format}
+import play.api.libs.json.{Format, Json}
 import Component._
 import play.api.mvc.{AnyContent, Request}
 import initialContents.InitialContents.ContentType
+
+import scala.concurrent.Future
 
 /**
  * Plate - it's a container (can have initial contents) and can have a location (e.g., a freezer) and
@@ -48,13 +50,15 @@ case class Plate(override val id: String,override val description: Option[String
 	 * @param request HTTP request (has hidden field with project set before update)
 	 * @return Future of map of fields to errors - empty if no errors found
 	 */
-	override protected def isValid(request: Request[AnyContent]): Map[Option[String], String] =
-		isProjectValid(getHiddenFields(request)).map((errMap) => {
+	override protected def isValid(request: Request[AnyContent]): Future[Map[Option[String], String]] =
+		isProjectValid(getHiddenFields(request)).flatMap((errMap) => {
 			initialContent match {
-					//TODO: Need to fix this as ! can't work on future[boolean]
-				case Some(content) if !InitialContents.isContentValidForDivision(content.toString, layout) =>
-					errMap + (Some(Container.contentKey) -> s"$content is invalid for plate with $layout")
-				case _ => errMap
+				case Some(content) =>
+					InitialContents.isContentValidForDivision(content.toString, layout).map(b =>
+						if (b) errMap
+						else errMap + (Some(Container.contentKey) -> s"$content is invalid for plate with $layout")
+					)
+				case _ => Future.successful(errMap)
 			}
 		})
 

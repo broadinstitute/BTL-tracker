@@ -1,7 +1,6 @@
 package models.db
 
 import akka.actor.Status.{Failure, Success}
-import models.DBBarcodeSet.DBWell
 import models.DBBarcodeWell
 import models.initialContents.MolecularBarcodes.MolBarcode
 import reactivemongo.api.collections.default.BSONCollection
@@ -109,8 +108,8 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 	def delete(entry: T) =
 		collection.remove(entry)
 
-	def deleteByID(id: BSONObjectID) = {
-		collection.remove(BSONDocument("_id" -> id))
+	def deleteByKey(k: String, v: String) = {
+		collection.remove(BSONDocument(k -> v))
 	}
 
 

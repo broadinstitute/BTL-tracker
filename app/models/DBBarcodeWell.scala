@@ -7,7 +7,6 @@ import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
   * Created by Amr on 1/26/2018.
   */
 case class DBBarcodeWell (
-                           location: String,
                            i5Name: Option[String],
                            i7Name: Option[String],
                            i5Seq: Option[String],

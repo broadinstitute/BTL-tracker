@@ -1,27 +1,26 @@
 package models
-import models.db.{BSONMap, DBOpers}
-import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, Macros}
+import models.db.DBOpers
+import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONHandler, Macros}
 import reactivemongo.core.commands.LastError
-import models.DBBarcodeSet.{DBWell, WellLocation}
+import models.DBBarcodeSet.WellLocation
 import models.initialContents.MolecularBarcodes._
-
+import models.BarcodeSet._
 import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by amr on 12/18/2017.
   */
 
-//TODO: Might want to consider using enum for set type.
 case class DBBarcodeSet(
                          name: String,
                          setType: String,
-                         contents: Map[WellLocation, DBWell]
+                         contents: Map[WellLocation, DBBarcodeWell]
                        ) {
 }
 
 
 object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
-  type DBWell = DBBarcodeWell
   type WellLocation = String
   protected val collectionNameKey = "mongodb.collection.sets"
   protected val collectionNameDefault = "sets"
@@ -43,13 +42,16 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
       BSONDocument(elements)
     }
   }
-  val mapReader = implicitly[BSONDocumentReader[Map[String, DBWell]]]
-  val mapWriter = implicitly[BSONDocumentWriter[Map[String, DBWell]]]
-  implicit val barcodeSetHandler = Macros.handler[DBBarcodeSet]
-  val reader = implicitly[BSONDocumentReader[DBBarcodeSet]]
-  val writer = implicitly[BSONDocumentWriter[DBBarcodeSet]]
+  val mapReader: BSONDocumentReader[Map[String, DBBarcodeWell]] =
+    implicitly[BSONDocumentReader[Map[String, DBBarcodeWell]]]
+  val mapWriter: BSONDocumentWriter[Map[String, DBBarcodeWell]] =
+    implicitly[BSONDocumentWriter[Map[String, DBBarcodeWell]]]
+  implicit val barcodeSetHandler: BSONDocumentReader[DBBarcodeSet]
+    with BSONDocumentWriter[DBBarcodeSet]
+    with BSONHandler[BSONDocument, DBBarcodeSet] = Macros.handler[DBBarcodeSet]
+  val reader: BSONDocumentReader[DBBarcodeSet] = implicitly[BSONDocumentReader[DBBarcodeSet]]
+  val writer: BSONDocumentWriter[DBBarcodeSet] = implicitly[BSONDocumentWriter[DBBarcodeSet]]
 
-  //TODO: Review this with Thaniel
   def getSetNames: Future[List[DBBarcodeSet]] = read(BSONDocument())
 
   def readSet(setName: String): Future[BarcodeSet] = {
@@ -57,29 +59,29 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
     DBBarcodeSet.read(BSONDocument("name" -> setName))
       .map((x: List[DBBarcodeSet]) =>
       {
-        if (x.size != 1) throw new Exception("Didn't find single barcode set")
+        if (x.lengthCompare(1) != 0) throw new Exception("Didn't find single barcode set")
         else {
           val set = x.head
           val contents = set.contents.mapValues {
             case (barcode) =>
               set.setType match {
-                case "MolBarcodeNexteraPair" => MolBarcodeNexteraPair(
+                case NEXTERA_PAIR => MolBarcodeNexteraPair(
                   i5 = MolBarcode(seq = barcode.i5Seq.get,
                     name = barcode.i5Name.get),
                   i7 = MolBarcode(seq = barcode.i7Seq.get,
                     name = barcode.i7Name.get)
                 )
-                case "MolBarcodeSQMPair" => MolBarcodeSQMPair(
+                case SQM_PAIR => MolBarcodeSQMPair(
                   i5 = MolBarcode(seq = barcode.i5Seq.get,
                     name = barcode.i5Name.get),
                   i7 = MolBarcode(seq = barcode.i7Seq.get,
                     name = barcode.i7Name.get)
                 )
-                case "MolBarcodeNexteraSingle" => MolBarcodeNexteraSingle(
+                case NEXTERA_SINGLE => MolBarcodeNexteraSingle(
                   m = MolBarcode(seq = barcode.i7Seq.get,
                     name = barcode.i7Name.get)
                 )
-                case "MolBarcodeSingle" => MolBarcodeSingle(
+                case SINGLE => MolBarcodeSingle(
                   m = MolBarcode(seq = barcode.i7Seq.get,
                     name = barcode.i7Name.get)
                 )
@@ -91,23 +93,31 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
   }
 
   def writeSet(bs: BarcodeSet): Future[LastError] = {
-
-    //    val dbs = DBBarcodeSet(
-    //      name = bs.name,
-    //      setType = bs.setType,
-    //      contents = {
-    //        bs.contents.map(well => {
-    //          val i5Content = well._2. match {
-    //            case Some(i5bc) => Some(i5bc.name)
-    //            case None => None
-    //          }
-    //          DBBarcodeWell(i5Contents = i5Content, i7Contents = Some(well.i7Contents.get.name), location = well.location)
-    //        }
-    //        )
-    //      }
-    //    )
-    //    DBBarcodeSet.create(???)
-    //  }
-    ???
+    val dbs = DBBarcodeSet(
+      name = bs.name,
+      setType = bs.setType,
+      contents = {
+        bs.contents.map{
+          case (location, well) =>
+            val content = well match
+            {
+              case paired: MolBarcodePair =>
+                DBBarcodeWell(
+                  i5Name = Some(paired.i5.name),
+                  i5Seq = Some(paired.i5.seq),
+                  i7Name = Some(paired.i7.name),
+                  i7Seq = Some(paired.i7.seq))
+              case single: MolBarcodeSingle =>
+                DBBarcodeWell(
+                  i5Name = None,
+                  i5Seq = None,
+                  i7Name = Some(single.m.name),
+                  i7Seq = Some(single.m.seq))
+            }
+            location -> content
+        }
+      }
+    )
+    DBBarcodeSet.create(dbs)
   }
 }

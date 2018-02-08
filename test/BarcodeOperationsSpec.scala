@@ -1,8 +1,10 @@
-import models.DBBarcodeSet.BarcodeSet
-import models.initialContents.MolecularBarcodes.MolBarcode
+import models.BarcodeSet._
+import models.initialContents.MolecularBarcodes._
 import org.specs2.mutable._
 import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
+import models.{BarcodeSet, DBBarcodeSet}
 import models.db.BarcodeSetCollection.db
+
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._
@@ -28,9 +30,9 @@ class BarcodeOperationsSpec extends Specification {
 
   // Make our objects from the barcode entries
   private val setName = "BarcodeOperationsSpec"
-  private val barcodeObjects = makeBarcodeObjects(goodEntries)
-  private val barcodeWells = makeSetWells(barcodeObjects)
-  private val set = BarcodeSet(name = setName, contents = barcodeWells)
+  private val barcodeObjects = makeBarcodeObjects(barcodesList = goodEntries, bcType = NEXTERA_PAIR)
+//  private val barcodeWells = makeSetWells(barcodeObjects)
+  private val set = BarcodeSet(name = setName, contents = barcodeObjects.toMap, setType = NEXTERA_PAIR)
 
   // Credit to Luigi Plinge for sameAs method for testing if two traversables have same contents.
   // https://stackoverflow.com/questions/7434762/comparing-collection-contents-with-scalatest/24243753
@@ -60,61 +62,39 @@ class BarcodeOperationsSpec extends Specification {
       }
       "and have a set created for them" in {
         running(TestServer(3333)) {
-          val result = Await.result(BarcodeSet.create(set), Duration(5, SECONDS))
+          val result = Await.result(DBBarcodeSet.writeSet(set), Duration(5, SECONDS))
           result.ok mustEqual true
         }
       }
-      "and have their barcode IDs contained in the set" in {
+      "and original barcodes match queried barcodes" in {
         running(TestServer(3333)) {
-          val setList = Await.result(BarcodeSet.read(BSONDocument("name" -> setName)), Duration(5, SECONDS))
-          //Get data from DB
-          val dbObjectIDs = setList.head.contents.map( w => w.i5Contents.get) ::: setList.head.contents.map(w => w.i7Contents.get)
-          // Get original data
-          val originalIDs = barcodeObjects.map(o => {
-            o.get._2 match {
-              case Left(l) =>
-                val b = Await.result(MolBarcode.read(BSONDocument("seq" -> l.seq)), Duration(5, SECONDS))
-                (b.head._id, b.head._id)
-              case Right(r) =>
-                val b1 = Await.result(MolBarcode.read(BSONDocument("seq" -> r.i7.seq)), Duration(5, SECONDS))
-                val b2 = Await.result(MolBarcode.read(BSONDocument("seq" -> r.i5.seq)), Duration(5, SECONDS))
-                (b1.head._id, b2.head._id)
-            }
-          })
-          val originalIDsList = originalIDs.map(_._1) ++ originalIDs.map(_._2)
-          // The object IDs we get from mongodb must equal the IDs contained in the barcode objects.
-          sameAs(dbObjectIDs, originalIDsList) mustEqual true
-
-          //A negative test to make sure sameAs will return false when two lists don't match
-          sameAs(dbObjectIDs, List(1,2,3)) mustEqual false
-          }
+          val setList = Await.result(DBBarcodeSet.readSet(setName), Duration(5, SECONDS))
+          setList mustEqual set
         }
+      }
       // This should always be last test
       "and finally be deleted from DB." in {
         running(TestServer(3333)) {
-          val result2 = barcodeObjects.map(b => {
-            b.get._2 match {
-              case Left(l) => MolBarcode.delete(l)
-              case Right(r) =>
-                MolBarcode.delete(r.i7)
-                MolBarcode.delete(r.i5)
-            }
-          })
+          val result2 = barcodeObjects.map{
+            case (_, bw: MolBarcodeSQMPair) =>
+              MolBarcode.delete(bw.i5)
+              MolBarcode.delete(bw.i7)
+            case (_, bw: MolBarcodeNexteraPair) =>
+              MolBarcode.delete(bw.i5)
+              MolBarcode.delete(bw.i7)
+            case (_, bw: MolBarcodeNexteraSingle) =>
+              MolBarcode.delete(bw.m)
+            case (_, bw: MolBarcodeSingle) =>
+              MolBarcode.delete(bw.m)
+          }
+
           val notOk2 = result2.filter(futureLE => !Await.result(futureLE, Duration(5, SECONDS)).ok)
           notOk2.size mustEqual 0
 
           //Delete and test deletion of BarcodeSet contents
-          Await.result(BarcodeSet.delete(set), Duration(5, SECONDS)).ok mustEqual true
-
-          // Drop and test drop barcodes collection.
-          Await.result(db.collection[BSONCollection]("barcodes").drop(), Duration(5, SECONDS)) mustEqual true
-
-          // Drop and test drop of sets collection
-          Await.result(db.collection[BSONCollection]("sets").drop(), Duration(5, SECONDS)) mustEqual true
-
+          Await.result(DBBarcodeSet.deleteByKey("name", setName), Duration(5, SECONDS)).ok mustEqual true
         }
       }
     }
   }
-
 }

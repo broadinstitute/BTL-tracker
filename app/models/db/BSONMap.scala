@@ -1,7 +1,7 @@
 package models.db
 
-import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONString}
-import models.DBBarcodeSet.DBWell
+import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter}
+import models.DBBarcodeWell
 /**
   * Created by amr on 2/1/2018.
   */
@@ -26,7 +26,7 @@ import models.DBBarcodeSet.DBWell
     }
 }
 
-object DBMapWellPtr extends BSONMap[DBWell]{
+object DBMapWellPtr extends BSONMap[DBBarcodeWell]{
   implicit val read = MapReader
   implicit val write = MapWriter
 
