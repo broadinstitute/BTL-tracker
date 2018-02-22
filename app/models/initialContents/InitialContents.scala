@@ -1,12 +1,13 @@
 package models.initialContents
 import formats.CustomFormats._
-import models.{DBBarcodeSet, ContainerDivisions}
+import models.{BarcodeSet, ContainerDivisions, DBBarcodeSet}
 import ContainerDivisions.Division._
-import models.DBBarcodeSet
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 import play.api.libs.json.Format
 import reactivemongo.bson.BSONDocument
-import scala.concurrent.Future
+
+import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
@@ -18,28 +19,35 @@ import scala.concurrent.ExecutionContext.Implicits.global
 // anymore once you allow users to add barcodes.
 
 object InitialContents {
+	type ContentTypeT = String
+
+	def getSetNames: List[String] =
+		Await.result(DBBarcodeSet.getSetNames, Duration(30, SECONDS))
+
+
 	object ContentType extends Enumeration {
-		type ContentType = Value
+		type ContentTypeFixed = Value
 		// Molecular barcode sets (for placement in welled containers (e.g., plate))
-		val NexteraSetA = Value("NexteraXP v2 Index Set A")
-		val NexteraSetB = Value("NexteraXP v2 Index Set B")
-		val NexteraSetC = Value("NexteraXP v2 Index Set C")
-		val NexteraSetD = Value("NexteraXP v2 Index Set D")
-		val NexteraSetE = Value("NexteraXP v2 Index Set E")
-		val Nextera384SetA = Value("NexteraXP v2 Index 384-well Set A")
-		val TruGrade384Set1 = Value("Trugrade 384-well Set 1")
-		val TruGrade96Set1 = Value("Trugrade 96-well Set 1")
-		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
-		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
-		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
-		val SQM96SetA = Value("SQM Set A")
-		val SQM96SetAFlipped = Value("SQM Set A Flipped")
-		val TCRSetA = Value("T-cell 384-well Set 1")
-		val TCRSetB = Value("T-cell 384-well Set 2")
-		val HKSetA = Value("Housekeeping 384-well Set 1")
-		val HKSetB = Value("Housekeeping 384-well Set 2")
-		val MiRNA = Value("MiRNA P7 Set")
-		val LIMG = Value("Low Input Metagenomic Set")
+//		val NexteraSetA = Value("NexteraXP v2 Index Set A")
+//		val NexteraSetB = Value("NexteraXP v2 Index Set B")
+//		val NexteraSetC = Value("NexteraXP v2 Index Set C")
+//		val NexteraSetD = Value("NexteraXP v2 Index Set D")
+//		val NexteraSetE = Value("NexteraXP v2 Index Set E")
+//		val Nextera384SetA = Value("NexteraXP v2 Index 384-well Set A")
+//		val TruGrade384Set1 = Value("Trugrade 384-well Set 1")
+//		val TruGrade96Set1 = Value("Trugrade 96-well Set 1")
+//		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
+//		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
+//		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
+//		val SQM96SetA = Value("SQM Set A")
+//		val SQM96SetAFlipped = Value("SQM Set A Flipped")
+//		val TCRSetA = Value("T-cell 384-well Set 1")
+//		val TCRSetB = Value("T-cell 384-well Set 2")
+//		val HKSetA = Value("Housekeeping 384-well Set 1")
+//		val HKSetB = Value("Housekeeping 384-well Set 2")
+//		val MiRNA = Value("MiRNA P7 Set")
+//		val LIMG = Value("Low Input Metagenomic Set")
+
 
 		// Plate of samples with sample Map
 		val SamplePlate = Value("Sample Plate")
@@ -65,20 +73,21 @@ object InitialContents {
 		/**
 		 * List of all molecular barcode sets
 		 */
-		//TODO: I suspect if we can populate molBarcodes from DB somehow it would go a long way towards getting away from
-		// harcoded barcodes.
-		val molBarcodes = List(
-			NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
-			TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
-			TCRSetA, TCRSetB, HKSetA, HKSetB, MiRNA, LIMG
-		)
+		def molBarcodes = {
+			Await.result(DBBarcodeSet.getSetNames, Duration(30, SECONDS))
+//			List(
+//				NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
+//				TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
+//				TCRSetA, TCRSetB, HKSetA, HKSetB, MiRNA, LIMG
+//			)
+		}
 
 		/**
 		 * List of valid plate contents
 		 */
-		val plateContents: List[ContentType] = {
-			SamplePlate :: AnonymousSamplePlate :: molBarcodes
-
+		def plateContents: List[ContentTypeT] = {
+			//TODO: Here SamplePlate
+			SamplePlate.toString :: AnonymousSamplePlate.toString :: molBarcodes
 		}
 
 		/**
@@ -99,28 +108,28 @@ object InitialContents {
 		 * @param ct content type to check
 		 * @return true if content type is a molecular barcode set
 		 */
-		def isMolBarcode(ct: ContentType): Boolean = molBarcodes.contains(ct)
+		def isMolBarcode(ct: ContentTypeT): Boolean = molBarcodes.contains(ct)
 
 		/**
 		 * Is content type a antibody?
 		 * @param ct content type to check
 		 * @return true if content type is a antibody
 		 */
-		def isAntibody(ct: ContentType): Boolean = antiBodies.contains(ct)
+		def isAntibody(ct: ContentTypeT): Boolean = antiBodies.contains(ct)
 
 		// Create Format for ComponentType enum using our custom enum Reader and Writer
-		implicit val contentTypeFormat: Format[ContentType] =
-			enumFormat(this)
+//		implicit val contentTypeFormat: Format[ContentTypeT] =
+//			enumFormat(this)
 
 		/**
 		 * Get optional content type from string.  Set as None if missing or invalid.
 		 * @param content content type as string
 		 * @return optional content type found
 		 */
-		def getContentFromStr(content: Option[String]): Option[ContentType] =
+		def getContentFromStr(content: Option[String]): Option[ContentTypeT] =
 			content match {
 				case Some(key) => try {
-					Some(ContentType.withName(key))
+					Some(key)
 				} catch {
 					case _: Throwable => None
 				}
@@ -131,8 +140,8 @@ object InitialContents {
 	import ContentType._
 
 	// Map of valid container sizes for different contents
-	private val fixedValidDivisions: Map[ContentType, List[Division]] =
-		Map[ContentType, List[Division]] (
+	private val fixedValidDivisions: Map[ContentTypeFixed, List[Division]] =
+		Map[ContentTypeFixed, List[Division]] (
 			SamplePlate -> List(DIM8x12, DIM16x24),
 			AnonymousSamplePlate -> List(DIM8x12, DIM16x24)
 		)
@@ -143,13 +152,49 @@ object InitialContents {
 		* @return
 		*/
 	def validDivisions: Future[Map[String, List[Division]]] ={
-		val result = DBBarcodeSet.read(BSONDocument())
+		def findDivision(bs: BarcodeSet): Option[Division] = {
+			val c = bs.contents.keys
+			try {
+				val not96 = c.filterNot(w => {
+					validations.BarcodesValidation.BarcodeWellValidations.getWellParts(w) match {
+					case Some((r, c)) =>
+						val ruc = r.toUpperCase
+						if (ruc.length !=1) throw new Exception("Well row designation not a single character.")
+						val rucC = ruc.head
+						if (rucC < 'A' || rucC > 'Z') throw new Exception("Well row not ASCII.")
+						if (c <= 0) throw new Exception("Column is not valid.")
+						rucC <= 'H' || c <= 12
+					case None => throw new Exception("invalid barcode well.")
+					}
+				})
+				if (not96.isEmpty) Some(DIM8x12)
+				else {
+					val not384 = not96.filterNot(w => {
+						validations.BarcodesValidation.BarcodeWellValidations.getWellParts(w) match {
+							case Some((r, c)) =>
+								val ruc = r.toUpperCase
+								val rucC = ruc.head
+								rucC <= 'P' || c <= 24
+							case None => throw new Exception("invalid barcode well.")
+						}
+					})
+					if (not384.isEmpty) Some(DIM16x24)
+					else None
+				}
+			} catch {
+				case e: Exception => None
+			}
+
+		}
+		val result = DBBarcodeSet.readAllSets()
 		result.map(barcodeSet =>
 			barcodeSet.map(bs =>
 				bs.name ->
 					(
-						if (bs.contents.size == 96) List(DIM8x12)
-						else List(DIM16x24)
+						findDivision(bs) match {
+							case Some(d) => List(d)
+							case None => throw new Exception("Invalid well location.")
+						}
 					)
 				// Here we finish making the first map sourced from DB and add to it the fixedValidDivisions map. To make the
 				// contents consistent with validDivisions output, we convert the content of fixedValidDivisions to String.
@@ -175,13 +220,13 @@ object InitialContents {
 	}
 
 	// Sorted list of display values for putting in drop down lists, etc
-	def getContentDisplayValues(validContents: List[ContentType.ContentType]): List[String] = {
+	def getContentDisplayValues(validContents: List[ContentTypeT]): List[String] = {
 		// Contents to always display first
-		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes)
+		val displayFirst = List(SamplePlate, BSPtubes, AnonymousSamplePlate, ABtubes).map(_.toString)
 		// Get group of contents in displayFirst list vs. rest of list
 		val contentsByDisplayFirst = validContents.groupBy((ct) => displayFirst.contains(ct))
 		// Sort contents we want sorted
-		val emptyContent = List.empty[InitialContents.ContentType.ContentType]
+		val emptyContent = List.empty[ContentTypeT]
 		val contentsToSort = contentsByDisplayFirst.getOrElse(false, emptyContent)
 		val sortedContents = contentsToSort.map(_.toString).sorted
 		// Return display first contents followed by sorted contents
@@ -190,10 +235,7 @@ object InitialContents {
 
 	// Get list of display value for all types
 	def getAllContentDisplayValues: List[String] = {
-//		val setsFromDB = Await.result(BarcodeSet.BarcodeSet.read(BSONDocument()), 5.seconds).map(b => b.name.asInstanceOf[ContentType.Value])
-//		val c = ContentType.values.toList
-		getContentDisplayValues(ContentType.values.toList)
-//		getContentDisplayValues(setsFromDB)
+		getContentDisplayValues(ContentType.values.map(_.toString).toList ++ getSetNames)
 	}
 
 

@@ -7,15 +7,16 @@ package models
 import mappings.CustomMappings._
 import models.ContainerDivisions.Division
 import models.initialContents.InitialContents
-import InitialContents.ContentType
+import InitialContents.ContentTypeT
 import models.project.JiraProject
 import org.broadinstitute.LIMStales.sampleRacks.MatchFound
 import play.api.data.Form
 import play.api.data.Forms._
-import play.api.libs.json.{Json,Format}
+import play.api.libs.json.{Format, Json}
 import Component._
 import play.api.mvc.{AnyContent, Request}
-import utils.{YesOrNo, Yes, No}
+import utils.{No, Yes, YesOrNo}
+
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
@@ -33,10 +34,10 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
  * @param initialContent Optional initial contents
  * @param layout tube layout on rack
  */
-case class Rack(override val id: String,override val description: Option[String],override val project: Option[String],
-                override val tags: List[ComponentTag],
-                override val locationID: Option[String], override val initialContent: Option[ContentType.ContentType],
-                override val layout: Division.Division)
+case class Rack(override val id: String, override val description: Option[String], override val project: Option[String],
+								override val tags: List[ComponentTag],
+								override val locationID: Option[String], override val initialContent: Option[ContentTypeT],
+								override val layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
 	with ComponentCanBeList[Rack] with SubComponents {
 	override val component = Rack.componentType
@@ -66,7 +67,7 @@ case class Rack(override val id: String,override val description: Option[String]
 	 * @return method to retrieve subcomponents
 	 */
 	def getSubFetcher =
-		if (initialContent.contains(ContentType.BSPtubes))
+		if (initialContent.contains(InitialContents.ContentType.BSPtubes.toString))
 			None
 		else
 			Some(subFetcher)
@@ -98,14 +99,14 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 	 * since clean inheritance doesn't appear to be possible.  That's why the (un)applyWithComponent is needed
 	 * (see componentMap for more details).
 	 */
-	private def applyWithComponent(c: Component,l: Option[String],
-	                               con: Option[ContentType.ContentType],layout: Division.Division) =
+	private def applyWithComponent(c: Component, l: Option[String],
+																 con: Option[ContentTypeT], layout: Division.Division) =
 		Rack(c.id,c.description,c.project,c.tags,l,con,layout)
 	private def unapplyWithComponent(r: Rack) = Some(r.getComponent,r.locationID,r.initialContent,r.layout)
 
 	val validLocations = List(ComponentType.Freezer)
 	val validTransfers = List(ComponentType.Rack,ComponentType.Plate,ComponentType.Tube)
-	val validContents = InitialContents.ContentType.rackTubes
+	val validContents = InitialContents.ContentType.rackTubes.map(_.toString)
 
 	/**
 	 * Keys to be used in forms (in views and elsewhere) for rack specific fields
@@ -119,7 +120,7 @@ object Rack extends ComponentObject[Rack](ComponentType.Rack) {
 		mapping(
 			Component.formKey -> Component.componentMap,
 			Location.locationKey -> optional(text),
-			Container.contentKey -> optional(enum(ContentType)),
+			Container.contentKey -> optional(text),
 			ContainerDivisions.divisionKey -> enum(Division)
 		)(applyWithComponent)(unapplyWithComponent))
 

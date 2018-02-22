@@ -247,12 +247,12 @@ object TransferSpec {
 
 	private val mid96ID = "MID96"
 	private val mid96 = Plate(id = mid96ID, description = None, project = None, tags = List.empty,
-		locationID = None, initialContent = Some(InitialContents.ContentType.NexteraSetA),
+		locationID = None, initialContent = Some("NexteraSetA"),
 		layout = ContainerDivisions.Division.DIM8x12)
 
 	private val mid384ID = "MID384"
 	private val mid384 = Plate(id = mid384ID, description = None, project = None, tags = List.empty,
-		locationID = None, initialContent = Some(InitialContents.ContentType.Nextera384SetA),
+		locationID = None, initialContent = Some("Nextera384SetA"),
 		layout = ContainerDivisions.Division.DIM16x24)
 
 	private val p384ID = "P384"

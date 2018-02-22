@@ -91,6 +91,10 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 			cursor[T].
 			collect[List]()
 
+	def find(query: BSONDocument, projection: BSONDocument) =
+		collection.find(query, projection).
+			cursor[BSONDocument].
+			collect[List]()
 	/**
 	  * Update entries based on selector.
 	  * @param selector BSON DB query to select entries to update

@@ -23,7 +23,7 @@ case class Robot(robotType: RobotType.RobotType) {
 	 * @param sampleContainer container with samples
 	 * @return (transfers, error)
 	 */
-	def makeABPlate(abRack: String, abPlate: String, sampleContainer: String) = {
+	def makeABPlate(abRack: String, abPlate: String, sampleContainer: String): Future[(Option[ABTrans], Option[String])] = {
 		def checkRacks(abR: Rack) = {
 			if (abR.initialContent.isEmpty || abR.initialContent.get != ContentType.ABtubes)
 				throw new Exception(s"Antibody rack $abRack initial content not set to antibody tubes")
@@ -109,8 +109,8 @@ object Robot {
 	 * @param platePos well position in plate
 	 * @param tubeID antibody tube barcode
 	 */
-	case class ABTubeToPlate(volume: Int, abType: InitialContents.ContentType.ContentType,
-		rackPos: String, platePos: String, tubeID: String)
+	case class ABTubeToPlate(volume: Int, abType: InitialContents.ContentType.ContentTypeFixed,
+													 rackPos: String, platePos: String, tubeID: String)
 
 	/**
 	 * Antibody rack->plate transfer info.

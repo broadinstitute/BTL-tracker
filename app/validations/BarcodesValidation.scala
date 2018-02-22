@@ -4,6 +4,8 @@ package validations
 /**
   * Created by amr on 11/27/2017.
   */
+
+//TODO: Need to update BarcodesValidation to distinguish between 96 and 384 well plates. Also make this better for handling different types of bad wells.
 object BarcodesValidation{
 
   def validateBarcode(well: String, seq: String): Boolean = {
@@ -72,6 +74,14 @@ object BarcodesValidation{
     def isValidColumn(c: Int): Boolean = {
       if (c >= 1 && c <= 24) true
       else false
+    }
+
+    def getWellParts(w: String): Option[(String, Int)] = {
+      val r = """([A-Za-z])(\d+)""".r
+      w match {
+        case r(s, i) => Some((s, i.toInt))
+        case _ => None
+      }
     }
   }
 

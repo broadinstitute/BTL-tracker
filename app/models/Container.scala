@@ -1,6 +1,6 @@
 package models
 
-import initialContents.InitialContents.ContentType
+import initialContents.InitialContents.ContentTypeT
 
 /**
  * A Container is something that content can be put into.  There can be initial contents, for example barcodes can be
@@ -14,12 +14,12 @@ trait Container {
 	/**
 	 * Initial contents
 	 */
-	val initialContent: Option[ContentType.ContentType]
+	val initialContent: Option[ContentTypeT]
 
 	/**
 	 * List of valid content types for initial contents.
 	 */
-	val validContents: List[ContentType.ContentType]
+	val validContents: List[ContentTypeT]
 }
 
 object Container {

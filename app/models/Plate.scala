@@ -13,7 +13,7 @@ import play.api.data.Forms._
 import play.api.libs.json.{Format, Json}
 import Component._
 import play.api.mvc.{AnyContent, Request}
-import initialContents.InitialContents.ContentType
+import initialContents.InitialContents.ContentTypeT
 
 import scala.concurrent.Future
 
@@ -32,10 +32,10 @@ import scala.concurrent.Future
  * @param initialContent Optional initial contents of this plate
  * @param layout well layout of plate
  */
-case class Plate(override val id: String,override val description: Option[String],override val project: Option[String],
-                 override val tags: List[ComponentTag],
-                 override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType],
-                 override val layout: Division.Division)
+case class Plate(override val id: String, override val description: Option[String], override val project: Option[String],
+								 override val tags: List[ComponentTag],
+								 override val locationID: Option[String], override val initialContent: Option[ContentTypeT],
+								 override val layout: Division.Division)
 	extends Component with Location with Container with Transferrable with JiraProject with ContainerDivisions
 	with ComponentCanBeList[Plate] {
 	override val component = Plate.componentType
@@ -82,15 +82,15 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 	 * since clean inheritance doesn't appear to be possible.  That's why the (un)applyWithComponent is needed
 	 * (see componentMap for more details).
 	 */
-	private def applyWithComponent(c: Component,l: Option[String],
-	                               con: Option[ContentType.ContentType],layout: Division.Division) =
+	private def applyWithComponent(c: Component, l: Option[String],
+																 con: Option[ContentTypeT], layout: Division.Division) =
 		Plate(c.id,c.description,c.project,c.tags,l,con,layout)
 
 	private def unapplyWithComponent(p: Plate) = Some(p.getComponent,p.locationID,p.initialContent,p.layout)
 
 	val validLocations = List(ComponentType.Freezer)
 	val validTransfers = List(ComponentType.Plate,ComponentType.Tube,ComponentType.Rack)
-	val validContents = InitialContents.ContentType.plateContents
+	def validContents = InitialContents.ContentType.plateContents
 
 	/**
 	 * Form to use in view of plate
@@ -99,7 +99,7 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 		mapping(
 			Component.formKey -> Component.componentMap,
 			Location.locationKey -> optional(text),
-			Container.contentKey -> optional(enum(ContentType)),
+			Container.contentKey -> optional(text),
 			ContainerDivisions.divisionKey -> enum(Division)
 		)(applyWithComponent)(unapplyWithComponent))
 
@@ -114,8 +114,15 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 	 * @param well well number (0 based from upper left corner to lower right corner)
 	 * @return well name
 	 */
-	def getWellName(col: Int, well: Int) = f"${(well / col) + 'A'}%c${(well % col) + 1}%02d"
+	def getWellName(col: Int, well: Int): String = f"${(well / col) + 'A'}%c${(well % col) + 1}%02d"
 
+	/**
+		* Get well name in format "A01" - "H12"
+		* @param col # of columns per row (12 for 96-well plate, 24 for 384-well plate)
+		* @param row row letter (A based from upper left corner to lower right corner)
+		* @return well name
+		*/
+	def getWellName(col: Int, row: Char): String = getWellName(col, row.toUpper - 'A')
 	/**
 	 * Get list of well names
 	 * @param wpr wells per row

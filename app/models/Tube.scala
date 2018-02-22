@@ -7,7 +7,7 @@ import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.{Json,Format}
 import Component._
-import initialContents.InitialContents.ContentType
+import initialContents.InitialContents.ContentTypeT
 
 /**
  * @author Nathaniel Novod
@@ -26,7 +26,7 @@ import initialContents.InitialContents.ContentType
  */
 case class Tube(override val id: String,override val description: Option[String],override val project: Option[String],
                 override val tags: List[ComponentTag],
-                override val locationID: Option[String],override val initialContent: Option[ContentType.ContentType])
+                override val locationID: Option[String],override val initialContent: Option[ContentTypeT])
 	extends Component with Location with Container with Transferrable with ComponentCanBeList[Tube] {
 	override val component = Tube.componentType
 	override val validLocations = Tube.validLocations
@@ -53,25 +53,25 @@ case class Tube(override val id: String,override val description: Option[String]
 object Tube extends ComponentObject[Tube](ComponentType.Tube) {
 	val validLocations = List(ComponentType.Freezer,ComponentType.Rack)
 	val validTransfers = List(ComponentType.Tube, ComponentType.Plate, ComponentType.Rack)
-	val validContents = InitialContents.ContentType.antiBodies
+	val validContents = InitialContents.ContentType.antiBodies.map(_.toString)
 
 	/**
 	 * Form mapping for a tube.  Note that component contents must be referred to as componentData.fieldName in forms
 	 * since clean inheritance doesn't appear to be possible.  That's why the (un)applyWithComponent is needed
 	 * (see componentMap for more details).
 	 */
-	private def applyWithComponent(c: Component,l: Option[String],con: Option[ContentType.ContentType]): Tube =
+	private def applyWithComponent(c: Component,l: Option[String],con: Option[ContentTypeT]): Tube =
 		Tube(c.id,c.description,c.project,c.tags,l,con)
 
 	private def unapplyWithComponent(t: Tube) = Some(t.getComponent,t.locationID,t.initialContent)
 
-	implicit val contentTypeFormat: Format[ContentType.ContentType] = enumFormat(ContentType)
+//	implicit val contentTypeFormat: Format[ContentTypeT] = enumFormat(ContentTypeT)
 
 	override val form = Form(
 		mapping(
 			Component.formKey -> Component.componentMap,
 			Location.locationKey -> optional(text),
-			Container.contentKey -> optional(enum(ContentType))
+			Container.contentKey -> optional(text)
 		)(applyWithComponent)(unapplyWithComponent))
 
 	/**

@@ -57,15 +57,15 @@ class RobotSpec extends TestSpec with TestConfig {
 
 			// Startup insert of components we'll be using for all tests and wait for them to complete
 			val bspRack = insertComponent(Rack(fakeRack, None, None, List.empty,
-				None, Some(InitialContents.ContentType.BSPtubes), ContainerDivisions.Division.DIM8x12))
+				None, Some(InitialContents.ContentType.BSPtubes.toString), ContainerDivisions.Division.DIM8x12))
 			val abRack = insertComponent(Rack(fakeABrack, None, None, List.empty,
-				None, Some(InitialContents.ContentType.ABtubes), ContainerDivisions.Division.DIM8x12))
+				None, Some(InitialContents.ContentType.ABtubes.toString), ContainerDivisions.Division.DIM8x12))
 			val a1Tube = insertComponent(Tube(fakeABtube1, None, None, List.empty, None,
-				Some(InitialContents.ContentType.ABH3K4me1)))
+				Some(InitialContents.ContentType.ABH3K4me1.toString)))
 			val a2Tube = insertComponent(Tube(fakeABtube2, None, None, List.empty, None,
-				Some(InitialContents.ContentType.ABH3K4me3)))
+				Some(InitialContents.ContentType.ABH3K4me3.toString)))
 			val a3Tube = insertComponent(Tube(fakeABtube3, None, None, List.empty, None,
-				Some(InitialContents.ContentType.ABH3K27ac)))
+				Some(InitialContents.ContentType.ABH3K27ac.toString)))
 			// Note abPlate created automatically by makeABPlate if it's not already registered
 			// val abPlate = insertComponent(Plate(fakeABPlate, None, None, List.empty,
 			//  None, None, ContainerDivisions.Division.DIM8x12))

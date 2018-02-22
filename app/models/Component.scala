@@ -9,11 +9,10 @@ package models
 import formats.CustomFormats._
 import mappings.CustomMappings._
 import Component.ComponentType
-import initialContents.InitialContents.ContentType
+import initialContents.InitialContents.{ContentType, ContentTypeT}
 import models.Component.ComponentType.ComponentType
 import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division.Division
-import models.initialContents.InitialContents.ContentType.ContentType
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -317,7 +316,7 @@ object Component {
 	 * The hidden fields within the component
 	 * @param project project as set before update
 	 */
-	case class HiddenFields(project: Option[String], contentType : Option[ContentType.ContentType] = None)
+	case class HiddenFields(project: Option[String], contentType : Option[ContentTypeT] = None)
 
 	/**
 	 * Form to get the hidden fields - a mapping to the component fields from which we pick out the hidden fields
@@ -326,7 +325,7 @@ object Component {
 		Form(mapping(
 			Component.formKey -> mapping(
 				Component.hiddenProjectKey -> optional(text),
-				Component.hiddenContentTypeKey -> optional(enum(ContentType))
+				Component.hiddenContentTypeKey -> optional(text)
 			)(HiddenFields.apply)(HiddenFields.unapply)
 		)(HiddenComponent.apply)(HiddenComponent.unapply))
 
@@ -428,10 +427,11 @@ object Component {
 		def read(doc: BSONString) = Division.withName(doc.value)
 		def write(div: Division) = BSON.write(div.toString)
 	}
-	implicit object BSONContentTypeHandler extends BSONHandler[BSONString, ContentType] {
-		def read(doc: BSONString) = ContentType.withName(doc.value)
-		def write(cType: ContentType) = BSON.write(cType.toString)
-	}
+//	implicit object BSONContentTypeHandler extends BSONHandler[BSONString, ContentTypeT] {
+//		//TODO: ContentType fix needed.
+//		def read(doc: BSONString) = ContentType.withName(doc.value)
+//		def write(cType: ContentTypeT) = BSON.write(cType.toString)
+//	}
 	implicit object BSONFloatHandler extends BSONHandler[BSONDouble, Float] {
 		def read(doc: BSONDouble) = doc.value.toFloat
 		def write(fl: Float) = BSON.write(BSONDouble(fl))

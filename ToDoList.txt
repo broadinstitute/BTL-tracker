@@ -36,3 +36,17 @@ return objects inherit from the new Barcode parent trait.
 5. Press forward with barcode consumption from barcodes in the DB.
 
 6. Once code complete, we'll need to transition the hardcoded barcodes to the database.
+
+#TODO Agenda 2/22/18
+
+done 1. Put all the places we replaced ContentType with String back to ContentType (in both templates and straight Scala code)
+
+done 2. Define ContentType to be a String.  (type ContentType = String)
+
+done 3. Define a new type, ContentTypeFixed, to be a Value in the enumeration (what ContentType used to be)
+
+review 4. Check all the places that use ContentType to see where vals should be changed to defs
+
+5. Make some good methods in InitialContent (I think that’s the module) to deal with ContentTypes.
+ContentTypeFixed should probably never be used outside the module. Instead there should be methods that get certain
+individual types (i.e., antibodies, fixed plates, and barcodes) and combinations of those types.

@@ -172,9 +172,10 @@ object RackController extends ComponentController[Rack] {
 									contents = rackEntry.contents.flatMap(
 										(c) => if (c.barcode != "N/A") Some(c) else None)
 								)
+							val BSP_TUBE_STRING = InitialContents.ContentType.BSPtubes.toString
 							data.initialContent match {
 								// BSP tubes - make sure project is set and then enter scan results in DB
-								case Some(InitialContents.ContentType.BSPtubes) =>
+								case Some(BSP_TUBE_STRING) =>
 									if (data.project.isEmpty)
 										Future.successful(Map(Some(Component.formKey + "." + Component.projectKey) ->
 											"Project must be set before recording scan file for BSP samples"))

@@ -1,10 +1,10 @@
 package models
 
 import models.Component.ComponentType
-import models.initialContents.InitialContents.ContentType
+import models.initialContents.InitialContents.{ContentType, ContentTypeT}
 import models.ContainerDivisions.Division
 import play.api.libs.json.Json
-import play.api.data.{ObjectMapping2, FieldMapping, Form}
+import play.api.data.{FieldMapping, Form, ObjectMapping2}
 import play.api.data.Forms._
 import mappings.CustomMappings._
 import reactivemongo.bson._
@@ -18,9 +18,9 @@ import reactivemongo.bson._
  * @param tags name/value pairs
  */
 case class Find(id: Option[String], description: Option[String], project: Option[String],
-				tags: List[ComponentTag], component: Option[ComponentType.ComponentType],
-				content: Option[ContentType.ContentType], layout: Option[Division.Division],
-				includeTransfers: Boolean)
+								tags: List[ComponentTag], component: Option[ComponentType.ComponentType],
+								content: Option[ContentTypeT], layout: Option[Division.Division],
+								includeTransfers: Boolean)
 
 /**
  * Model for doing Find command
@@ -41,7 +41,7 @@ object Find {
 		Component.projectKey -> optional(text),
 		tagsKey -> list(ComponentTag.tagsNoOtherForm.mapping),
 		Component.typeKey -> optional(enum(ComponentType)),
-		Container.contentKey -> optional(enum(ContentType)),
+		Container.contentKey -> optional(text),
 		ContainerDivisions.divisionKey -> optional(enum(Division)),
 		transfersKey -> boolean
 	)(Find.apply)(Find.unapply)
@@ -145,8 +145,8 @@ object Find {
 	 * @param project optional project
 	 */
 	case class Found(id: String, component: Option[ComponentType.ComponentType],
-					 description: Option[String], project: Option[String],
-					 content: Option[ContentType.ContentType], layout: Option[Division.Division]) {
+									 description: Option[String], project: Option[String],
+									 content: Option[ContentTypeT], layout: Option[Division.Division]) {
 
 		/**
 		 * Set own equals - ids should be unique so this is more efficient which is important since Found

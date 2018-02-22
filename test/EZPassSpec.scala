@@ -58,11 +58,11 @@ class EZPassSpec extends TestSpec with TestConfig {
 
 			// Startup insert of components we'll be using for all tests and wait for them to complete
 			val rack = insertComponent(Rack(fakeRack, None, None, List.empty,
-				None, Some(InitialContents.ContentType.BSPtubes), ContainerDivisions.Division.DIM8x12))
+				None, Some(InitialContents.ContentType.BSPtubes.toString), ContainerDivisions.Division.DIM8x12))
 			val atmPlate = insertComponent(Plate("ATM", None, None, List.empty,
 				None, None, ContainerDivisions.Division.DIM8x12))
 			val midPlate = insertComponent(Plate("MID", None, None, List.empty,
-				None, Some(InitialContents.ContentType.NexteraSetA), ContainerDivisions.Division.DIM8x12))
+				None, Some("NexteraSetA"), ContainerDivisions.Division.DIM8x12))
 			val tube = insertComponent(Tube("T", None, None, List.empty, None, None))
 			val plate384 = insertComponent(Plate("P384", None, None, List.empty, None, None,
 				ContainerDivisions.Division.DIM16x24))

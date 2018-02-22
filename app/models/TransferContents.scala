@@ -246,7 +246,8 @@ object TransferContents {
 						container.initialContent match {
 							case Some(ic) if ContentType.isMolBarcode(ic) =>
 								import scala.concurrent.duration.{Duration, SECONDS}
-								val mids = Await.result(InitialContents.barcodeContents(ic.toString), Duration(10, SECONDS)).contents.map {
+								val foundMids = Await.result(InitialContents.barcodeContents(ic.toString), Duration(10, SECONDS))
+								val mids = foundMids.contents.map {
 									case (well, mbw) =>
 										well -> MergeResult(sample = None,
 											mid = Set(MergeMid(sequence = mbw.getSeq, name = mbw.getName,

@@ -4,8 +4,6 @@ import models.DBBarcodeSet.WellLocation
 import models.initialContents.InitialContents.ContentsMap
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 
-import scala.concurrent.Future
-
 /**
   * Created by amr on 1/25/2018.
   */
