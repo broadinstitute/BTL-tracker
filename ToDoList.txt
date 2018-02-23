@@ -1,52 +1,7 @@
-#TODO: Refactoring for consumption of barcodes in the database
-1. Create or modify code to have a DBBarcodeWell class with signature of location, i5 (Option[Name]) and i7 Option[Name]
-and extends DBOpers.
-2. Create or modify code to have a DBBarcodeSet that extends DBOpers and has a setname and contents which is a set of barcode wells. It should also
-have functions for talking to the database directly.
-3. Create or modify code to have BarcodeWell class which DOES NOT see the database but essentially acts as a proxy object and rather
-than contain Option[Name] it should contain the Barcode object itself.
-4. Create or modify code to have a BarcodeSet class that has a name, and contents like DBBarcodeSet but also getters and setters
-that are public and call DBBarcodeSet's getters and setters.
-
--The guys that talk to DB directly should be hidden as much as possible.
-
-#TODO Agenda With Thaniel 1/30/18
-
-1. Resolve issue with makeBarcodeObjects where the function isn't returning what I expect even though all possible
-return objects inherit from the new Barcode parent trait.
-
-2. Look at writeSets function and how to handle futures.
-
-3. Check any remaining TODOs to fix.
-
-4. Fix any issues when building Tracker.
-
-5. Press forward with barcode consumption.
-
-#TODO Agenda 2/8/18
-
-1. Tracker doesn't compile. Let's first fix the 8 compilation errors.
-
-2. Fix issues with writeSet function in DBBarcodeSet class.
-
-3. Let's do a live test of code changes we made to populate dropdown list from sets listed in DB.
-
-4. Refactoring of BarcodeController
-
-5. Press forward with barcode consumption from barcodes in the DB.
-
-6. Once code complete, we'll need to transition the hardcoded barcodes to the database.
-
-#TODO Agenda 2/22/18
-
-done 1. Put all the places we replaced ContentType with String back to ContentType (in both templates and straight Scala code)
-
-done 2. Define ContentType to be a String.  (type ContentType = String)
-
-done 3. Define a new type, ContentTypeFixed, to be a Value in the enumeration (what ContentType used to be)
-
-review 4. Check all the places that use ContentType to see where vals should be changed to defs
-
-5. Make some good methods in InitialContent (I think that’s the module) to deal with ContentTypes.
-ContentTypeFixed should probably never be used outside the module. Instead there should be methods that get certain
-individual types (i.e., antibodies, fixed plates, and barcodes) and combinations of those types.
+#TODO: 1. Finish barcode controller.
+#TODO: 2. Finish tactical script for parsing hardcoded barcodes in source code and uploading them to the database.
+#TODO: 3. Make sure all unit tests are updated and working.
+#TODO: 4. Review all changed code between master & dev branches.
+#TODO: 5. Increment version to 3.0 & deploy dev branch to tracker-beta.
+#TODO: 6. Extensive user testing: Nancy will need to test all possible operations as a user on tracker-beta.
+#TODO: 7. Merge Dev to Master and deploy to production.
