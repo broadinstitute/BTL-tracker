@@ -9,13 +9,14 @@ import validations.BarcodesValidation._
 /**
   * Created by amr on 11/15/2017.
   */
-case class BarcodesFile (setName: String)
+case class BarcodesFile (setName: String, setType: String)
 
 object BarcodesFile{
   val fileKey = "barcodesFile"
   val setKey = "setKey"
+  val setType = "setType"
   val form =
-    Form(mapping(setKey -> nonEmptyText)(BarcodesFile.apply)(BarcodesFile.unapply))
+    Form(mapping(setKey -> nonEmptyText, setType -> nonEmptyText)(BarcodesFile.apply)(BarcodesFile.unapply))
 
   /** validateEntry
     * A function to validate each cell in a  row/entry in a sheet.

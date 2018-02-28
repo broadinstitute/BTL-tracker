@@ -24,6 +24,7 @@ object BarcodeSet {
   val SQM_PAIR = "SQMPair"
   val NEXTERA_SINGLE = "NexteraSingle"
   val SINGLE = "Single"
+  val setTypes = List(NEXTERA_PAIR, NEXTERA_SINGLE, SINGLE, SQM_PAIR)
 
 
 //  def readSet: Future[List[BarcodeSet]] = DBBarcodeSet.readSet
