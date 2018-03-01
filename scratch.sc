@@ -1,16 +1,6 @@
-import models.initialContents.MolecularBarcodes.MolBarcode
+import scala.collection.immutable.ListMap
 
-private val goodBarcodes = List(
-  MolBarcode("AAGTAGAG", "Biwid"),
-  MolBarcode("ggtccaga", "Rojan"),
-  MolBarcode("GCACATCT", "Pahol"),
-  MolBarcode("TTCGCTGA", "Zepon"),
-  MolBarcode("AGCAATTC", "Debox"),
-  MolBarcode("CACATCCT", "Hefel"),
-  MolBarcode("CCAGTTAG", "Jatod"),
-  MolBarcode("AAGGATGT", "Binot"),
-  MolBarcode("ACACGATC", "Cakax"),
-  MolBarcode("CATGCTTA", "Hopow")
-)
+val errors = ListMap(1 -> List("a", "b", "c"), 3 -> List("x", "y", "z"))
 
-val response = goodBarcodes.map(b => MolBarcode.create(b))
+val str = errors.mkString("<br>")
+println(str)

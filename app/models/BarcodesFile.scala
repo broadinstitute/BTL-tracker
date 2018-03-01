@@ -5,6 +5,7 @@ import org.broadinstitute.spreadsheets.Utils.{getCSVFileData, getSheetData, isSp
 import play.api.data.Form
 import play.api.data.Forms.{mapping, nonEmptyText}
 import validations.BarcodesValidation._
+import scala.collection.immutable.ListMap
 
 /**
   * Created by amr on 11/15/2017.
@@ -57,7 +58,7 @@ object BarcodesFile{
     * @param file the path to the file
     * @return A tuple of Future and errors.
     */
-  def barcodesFileToSheet(file: String): (List[Map[String, String]], Map[Int, List[String]]) = {
+  def barcodesFileToSheet(file: String): (List[Map[String, String]], ListMap[Int, List[String]]) = {
     /**
       * Gets the file and turns it into a HeaderSheet object.
       * @return HeaderSheet object.
@@ -82,6 +83,6 @@ object BarcodesFile{
       else
         List(i + 1 -> result)
     }).toMap
-    (barcodesList, errors)
+    (barcodesList, ListMap(errors.toSeq.sortBy(_._1):_*))
   }
 }

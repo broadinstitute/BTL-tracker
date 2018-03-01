@@ -201,8 +201,13 @@ object BarcodesController extends Controller {
                       }
                       )
                     } else {
-                      val errorString = result._2.unzip._2.flatten.mkString("<br>")
-                      futureBadRequest(data, errorString)
+											val errorMap = result._2.unzip
+											val lines = errorMap._1.map(i => s"Line $i:<br>&nbsp;&nbsp;-")
+											val errors = errorMap._2.map(_.mkString("<br>&nbsp;&nbsp;-"))
+											val errorStrings = lines zip errors map {
+												case (x, y) => x + y
+											}
+                      futureBadRequest(data, errorStrings.mkString("<br>"))
                     }
                   } else {
                     futureBadRequest(data, "Barcode file is not an acceptable format.")
