@@ -1,4 +1,4 @@
-#TODO: 1. Finish barcode controller.
+#DONE: 1. Finish barcode controller.
 #TODO: 2. Finish tactical script for parsing hardcoded barcodes in source code and uploading them to the database.
 #TODO: 3. Make sure all unit tests are updated and working.
 #TODO: 4. Review all changed code between master & dev branches.

@@ -28,27 +28,31 @@ object InitialContents {
 	object ContentType extends Enumeration {
 		type ContentTypeFixed = Value
 		// Molecular barcode sets (for placement in welled containers (e.g., plate))
-//		val NexteraSetA = Value("NexteraXP v2 Index Set A")
-//		val NexteraSetB = Value("NexteraXP v2 Index Set B")
-//		val NexteraSetC = Value("NexteraXP v2 Index Set C")
-//		val NexteraSetD = Value("NexteraXP v2 Index Set D")
-//		val NexteraSetE = Value("NexteraXP v2 Index Set E")
-//		val Nextera384SetA = Value("NexteraXP v2 Index 384-well Set A")
-//		val TruGrade384Set1 = Value("Trugrade 384-well Set 1")
-//		val TruGrade96Set1 = Value("Trugrade 96-well Set 1")
-//		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
-//		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
-//		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
-//		val SQM96SetA = Value("SQM Set A")
-//		val SQM96SetAFlipped = Value("SQM Set A Flipped")
-//		val TCRSetA = Value("T-cell 384-well Set 1")
-//		val TCRSetB = Value("T-cell 384-well Set 2")
-//		val HKSetA = Value("Housekeeping 384-well Set 1")
-//		val HKSetB = Value("Housekeeping 384-well Set 2")
-//		val MiRNA = Value("MiRNA P7 Set")
-//		val LIMG = Value("Low Input Metagenomic Set")
+		val NexteraSetA = Value("NexteraXP v2 Index Set A")
+		val NexteraSetB = Value("NexteraXP v2 Index Set B")
+		val NexteraSetC = Value("NexteraXP v2 Index Set C")
+		val NexteraSetD = Value("NexteraXP v2 Index Set D")
+		val NexteraSetE = Value("NexteraXP v2 Index Set E")
+		val Nextera384SetA = Value("NexteraXP v2 Index 384-well Set A")
+		val TruGrade384Set1 = Value("Trugrade 384-well Set 1")
+		val TruGrade96Set1 = Value("Trugrade 96-well Set 1")
+		val TruGrade96Set2 = Value("Trugrade 96-well Set 2")
+		val TruGrade96Set3 = Value("Trugrade 96-well Set 3")
+		val TruGrade96Set4 = Value("Trugrade 96-well Set 4")
+		val SQM96SetA = Value("SQM Set A")
+		val SQM96SetAFlipped = Value("SQM Set A Flipped")
+		val TCRSetA = Value("T-cell 384-well Set 1")
+		val TCRSetB = Value("T-cell 384-well Set 2")
+		val HKSetA = Value("Housekeeping 384-well Set 1")
+		val HKSetB = Value("Housekeeping 384-well Set 2")
+		val MiRNA = Value("MiRNA P7 Set")
+		val LIMG = Value("Low Input Metagenomic Set")
 
-
+		val replace = List(
+						NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
+						TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
+						TCRSetA, TCRSetB, HKSetA, HKSetB, MiRNA, LIMG
+					)
 		// Plate of samples with sample Map
 		val SamplePlate = Value("Sample Plate")
 		// Plate of samples with no map
@@ -75,11 +79,7 @@ object InitialContents {
 		 */
 		def molBarcodes = {
 			Await.result(DBBarcodeSet.getSetNames, Duration(30, SECONDS))
-//			List(
-//				NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
-//				TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
-//				TCRSetA, TCRSetB, HKSetA, HKSetB, MiRNA, LIMG
-//			)
+
 		}
 
 		/**

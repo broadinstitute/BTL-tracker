@@ -1303,14 +1303,6 @@ object MolecularBarcodes {
 				width = 24
 			).toMap
 		)
-
-	def writeBarcodes() = {
-		InitialContents.ContentType.molBarcodes.foreach(set => {
-			val name = set.toString
-
-		})
-
-	}
 }
 
 
