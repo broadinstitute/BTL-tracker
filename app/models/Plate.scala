@@ -122,7 +122,10 @@ object Plate extends ComponentObject[Plate](ComponentType.Plate) {
 		* @param row row letter (A based from upper left corner to lower right corner)
 		* @return well name
 		*/
-	def getWellName(col: Int, row: Char): String = getWellName(col, row.toUpper - 'A')
+	def standardizeWellName(col: Int, row: Char): String = {
+		val c = "%02d".format(col)
+		s"${row.toUpper}$c"
+	}
 	/**
 	 * Get list of well names
 	 * @param wpr wells per row

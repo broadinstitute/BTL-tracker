@@ -115,7 +115,7 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
         bs.contents.map{
           case (location, well) =>
             val (row, col) = getWellParts(location).get
-            val properWell = Plate.getWellName(col = col, row = row.head)
+            val properWell = Plate.standardizeWellName(col = col, row = row.head)
             val content = well match
             {
               case paired: MolBarcodePair =>
@@ -131,7 +131,7 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
                   i7Name = Some(single.m.name),
                   i7Seq = Some(single.m.seq))
             }
-            properWell -> content
+              properWell -> content
         }
       }
     )

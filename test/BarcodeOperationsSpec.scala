@@ -1,16 +1,13 @@
 import models.BarcodeSet._
 import models.initialContents.MolecularBarcodes._
 import org.specs2.mutable._
-import controllers.BarcodesController.{insertBarcodeObjects, makeBarcodeObjects, makeSetWells}
+import controllers.BarcodesController.makeBarcodeObjects
 import models.{BarcodeSet, DBBarcodeSet}
-import models.db.BarcodeSetCollection.db
-
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._
 import play.api.test.Helpers._
-import reactivemongo.api.collections.default.BSONCollection
-import reactivemongo.bson.BSONDocument
+
 
 /**
   * Created by amr on 12/4/2017.
@@ -45,22 +42,7 @@ class BarcodeOperationsSpec extends Specification {
 
   "Good barcodes" should {
     {
-      // Template for unit tests
-//      "" in {
-//        running(TestServer(3333)) {
-//          0 mustEqual 0
-//           }
-//        }
-      "be created in DB" in {
-        running(TestServer(3333)) {
-          //Create Barcodes
-          val result = insertBarcodeObjects(barcodeObjects)
-          //val notOk = result.filter(lastError => !lastError.ok)
-          val notOk = Await.result(result, Duration(10, SECONDS)).filter(lastError => !lastError.ok)
-          notOk.size mustEqual 0
-        }
-      }
-      "and have a set created for them" in {
+      "a set should be created in DB" in {
         running(TestServer(3333)) {
           val result = Await.result(DBBarcodeSet.writeSet(set), Duration(5, SECONDS))
           result.ok mustEqual true
