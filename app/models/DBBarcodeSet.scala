@@ -57,6 +57,15 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
   def getSetNames: Future[List[String]] = find(BSONDocument(), BSONDocument("name" -> 1))
     .map(_.map((b) => b.getAs[String]("name").get))
 
+  /**
+    * Checks if a set exists in the database.
+    * @param setName the name of the set to check.
+    * @return Future true if set exists, false if not.
+    */
+  def checkSet(setName: String): Future[Boolean] = {
+    find(BSONDocument("name" -> setName), BSONDocument("name" -> 1)).map(_.nonEmpty)
+  }
+
   def readSet(setName: String): Future[BarcodeSet] = {
 //    if (dbQuery.lengthCompare(1) != 0) throw new Exception("Didn't find single barcode set")
     DBBarcodeSet.read(BSONDocument("name" -> setName))

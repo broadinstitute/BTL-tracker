@@ -602,4 +602,9 @@ object Application extends Controller {
 			)).as("text/javascript")
 
 		}
+
+	/**
+		* Write the initial hardcoded barcodes to the DB if they aren't already present.
+		*/
+	models.initialContents.InitialContents.writeHardcodedSets()
 }

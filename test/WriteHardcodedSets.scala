@@ -11,12 +11,13 @@ import reactivemongo.core.commands.LastError
 
 class WriteHardcodedSets extends Specification {
 
-	def writeSet(name: String, st: String, mbc: MolBarcodeContents): LastError = {
+	def writeHCSet(name: String, st: String, mbc: MolBarcodeContents): LastError = {
 		val bs = BarcodeSet(
 			name = name,
 			setType = st,
 			contents = mbc.contents
 		)
+		val res = Await.result(DBBarcodeSet.checkSet(name), Duration(10, SECONDS))
 		Await.result(DBBarcodeSet.writeSet(bs), Duration(10, SECONDS))
 	}
 	val NexteraSetA = "NexteraXP v2 Index Set A"
@@ -48,7 +49,7 @@ class WriteHardcodedSets extends Specification {
 						val res = bcSets.map(s => {
 							val setName = s._1
 							val setContents = s._2
-							writeSet(name = setName,
+							writeHCSet(name = setName,
 								mbc = setContents,
 								st = {
 									val well = setContents.contents.values.head

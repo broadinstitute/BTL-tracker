@@ -1,7 +1,8 @@
 #DONE: 1. Finish barcode controller.
-#TODO: 2. Finish tactical script for parsing hardcoded barcodes in source code and uploading them to the database.
+#DONE: 2. Finish tactical script for parsing hardcoded barcodes in source code and uploading them to the database.
 #TODO: 3. Make sure all unit tests are updated and working.
-#TODO: 4. Review all changed code between master & dev branches.
-#TODO: 5. Increment version to 3.0 & deploy dev branch to tracker-beta.
-#TODO: 6. Extensive user testing: Nancy will need to test all possible operations as a user on tracker-beta.
-#TODO: 7. Merge Dev to Master and deploy to production.
+#TODO: 4. Test barcode uploads with different types of barcode sheets.
+#TODO: 5. Review all changed code between master & dev branches.
+#TODO: 6. Increment version to 3.0 & deploy dev branch to tracker-beta.
+#TODO: 7. Extensive user testing: Nancy will need to test all possible operations as a user on tracker-beta.
+#TODO: 8. Merge Dev to Master and deploy to production.

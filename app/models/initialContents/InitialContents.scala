@@ -1,14 +1,15 @@
 package models.initialContents
-import formats.CustomFormats._
 import models.{BarcodeSet, ContainerDivisions, DBBarcodeSet}
 import ContainerDivisions.Division._
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
-import play.api.libs.json.Format
-import reactivemongo.bson.BSONDocument
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
+import models.BarcodeSet._
+import models.initialContents.MolecularBarcodes._
+
+
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
  *
@@ -274,4 +275,38 @@ object InitialContents {
 		ABH3Cntrl -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = true),
 		ABSirt6 -> AntiBodyData(volume = 1, species = "Rabbit", isMono = true, isControl = false)
 	)
+
+	def writeHardcodedSets() = {
+		def writeHCSet(name: String, st: String, mbc: MolBarcodeContents) = {
+			val bs = BarcodeSet(
+				name = name,
+				setType = st,
+				contents = mbc.contents
+			)
+			if (!Await.result(DBBarcodeSet.checkSet(name), Duration(10, SECONDS)))
+			Await.result(DBBarcodeSet.writeSet(bs), Duration(10, SECONDS))
+		}
+		val hcSets = List(mbSetA, mbSetB, mbSetC, mbSetD, mbSetE, mbSet384A, mbSet384TCellA, mbSet384TCellB,
+			mbSet384HKA, mbSet384HKB, mbSet96LIMG, mbTG384S1, mbTG96S1, mbTG96S2, mbTG96S3, mbTG96S4, mbSQM96S1)
+		val hcNames = List(NexteraSetA, NexteraSetB, NexteraSetC, NexteraSetD, NexteraSetE, Nextera384SetA, TCRSetA,
+			TCRSetB, HKSetA, HKSetB, LIMG, TruGrade384Set1, TruGrade96Set1, TruGrade96Set2, TruGrade96Set3, TruGrade96Set4,
+			SQM96SetA)
+		val bcSets = hcNames zip hcSets
+		val res = bcSets.map(s => {
+			val setName = s._1
+			val setContents = s._2
+			writeHCSet(name = setName.toString,
+				mbc = setContents,
+				st = {
+					val well = setContents.contents.values.head
+					well match {
+						case _: MolBarcodeNexteraPair => NEXTERA_PAIR
+						case _: MolBarcodeNexteraSingle => NEXTERA_SINGLE
+						case _: MolBarcodeSingle => SINGLE
+						case _: MolBarcodeSQMPair => SQM_PAIR
+					}
+				}
+			)
+		})
+	}
 }
