@@ -6,6 +6,7 @@ package validations
   */
 
 //TODO: Need to update BarcodesValidation to distinguish between 96 and 384 well plates. Also make this better for handling different types of bad wells.
+//TODO: Add comments
 object BarcodesValidation{
 
   def validateBarcode(well: String, seq: String): Boolean = {

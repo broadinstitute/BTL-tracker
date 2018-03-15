@@ -1,12 +1,12 @@
 import models.BarcodeSet._
-import models.initialContents.MolecularBarcodes._
 import org.specs2.mutable._
 import controllers.BarcodesController.makeBarcodeObjects
-import models.{BarcodeSet, DBBarcodeSet}
+import models.BarcodeSet
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._
 import play.api.test.Helpers._
+import models.db.DBBarcodeSet
 
 
 /**
@@ -52,29 +52,6 @@ class BarcodeOperationsSpec extends Specification {
         running(TestServer(3333)) {
           val setList = Await.result(DBBarcodeSet.readSet(setName), Duration(5, SECONDS))
           setList mustEqual set
-        }
-      }
-      // This should always be last test
-      "and finally be deleted from DB." in {
-        running(TestServer(3333)) {
-          val result2 = barcodeObjects.map{
-            case (_, bw: MolBarcodeSQMPair) =>
-              MolBarcode.delete(bw.i5)
-              MolBarcode.delete(bw.i7)
-            case (_, bw: MolBarcodeNexteraPair) =>
-              MolBarcode.delete(bw.i5)
-              MolBarcode.delete(bw.i7)
-            case (_, bw: MolBarcodeNexteraSingle) =>
-              MolBarcode.delete(bw.m)
-            case (_, bw: MolBarcodeSingle) =>
-              MolBarcode.delete(bw.m)
-          }
-
-          val notOk2 = result2.filter(futureLE => !Await.result(futureLE, Duration(5, SECONDS)).ok)
-          notOk2.size mustEqual 0
-
-          //Delete and test deletion of BarcodeSet contents
-          Await.result(DBBarcodeSet.deleteByKey("name", setName), Duration(5, SECONDS)).ok mustEqual true
         }
       }
     }

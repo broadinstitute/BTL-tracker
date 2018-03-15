@@ -1,7 +1,6 @@
 package models.db
 
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter}
-import models.DBBarcodeWell
 /**
   * Created by amr on 2/1/2018.
   */

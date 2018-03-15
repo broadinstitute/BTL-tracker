@@ -9,13 +9,13 @@ import scala.concurrent.Future
 import models.initialContents.MolecularBarcodes._
 import utils.MessageHandler.FlashingKeys
 import validations.BarcodesValidation.BarcodeWellValidations.getWellParts
-
+import models.db.DBBarcodeSet
 /**
   * Created by amr on 11/13/2017.
   */
 
 /**
-  *
+  * Controller for adding barcode sets to the database from the web GUI.
   */
 object BarcodesController extends Controller {
 
@@ -155,7 +155,6 @@ object BarcodesController extends Controller {
                         setType = setType,
                         contents = barcodeObjects.toMap
                       )
-                      //TODO: Need to handle situations where barcode set already exists.
                       DBBarcodeSet.writeSet(barcodeSet).map(
                         _ => {
                           FlashingKeys.setFlashingValue(

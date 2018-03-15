@@ -4,7 +4,7 @@ import models.Component.ComponentType
 import models.initialContents.InitialContents.{ContentType, ContentTypeT}
 import models.ContainerDivisions.Division
 import play.api.libs.json.Json
-import play.api.data.{FieldMapping, Form, ObjectMapping2}
+import play.api.data.{FieldMapping, Form}
 import play.api.data.Forms._
 import mappings.CustomMappings._
 import reactivemongo.bson._
@@ -188,7 +188,7 @@ object Find {
 				component = ComponentType.getComponentTypeFromStr(doc.getAs[String](Component.typeKey)),
 				description = doc.getAs[String](Component.descriptionKey),
 				project = doc.getAs[String](Component.projectKey),
-				content = ContentType.getContentFromStr(doc.getAs[String](Container.contentKey)),
+				content = doc.getAs[String](Container.contentKey),
 				layout = Division.getDivisionFromStr(doc.getAs[String](ContainerDivisions.divisionKey))
 			)
 		}

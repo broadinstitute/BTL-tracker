@@ -1,8 +1,11 @@
 package models
 
-import models.DBBarcodeSet.WellLocation
+import models.db.DBBarcodeSet.WellLocation
 import models.initialContents.InitialContents.ContentsMap
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
+import models.db.DBBarcodeSet
+
+import scala.concurrent.Future
 
 /**
   * Created by amr on 1/25/2018.
@@ -27,6 +30,6 @@ object BarcodeSet {
   val setTypes = List(NEXTERA_PAIR, NEXTERA_SINGLE, SINGLE, SQM_PAIR)
 
 
-//  def readSet: Future[List[BarcodeSet]] = DBBarcodeSet.readSet
+  def readSet (name: String): Future[BarcodeSet] = DBBarcodeSet.readSet(name)
   def writeSet (bs:BarcodeSet) = DBBarcodeSet.writeSet(bs)
 }

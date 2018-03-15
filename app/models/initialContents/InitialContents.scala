@@ -1,5 +1,5 @@
 package models.initialContents
-import models.{BarcodeSet, ContainerDivisions, DBBarcodeSet}
+import models.{BarcodeSet, ContainerDivisions}
 import ContainerDivisions.Division._
 import models.initialContents.MolecularBarcodes.MolBarcodeWell
 
@@ -8,7 +8,7 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import models.BarcodeSet._
 import models.initialContents.MolecularBarcodes._
-
+import models.db.DBBarcodeSet
 
 /**
  * InitiaContents - Created by nnovod on 2/18/15.
@@ -49,11 +49,6 @@ object InitialContents {
 		val MiRNA = Value("MiRNA P7 Set")
 		val LIMG = Value("Low Input Metagenomic Set")
 
-		val replace = List(
-						NexteraSetA,NexteraSetB,NexteraSetC,NexteraSetD,NexteraSetE,Nextera384SetA,TruGrade384Set1,
-						TruGrade96Set1,TruGrade96Set2,TruGrade96Set3,TruGrade96Set4,SQM96SetA, SQM96SetAFlipped,
-						TCRSetA, TCRSetB, HKSetA, HKSetB, MiRNA, LIMG
-					)
 		// Plate of samples with sample Map
 		val SamplePlate = Value("Sample Plate")
 		// Plate of samples with no map
@@ -87,7 +82,6 @@ object InitialContents {
 		 * List of valid plate contents
 		 */
 		def plateContents: List[ContentTypeT] = {
-			//TODO: Here SamplePlate
 			SamplePlate.toString :: AnonymousSamplePlate.toString :: molBarcodes
 		}
 
@@ -118,25 +112,6 @@ object InitialContents {
 		 */
 		def isAntibody(ct: ContentTypeT): Boolean = antiBodies.contains(ct)
 
-		// Create Format for ComponentType enum using our custom enum Reader and Writer
-//		implicit val contentTypeFormat: Format[ContentTypeT] =
-//			enumFormat(this)
-
-		/**
-		 * Get optional content type from string.  Set as None if missing or invalid.
-		 * @param content content type as string
-		 * @return optional content type found
-		 */
-		def getContentFromStr(content: Option[String]): Option[ContentTypeT] =
-			content match {
-				case Some(key) => try {
-					Some(key)
-				} catch {
-					case _: Throwable => None
-				}
-				case _ => None
-			}
-
 	}
 	import ContentType._
 
@@ -148,8 +123,8 @@ object InitialContents {
 		)
 
 	/**
-		* TODO: fill me out
-		*
+		* Determines whether or not this is a 96 or 384 well plate. Also performs error
+		* checking on well syntax to make sure it conforms to expectations.
 		* @return
 		*/
 	def validDivisions: Future[Map[String, List[Division]]] ={

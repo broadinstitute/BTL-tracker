@@ -1,7 +1,5 @@
 package models
 
-import formats.CustomFormats._
-import mappings.CustomMappings._
 import models.initialContents.InitialContents
 import play.api.data.Form
 import play.api.data.Forms._

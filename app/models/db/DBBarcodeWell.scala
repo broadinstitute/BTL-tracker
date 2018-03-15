@@ -1,6 +1,5 @@
-package models
+package models.db
 
-import models.db.DBOpers
 import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
 
 /**

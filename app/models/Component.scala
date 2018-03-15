@@ -9,7 +9,7 @@ package models
 import formats.CustomFormats._
 import mappings.CustomMappings._
 import Component.ComponentType
-import initialContents.InitialContents.{ContentType, ContentTypeT}
+import initialContents.InitialContents.ContentTypeT
 import models.Component.ComponentType.ComponentType
 import models.ContainerDivisions.Division
 import models.ContainerDivisions.Division.Division
@@ -427,11 +427,7 @@ object Component {
 		def read(doc: BSONString) = Division.withName(doc.value)
 		def write(div: Division) = BSON.write(div.toString)
 	}
-//	implicit object BSONContentTypeHandler extends BSONHandler[BSONString, ContentTypeT] {
-//		//TODO: ContentType fix needed.
-//		def read(doc: BSONString) = ContentType.withName(doc.value)
-//		def write(cType: ContentTypeT) = BSON.write(cType.toString)
-//	}
+
 	implicit object BSONFloatHandler extends BSONHandler[BSONDouble, Float] {
 		def read(doc: BSONDouble) = doc.value.toFloat
 		def write(fl: Float) = BSON.write(BSONDouble(fl))

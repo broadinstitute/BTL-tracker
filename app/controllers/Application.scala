@@ -596,15 +596,12 @@ object Application extends Controller {
 	def javascriptRoutes = Action { implicit request =>
 		Ok(
 			Routes.javascriptRouter("jsRoutes")(
-				routes.javascript.Application.tags,
-				//TODO: Need to  change this to the eventual route for retrieving barcodes sets
-				routes.javascript.Application.tags
-			)).as("text/javascript")
-
+				routes.javascript.Application.tags)).as("text/javascript")
 		}
 
 	/**
 		* Write the initial hardcoded barcodes to the DB if they aren't already present.
 		*/
+	//TODO: can comment this out after it has run once on production server
 	models.initialContents.InitialContents.writeHardcodedSets()
 }

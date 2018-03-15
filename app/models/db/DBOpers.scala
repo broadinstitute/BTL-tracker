@@ -1,18 +1,11 @@
 package models.db
 
-import akka.actor.Status.{Failure, Success}
-import models.DBBarcodeWell
-import models.initialContents.MolecularBarcodes.MolBarcode
 import reactivemongo.api.collections.default.BSONCollection
 import reactivemongo.bson._
 import play.api.mvc.Controller
 import play.api.Play
 import play.modules.reactivemongo.MongoController
-
-import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.util.Try
 
 /**
   * MongoDB Database operations for a specified type that has a BSON reader/writer.
@@ -43,27 +36,6 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 	private def collection: BSONCollection = db.collection[BSONCollection](collectionName)
 
 	/**
-		* Custom read/write for maps.
-		*/
-//	implicit object BSONMap extends BSONDocumentWriter[Map[String, DBBarcodeWell]] with BSONDocumentReader[Map[String, DBBarcodeWell]] {
-//
-//		def read(bson: BSONDocument): Map[String, DBBarcodeWell] = {
-//			val elements = bson.elements.map {
-//				// assume that all values in the document are BSONDocuments
-//				case (key, value) => key -> DBBarcodeWell.reader.read(value.seeAsTry[BSONDocument].get)
-//			}
-//			elements.toMap
-//		}
-//
-//
-//		def write(map: Map[String, DBBarcodeWell]): BSONDocument = {
-//			val elements = map.toStream.map {
-//				case (key, value) => key -> DBBarcodeWell.writer.write(value)
-//			}
-//			BSONDocument(elements)
-//		}
-//	}
-	/**
 	  * Reader to convert from BSON documents to object type (read and delete).
 	  */
 	implicit val reader: BSONDocumentReader[T]
@@ -91,6 +63,12 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 			cursor[T].
 			collect[List]()
 
+	/**
+		* Find with a projection.
+		* @param query BSONDocument specifying the query.
+		* @param projection specifies what fields should be returned.
+		* @return
+		*/
 	def find(query: BSONDocument, projection: BSONDocument) =
 		collection.find(query, projection).
 			cursor[BSONDocument].
@@ -112,6 +90,12 @@ trait DBOpers[T <: AnyRef] extends Controller with MongoController {
 	def delete(entry: T) =
 		collection.remove(entry)
 
+	/***
+		* Delete a specific document with a given value.
+		* @param k the key for the value
+		* @param v the value
+		* @return
+		*/
 	def deleteByKey(k: String, v: String) = {
 		collection.remove(BSONDocument(k -> v))
 	}

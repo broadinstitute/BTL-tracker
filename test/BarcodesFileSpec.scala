@@ -64,6 +64,5 @@ class BarcodesFileSpec extends FlatSpec with Matchers{
 		validationResult.head.get should startWith ("A111")
   }
 
-	//TODO: Unit test(s) for barcodesFileToSheet
 }
 

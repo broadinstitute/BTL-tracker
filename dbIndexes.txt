@@ -4,8 +4,7 @@ db.tracker.createIndex({"id":1}, {unique:true})
 db.tracker.createIndex({"tags.tag":1}, {sparse:1})
 // Used primarily to enforce uniqueness
 db.transfer.createIndex({"from":1, "to":1, "fromQuad":1, "toQuad":1, "slice":1}, {unique:true, dropDups:true})
-//TODO: Need to run this on production and test tracker DB before code goes to those systems.
-db.sets.createIndex({"name":1}, {unique:true, dropDups:true})
+db.set.createIndex({"name":1}, {unique:true, dropDups:true})
 
 // Update to include isTubeToMany:
 // db.getCollection('transfer').update({}, {"$set": {"isTubeToMany" : false}}, {"multi": true})

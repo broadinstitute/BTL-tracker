@@ -1,12 +1,13 @@
 import models.BarcodeSet._
 import models.initialContents.MolecularBarcodes._
 import org.specs2.mutable._
-import models.{BarcodeSet, DBBarcodeSet}
+import models.BarcodeSet
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, SECONDS}
 import play.api.test._
 import play.api.test.Helpers._
 import reactivemongo.core.commands.LastError
+import models.db.DBBarcodeSet
 
 
 class WriteHardcodedSets extends Specification {

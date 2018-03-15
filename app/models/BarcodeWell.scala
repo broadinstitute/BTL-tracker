@@ -1,7 +1,6 @@
 package models
-import models.initialContents.MolecularBarcodes.{MolBarcode, MolBarcodeWell}
-import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros}
-import scala.concurrent.Future
+import models.initialContents.MolecularBarcodes.{MolBarcode}
+
 /**
   * Created by amr on 12/18/2017.
   */

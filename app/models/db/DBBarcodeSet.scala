@@ -1,13 +1,15 @@
-package models
-import models.db.DBOpers
+package models.db
+
+import models.BarcodeSet._
+import models.initialContents.MolecularBarcodes._
+import models.BarcodeSet
+import models.db.DBBarcodeSet.WellLocation
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONHandler, Macros}
 import reactivemongo.core.commands.LastError
-import models.DBBarcodeSet.WellLocation
-import models.initialContents.MolecularBarcodes._
-import models.BarcodeSet._
 import validations.BarcodesValidation.BarcodeWellValidations.getWellParts
-import scala.concurrent.Future
+import models.Plate
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 /**
   * Created by amr on 12/18/2017.
@@ -23,8 +25,8 @@ case class DBBarcodeSet(
 
 object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
   type WellLocation = String
-  protected val collectionNameKey = "mongodb.collection.sets"
-  protected val collectionNameDefault = "sets"
+  protected val collectionNameKey = "mongodb.collection.set"
+  protected val collectionNameDefault = "set"
   implicit object BSONMap extends BSONDocumentWriter[Map[String, DBBarcodeWell]] with BSONDocumentReader[Map[String, DBBarcodeWell]] {
 
     def read(bson: BSONDocument): Map[String, DBBarcodeWell] = {
