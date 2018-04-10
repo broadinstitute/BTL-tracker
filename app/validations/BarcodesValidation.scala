@@ -33,7 +33,7 @@ object BarcodesValidation{
     def hasValidHeaders(entry: Map[String, String]): Boolean = {
       val entryKeys = entry.keys.toSet
       val enumValuesAsStrings = PairedBarcodeFileHeaders.values.map(v => v.toString)
-      enumValuesAsStrings.subsetOf(entryKeys)
+      entryKeys.subsetOf(enumValuesAsStrings)
     }
   }
 

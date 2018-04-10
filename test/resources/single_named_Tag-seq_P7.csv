@@ -1,12 +1,9 @@
-Tag-seq,,
-****not in plate form but are stored as single tubes,,
-,,
-,P7 (revcomp),Name
-,ATTATGTT,Fofiz
-,CAGGAGCC,Hinij
-,CATAGCGA,Hoden
-,CCTACCAT,Jocef
-,GCACACGA,Pahen
-,TACTTAGC,Wezap
-,TCTGGCGA,Xoren
-,TGTCGGAT,Yokif
+P7 Index,Name
+ATTATGTT,Fofiz
+CAGGAGCC,Hinij
+CATAGCGA,Hoden
+CCTACCAT,Jocef
+GCACACGA,Pahen
+TACTTAGC,Wezap
+TCTGGCGA,Xoren
+TGTCGGAT,Yokif

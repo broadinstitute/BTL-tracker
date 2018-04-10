@@ -103,6 +103,12 @@ object DBBarcodeSet extends DBOpers[DBBarcodeSet] {
                 i7 = MolBarcode(seq = barcode.i7Seq.get,
                   name = barcode.i7Name.get)
               )
+              case PAIR => MolBarcodePaired(
+                i5 = MolBarcode(seq = barcode.i5Seq.get,
+                  name = barcode.i5Name.get),
+                i7 = MolBarcode(seq = barcode.i7Seq.get,
+                  name = barcode.i7Name.get)
+              )
               case NEXTERA_SINGLE => MolBarcodeNexteraSingle(
                 m = MolBarcode(seq = barcode.i7Seq.get,
                   name = barcode.i7Name.get)

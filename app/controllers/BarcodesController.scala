@@ -89,6 +89,10 @@ object BarcodesController extends Controller {
                   i5 = MolBarcode(i5Seq.get, getName("P5", name)),
                   i7 = MolBarcode(i7Seq.get, getName("P7", name))
                 )
+              case PAIR => MolBarcodePaired(
+                i5 = MolBarcode(i5Seq.get, "P5_" + i5Seq.get),
+                i7 = MolBarcode(i7Seq.get, "P7_" + i7Seq.get)
+              )
                 //TODO: Need to find out how nextera single hobbit names are passed in to see if we need to further
                 // process name to get just hobbit name.
               case NEXTERA_SINGLE => MolBarcodeNexteraSingle(m = MolBarcode(seq = i7Seq.get, name = name.get))

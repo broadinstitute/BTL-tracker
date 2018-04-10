@@ -25,9 +25,10 @@ object BarcodeSet {
   private val validSizes = List(PLATE96, PLATE384)
   val NEXTERA_PAIR = "NexteraPair"
   val SQM_PAIR = "SQMPair"
+  val PAIR = "Pair"
   val NEXTERA_SINGLE = "NexteraSingle"
   val SINGLE = "Single"
-  val setTypes = List(NEXTERA_PAIR, NEXTERA_SINGLE, SINGLE, SQM_PAIR)
+  val setTypes = List(NEXTERA_PAIR, NEXTERA_SINGLE, SINGLE, SQM_PAIR, PAIR)
 
 
   def readSet (name: String): Future[BarcodeSet] = DBBarcodeSet.readSet(name)

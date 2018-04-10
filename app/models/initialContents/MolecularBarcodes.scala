@@ -51,7 +51,12 @@ object MolecularBarcodes {
 
 	// Sequence split character
 	private val seqSplit = "-"
+	case class MolBarcodePaired(i5: MolBarcode, i7: MolBarcode) extends MolBarcodePair {
+		def getName: String = "P5_" + i5.seq + "_P7_" + i7.seq
+		def getSeq: String = i5.seq + seqSplit + i7.seq + seqSplit
+		def isNextera: Boolean = false
 
+	}
 	/**
 	 * Nextera molecular barcode pairs in a well
 	 * @param i5 i5 barcode
