@@ -24,7 +24,7 @@ object BarcodesFile{
     * @param entry a row of a sheet.
     * @return A list of tuples containing the validity tuple of each cell in the row.
     */
-  def validateEntry(entry: Map[String, String]): List[Option[String]] = {
+  def validateEntry(entry: Map[String, String], setType: String): List[Option[String]] = {
 
     /** validateCell
       * Inner function for validating a specific cell's content.
@@ -44,6 +44,7 @@ object BarcodesFile{
       }
     }
     // Populate the list of row/entry cell validations using validateCell.
+    if (setType != "Single")
     List(
       validateCell("Well", entry.get("Well"), BarcodeWellValidations.isValidWell),
       validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeqValidations.isValidSeq),
@@ -51,6 +52,12 @@ object BarcodesFile{
       validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeqValidations.isValidLength),
       validateCell("P5 Index", entry.get("P5 Index"), BarcodeSeqValidations.isValidLength)
     )
+    else
+      List(
+        validateCell("Well", entry.get("Well"), BarcodeWellValidations.isValidWell),
+        validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeqValidations.isValidSeq),
+        validateCell("P7 Index", entry.get("P7 Index"), BarcodeSeqValidations.isValidLength)
+      )
   }
 
   /**
@@ -58,7 +65,7 @@ object BarcodesFile{
     * @param file the path to the file
     * @return A tuple of Future and errors.
     */
-  def barcodesFileToSheet(file: String): (List[Map[String, String]], ListMap[Int, List[String]]) = {
+  def barcodesFileToSheet(file: String, setType: String): (List[Map[String, String]], ListMap[Int, List[String]]) = {
     /**
       * Gets the file and turns it into a HeaderSheet object.
       * @return HeaderSheet object.
@@ -75,7 +82,7 @@ object BarcodesFile{
     val sheet = getFile
     val barcodesList = (new sheet.RowValueIter).toList
     //This creates a List(of sheet rows) of lists(of row data) of tuples (cell validation and message)
-    val validationResults = barcodesList.map(entry => validateEntry(entry))
+    val validationResults = barcodesList.map(entry => validateEntry(entry, setType))
     val errors = validationResults.indices.flatMap((i) => {
       val result = validationResults(i).flatten
       if (result.isEmpty)

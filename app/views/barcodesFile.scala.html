@@ -12,7 +12,8 @@
 			field = barcodesFileForm(BarcodesFile.setType),
 			options = options("" +: BarcodeSet.setTypes), '_label -> "Select the type for this set:")
 
-		@inputFile(barcodesFileForm(BarcodesFile.fileKey), '_label -> "Barcodes File")
+		@inputFile(barcodesFileForm(BarcodesFile.fileKey),
+			'_label -> "Barcodes File (Header may only be all or a subset of the following: 'Well', 'Name', 'P5 Index', and 'P7 Index')")
 		<input type="submit" value="Upload Barcodes File" style="display:inline;">
 	}
 	@homeOption(Seq.empty)

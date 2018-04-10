@@ -96,7 +96,7 @@ object BarcodesController extends Controller {
                 //TODO: Need to find out how nextera single hobbit names are passed in to see if we need to further
                 // process name to get just hobbit name.
               case NEXTERA_SINGLE => MolBarcodeNexteraSingle(m = MolBarcode(seq = i7Seq.get, name = name.get))
-              case SINGLE => MolBarcodeSingle(m = MolBarcode(seq = i7Seq.get, name = name.get))
+              case SINGLE => MolBarcodeSingle(m = MolBarcode(seq = i7Seq.get, name = "P7_" + i7Seq.get))
               case _ => throw new Exception("Invalid barcode set type")
             }
             val (row, col) = getWellParts(well).get
@@ -141,7 +141,7 @@ object BarcodesController extends Controller {
               barData.file(BarcodesFile.fileKey) match {
                 case Some(file) =>
                   if (BarcodesFileExtension.isValidFilename(file.filename)) {
-                    val result = BarcodesFile.barcodesFileToSheet(file.ref.file.getCanonicalPath)
+                    val result = BarcodesFile.barcodesFileToSheet(file.ref.file.getCanonicalPath, data.setType)
                     val errors = result._2
                     if (errors.isEmpty) {
                       //Get the list of barcodes
@@ -164,7 +164,7 @@ object BarcodesController extends Controller {
                           FlashingKeys.setFlashingValue(
                             r = Redirect(routes.Application.index()),
                             k = FlashingKeys.Status,
-                            s = s"${barcodeSet.contents.size} barcode pairs added as set ${data.setName}"
+                            s = s"${barcodeSet.contents.size} barcode singles or pairs added as set ${data.setName}"
                           )
                         }
                       )
